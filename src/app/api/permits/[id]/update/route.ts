@@ -136,7 +136,37 @@ export async function PATCH(
   }
 
   // ---------------------------------------------------------
-  // 7. Validate planned dates
+  // 7. Validate permit type and safety requirements
+  // ---------------------------------------------------------
+
+  const {
+    data: permitType,
+    error: permitTypeError,
+  } = await supabase
+    .from('permit_types')
+    .select(`
+      id,
+      name,
+      requires_jha,
+      requires_gas_test,
+      requires_loto
+    `)
+    .eq('id', body.permit_type_id)
+    .eq('is_active', true)
+    .single()
+
+  if (permitTypeError || !permitType) {
+    return NextResponse.json(
+      {
+        error:
+          'Selected permit type was not found or is inactive',
+      },
+      { status: 400 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 8. Validate planned dates
   // ---------------------------------------------------------
 
   if (
@@ -155,7 +185,7 @@ export async function PATCH(
   }
 
   // ---------------------------------------------------------
-  // 8. Update permit
+  // 9. Update permit
   // ---------------------------------------------------------
 
   const { data: updatedPermit, error: updateError } =
@@ -193,7 +223,7 @@ export async function PATCH(
   }
 
   // ---------------------------------------------------------
-  // 9. Record revision in audit history
+  // 10. Record revision in audit history
   // ---------------------------------------------------------
 
   if (permit.status === 'rejected') {

@@ -29,7 +29,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 2. Verify current user's role
+  // 2. Verify user's role
   // ---------------------------------------------------------
 
   const {
@@ -62,14 +62,50 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          'Only permit issuers or administrators can issue permits',
+          'Only permit issuers or administrators can complete permits',
       },
       { status: 403 }
     )
   }
 
   // ---------------------------------------------------------
-  // 3. Get permit
+  // 3. Read request body
+  // ---------------------------------------------------------
+
+  let body: {
+    remarks?: string
+  }
+
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 }
+    )
+  }
+
+  const remarks =
+    typeof body.remarks === 'string'
+      ? body.remarks.trim()
+      : ''
+
+  // ---------------------------------------------------------
+  // 4. Completion remark is required
+  // ---------------------------------------------------------
+
+  if (!remarks) {
+    return NextResponse.json(
+      {
+        error:
+          'A completion remark is required',
+      },
+      { status: 400 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 5. Get permit
   // ---------------------------------------------------------
 
   const {
@@ -80,8 +116,7 @@ export async function POST(
     .select(`
       id,
       permit_no,
-      status,
-      supervisor_id
+      status
     `)
     .eq('id', id)
     .single()
@@ -94,21 +129,21 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 4. Permit must be approved
+  // 6. Permit must be ACTIVE
   // ---------------------------------------------------------
 
-  if (permit.status !== 'approved') {
+  if (permit.status !== 'active') {
     return NextResponse.json(
       {
         error:
-          `Only approved permits can be issued. Current status: ${permit.status}`,
+          `Only active permits can be completed. Current status: ${permit.status}`,
       },
       { status: 400 }
     )
   }
 
   // ---------------------------------------------------------
-  // 5. Update permit to ISSUED
+  // 7. Change status to COMPLETED
   // ---------------------------------------------------------
 
   const {
@@ -117,10 +152,10 @@ export async function POST(
   } = await supabase
     .from('permits')
     .update({
-      status: 'issued',
+      status: 'completed',
     })
     .eq('id', id)
-    .eq('status', 'approved')
+    .eq('status', 'active')
     .select(`
       id,
       permit_no,
@@ -133,14 +168,14 @@ export async function POST(
       {
         error:
           updateError?.message ||
-          'Unable to issue permit',
+          'Unable to complete permit',
       },
       { status: 500 }
     )
   }
 
   // ---------------------------------------------------------
-  // 6. Record issuance history
+  // 8. Record completion history
   // ---------------------------------------------------------
 
   const { error: historyError } =
@@ -148,22 +183,21 @@ export async function POST(
       .from('permit_approvals')
       .insert({
         permit_id: permit.id,
-        action: 'issued',
+        action: 'completed',
         performed_by: user.id,
-        remarks:
-          'Permit issued for work execution',
+        remarks,
       })
 
   if (historyError) {
     console.error(
-      'Failed to create issuance history:',
+      'Failed to create completion history:',
       historyError
     )
 
     return NextResponse.json(
       {
         error:
-          `Permit was issued, but audit history could not be recorded: ${historyError.message}`,
+          `Permit was completed, but audit history could not be recorded: ${historyError.message}`,
         code: historyError.code,
         details: historyError.details,
         hint: historyError.hint,
@@ -173,7 +207,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 7. Return success
+  // 9. Return success
   // ---------------------------------------------------------
 
   return NextResponse.json({

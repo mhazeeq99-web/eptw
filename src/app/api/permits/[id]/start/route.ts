@@ -62,7 +62,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          'Only permit issuers or administrators can issue permits',
+          'Only permit issuers or administrators can start work',
       },
       { status: 403 }
     )
@@ -80,8 +80,7 @@ export async function POST(
     .select(`
       id,
       permit_no,
-      status,
-      supervisor_id
+      status
     `)
     .eq('id', id)
     .single()
@@ -94,21 +93,21 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 4. Permit must be approved
+  // 4. Permit must be ISSUED
   // ---------------------------------------------------------
 
-  if (permit.status !== 'approved') {
+  if (permit.status !== 'issued') {
     return NextResponse.json(
       {
         error:
-          `Only approved permits can be issued. Current status: ${permit.status}`,
+          `Only issued permits can be started. Current status: ${permit.status}`,
       },
       { status: 400 }
     )
   }
 
   // ---------------------------------------------------------
-  // 5. Update permit to ISSUED
+  // 5. Change status to ACTIVE
   // ---------------------------------------------------------
 
   const {
@@ -117,10 +116,10 @@ export async function POST(
   } = await supabase
     .from('permits')
     .update({
-      status: 'issued',
+      status: 'active',
     })
     .eq('id', id)
-    .eq('status', 'approved')
+    .eq('status', 'issued')
     .select(`
       id,
       permit_no,
@@ -133,14 +132,14 @@ export async function POST(
       {
         error:
           updateError?.message ||
-          'Unable to issue permit',
+          'Unable to start permit',
       },
       { status: 500 }
     )
   }
 
   // ---------------------------------------------------------
-  // 6. Record issuance history
+  // 6. Record start history
   // ---------------------------------------------------------
 
   const { error: historyError } =
@@ -148,22 +147,22 @@ export async function POST(
       .from('permit_approvals')
       .insert({
         permit_id: permit.id,
-        action: 'issued',
+        action: 'started',
         performed_by: user.id,
         remarks:
-          'Permit issued for work execution',
+          'Permit work started',
       })
 
   if (historyError) {
     console.error(
-      'Failed to create issuance history:',
+      'Failed to create start history:',
       historyError
     )
 
     return NextResponse.json(
       {
         error:
-          `Permit was issued, but audit history could not be recorded: ${historyError.message}`,
+          `Permit was started, but audit history could not be recorded: ${historyError.message}`,
         code: historyError.code,
         details: historyError.details,
         hint: historyError.hint,

@@ -9,6 +9,9 @@ type PermitType = {
   id: number
   name: string
   code: string
+  requires_jha: boolean
+  requires_gas_test: boolean
+  requires_loto: boolean
 }
 
 type Area = {
@@ -52,6 +55,10 @@ export default function NewPermitPage() {
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState('')
 
+  const selectedPermitType = permitTypes.find(
+    (type) => type.id === Number(permitTypeId)
+  )
+
   useEffect(() => {
     async function loadFormData() {
       const [
@@ -62,7 +69,14 @@ export default function NewPermitPage() {
       ] = await Promise.all([
         supabase
           .from('permit_types')
-          .select('id, name, code')
+          .select(`
+            id,
+            name,
+            code,
+            requires_jha,
+            requires_gas_test,
+            requires_loto
+          `)
           .eq('is_active', true)
           .order('name'),
 
@@ -127,6 +141,16 @@ export default function NewPermitPage() {
 
     if (!user) {
       router.replace('/login')
+      return
+    }
+
+    const selectedPermitType = permitTypes.find(
+      (type) => type.id === Number(permitTypeId)
+    )
+
+    if (!selectedPermitType) {
+      setError('Please select a valid permit type.')
+      setLoading(false)
       return
     }
 
@@ -338,6 +362,36 @@ export default function NewPermitPage() {
             </div>
           </section>
 
+          {selectedPermitType && (
+            <section className="rounded-xl border bg-background p-6">
+              <h2 className="text-lg font-semibold">
+                Safety Requirements
+              </h2>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                Safety requirements are determined automatically
+                based on the selected permit type.
+              </p>
+
+              <div className="mt-6 space-y-3">
+                <SafetyRequirement
+                  label="JSA / JHA"
+                  required={selectedPermitType.requires_jha}
+                />
+
+                <SafetyRequirement
+                  label="Gas Testing"
+                  required={selectedPermitType.requires_gas_test}
+                />
+
+                <SafetyRequirement
+                  label="LOTO"
+                  required={selectedPermitType.requires_loto}
+                />
+              </div>
+            </section>
+          )}
+
           <section className="rounded-xl border bg-background p-6">
             <h2 className="text-lg font-semibold">
               Planned Work Period
@@ -419,6 +473,32 @@ function Field({
       </label>
 
       {children}
+    </div>
+  )
+}
+
+function SafetyRequirement({
+  label,
+  required,
+}: {
+  label: string
+  required: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-4">
+      <span className="text-sm font-medium">
+        {label}
+      </span>
+
+      <span
+        className={
+          required
+            ? 'text-sm font-medium text-destructive'
+            : 'text-sm text-muted-foreground'
+        }
+      >
+        {required ? 'Required' : 'Not required'}
+      </span>
     </div>
   )
 }

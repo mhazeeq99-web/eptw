@@ -2,10 +2,15 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
+import { StartWorkButton } from '@/components/permits/start-work-button'
 import { SubmitPermitButton } from '@/components/permits/submit-permit-button'
 import { ReviewPermit } from '@/components/permits/review-permit'
 import { ResubmitPermitButton } from '@/components/permits/resubmit-permit-button'
 import { IssuePermitButton } from '@/components/permits/issue-permit-button'
+import { SuspendPermitButton } from '@/components/permits/suspend-permit-button'
+import { ResumePermitButton } from '@/components/permits/resume-permit-button'
+import { CompletePermitButton } from '@/components/permits/complete-permit-button'
+import { ClosePermitButton } from '@/components/permits/close-permit-button'
 
 type PermitType = {
   id: number
@@ -239,8 +244,49 @@ export default async function PermitDetailsPage({
             )}
 
           {permit.status === 'approved' &&
-            currentUserRole === 'admin' && (
+            (currentUserRole === 'permit_issuer' ||
+              currentUserRole === 'admin') && (
               <IssuePermitButton
+                permitId={permit.id}
+              />
+            )}
+
+          {permit.status === 'issued' &&
+            (currentUserRole === 'permit_issuer' ||
+              currentUserRole === 'admin') && (
+              <StartWorkButton
+                permitId={permit.id}
+              />
+            )}
+
+          {permit.status === 'active' &&
+            (currentUserRole === 'permit_issuer' ||
+              currentUserRole === 'admin') && (
+              <SuspendPermitButton
+                permitId={permit.id}
+              />
+            )}
+
+          {permit.status === 'suspended' &&
+            (currentUserRole === 'permit_issuer' ||
+              currentUserRole === 'admin') && (
+              <ResumePermitButton
+                permitId={permit.id}
+              />
+            )}
+
+          {permit.status === 'active' &&
+            (currentUserRole === 'permit_issuer' ||
+              currentUserRole === 'admin') && (
+              <CompletePermitButton
+                permitId={permit.id}
+              />
+            )}
+
+          {permit.status === 'completed' &&
+            (currentUserRole === 'permit_issuer' ||
+              currentUserRole === 'admin') && (
+              <ClosePermitButton
                 permitId={permit.id}
               />
             )}
