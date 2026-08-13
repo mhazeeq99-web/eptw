@@ -6,7 +6,6 @@ import {
   FileText,
   ClipboardCheck,
   Users,
-  Building2,
   Wrench,
   MapPin,
   ShieldCheck,
@@ -14,6 +13,7 @@ import {
   Gauge,
   Settings,
 } from 'lucide-react'
+
 import { SignOutButton } from './sign-out-button'
 
 const navigation = [
@@ -33,15 +33,10 @@ const navigation = [
     icon: ClipboardCheck,
   },
   {
-    label: 'Approvals',
+    label: 'Approval Queue',
     href: '/permits/approvals',
     icon: ShieldCheck,
   },
-  {
-  label: 'Approval Queue',
-  href: '/permits/approvals',
-  icon: ShieldCheck,
-},
 ]
 
 const management = [
@@ -83,20 +78,27 @@ const safety = [
 export function Sidebar() {
   return (
     <aside className="hidden w-64 shrink-0 border-r bg-background lg:flex lg:flex-col">
+
+      {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
         <div>
           <div className="text-xl font-bold tracking-tight">
             ePTW
           </div>
+
           <div className="text-xs text-muted-foreground">
             Permit to Work
           </div>
         </div>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 space-y-6 overflow-y-auto p-4">
+
+        {/* Main */}
         <NavigationSection items={navigation} />
 
+        {/* Management */}
         <div>
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Management
@@ -105,6 +107,7 @@ export function Sidebar() {
           <NavigationSection items={management} />
         </div>
 
+        {/* Safety */}
         <div>
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Safety
@@ -112,18 +115,22 @@ export function Sidebar() {
 
           <NavigationSection items={safety} />
         </div>
+
       </nav>
 
+      {/* Bottom */}
       <div className="border-t p-4">
+
         <Link
           href="/settings"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           Settings
         </Link>
 
         <SignOutButton />
+
       </div>
     </aside>
   )
@@ -145,7 +152,7 @@ function NavigationSection({
 
         return (
           <Link
-            key={item.href}
+            key={item.label}
             href={item.href}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >

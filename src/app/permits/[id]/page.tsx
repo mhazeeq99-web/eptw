@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { SubmitPermitButton } from '@/components/permits/submit-permit-button'
+import { ReviewPermit } from '@/components/permits/review-permit'
+import { ResubmitPermitButton } from '@/components/permits/resubmit-permit-button'
+import { IssuePermitButton } from '@/components/permits/issue-permit-button'
 
 type PermitType = {
   id: number
@@ -38,8 +41,20 @@ type Requester = {
   position: string | null
 }
 
+type PermitApproval = {
+  id: number
+  action: string
+  remarks: string | null
+  created_at: string
+  performer: {
+    full_name: string
+    role: string
+  } | null
+}
+
 type Permit = {
   id: number
+  supervisor_id: string | null
   permit_no: string
   work_title: string
   work_description: string | null
@@ -54,6 +69,7 @@ type Permit = {
   equipment: Equipment | null
   contractor: Contractor | null
   requester: Requester | null
+  approvals: PermitApproval[]
 }
 
 export default async function PermitDetailsPage({
@@ -65,10 +81,36 @@ export default async function PermitDetailsPage({
 
   const supabase = await createClient()
 
+  // ---------------------------------------------------------
+  // Current authenticated user
+  // ---------------------------------------------------------
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let currentUserRole: string | null = null
+
+  if (user) {
+    const { data: currentProfile } =
+      await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    currentUserRole = currentProfile?.role ?? null
+  }
+
+  // ---------------------------------------------------------
+  // Get permit
+  // ---------------------------------------------------------
+
   const { data, error } = await supabase
     .from('permits')
     .select(`
       id,
+      supervisor_id,
       permit_no,
       work_title,
       work_description,
@@ -111,6 +153,17 @@ export default async function PermitDetailsPage({
         employee_no,
         department,
         position
+      ),
+
+      approvals:permit_approvals (
+        id,
+        action,
+        remarks,
+        created_at,
+        performer:profiles!permit_approvals_performed_by_fkey (
+          full_name,
+          role
+        )
       )
     `)
     .eq('id', id)
@@ -126,6 +179,13 @@ export default async function PermitDetailsPage({
   }
 
   const permit = data as unknown as Permit
+
+  // ---------------------------------------------------------
+  // Check whether current user is assigned supervisor
+  // ---------------------------------------------------------
+
+  const isAssignedSupervisor =
+    user?.id === permit.supervisor_id
 
   return (
     <DashboardShell>
@@ -156,9 +216,34 @@ export default async function PermitDetailsPage({
                 Edit Permit
               </Link>
 
-              <SubmitPermitButton permitId={permit.id} />
+              <SubmitPermitButton
+                permitId={permit.id}
+              />
             </div>
           )}
+
+          {permit.status === 'rejected' &&
+            user?.id === permit.requester?.id && (
+              <div className="flex gap-2">
+                <Link
+                  href={`/permits/${permit.id}/edit`}
+                  className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                >
+                  Revise Permit
+                </Link>
+
+                <ResubmitPermitButton
+                  permitId={permit.id}
+                />
+              </div>
+            )}
+
+          {permit.status === 'approved' &&
+            currentUserRole === 'admin' && (
+              <IssuePermitButton
+                permitId={permit.id}
+              />
+            )}
         </div>
 
         {/* Work Details */}
@@ -293,6 +378,14 @@ export default async function PermitDetailsPage({
           </div>
         </section>
 
+        {/* Supervisor Review */}
+        {permit.status === 'pending_approval' &&
+          isAssignedSupervisor && (
+            <ReviewPermit
+              permitId={permit.id}
+            />
+          )}
+
         {/* Remarks */}
         {permit.remarks && (
           <section className="mt-6 rounded-xl border bg-background">
@@ -305,6 +398,58 @@ export default async function PermitDetailsPage({
             </div>
           </section>
         )}
+
+        {/* Permit History */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader title="Permit History" />
+
+          <div className="divide-y">
+            {permit.approvals?.length ? (
+              [...permit.approvals]
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                )
+                .map((approval) => (
+                  <div
+                    key={approval.id}
+                    className="p-6"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+
+                      <div>
+                        <p className="font-medium uppercase">
+                          {formatAction(approval.action)}
+                        </p>
+
+                        <p className="text-sm text-muted-foreground">
+                          {approval.performer
+                            ? `${approval.performer.full_name} · ${formatAction(approval.performer.role)}`
+                            : 'Unknown user'}
+                        </p>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(approval.created_at)}
+                      </p>
+
+                    </div>
+
+                    {approval.remarks && (
+                      <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm">
+                        {approval.remarks}
+                      </div>
+                    )}
+                  </div>
+                ))
+            ) : (
+              <div className="p-6 text-sm text-muted-foreground">
+                No approval history available.
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* Record Information */}
         <section className="mt-6 rounded-xl border bg-background">
@@ -401,7 +546,7 @@ function StatusBadge({
 }) {
   return (
     <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase">
-      {status}
+      {status.replaceAll('_', ' ')}
     </span>
   )
 }
@@ -415,4 +560,12 @@ function formatDate(value?: string | null) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+function formatAction(value: string) {
+  return value
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (char) =>
+      char.toUpperCase()
+    )
 }
