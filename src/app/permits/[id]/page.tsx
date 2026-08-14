@@ -11,6 +11,8 @@ import { SuspendPermitButton } from '@/components/permits/suspend-permit-button'
 import { ResumePermitButton } from '@/components/permits/resume-permit-button'
 import { CompletePermitButton } from '@/components/permits/complete-permit-button'
 import { ClosePermitButton } from '@/components/permits/close-permit-button'
+import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
+import { AssignSupervisor } from '@/components/permits/assign-supervisor'
 
 type PermitType = {
   id: number
@@ -57,6 +59,22 @@ type PermitApproval = {
   } | null
 }
 
+type PermitSafetyControl = {
+  id: number
+  is_required: boolean
+  status: string
+  verified_by: string | null
+  verified_at: string | null
+  remarks: string | null
+  safety_control: {
+    id: number
+    code: string
+    name: string
+    description: string | null
+    category: string
+  } | null
+}
+
 type Permit = {
   id: number
   supervisor_id: string | null
@@ -75,6 +93,7 @@ type Permit = {
   contractor: Contractor | null
   requester: Requester | null
   approvals: PermitApproval[]
+  safety_controls: PermitSafetyControl[]
 }
 
 export default async function PermitDetailsPage({
@@ -158,6 +177,22 @@ export default async function PermitDetailsPage({
         employee_no,
         department,
         position
+      ),
+
+      safety_controls:permit_safety_controls (
+        id,
+        is_required,
+        status,
+        verified_by,
+        verified_at,
+        remarks,
+        safety_control:safety_controls (
+          id,
+          code,
+          name,
+          description,
+          category
+        )
       ),
 
       approvals:permit_approvals (
@@ -398,31 +433,46 @@ export default async function PermitDetailsPage({
         <section className="mt-6 rounded-xl border bg-background">
           <SectionHeader title="Safety Requirements" />
 
-          <div className="grid gap-4 p-6 sm:grid-cols-3">
-
-            <Requirement
-              label="JSA / JHA"
-              required={
-                permit.permit_type?.requires_jha ?? false
-              }
-            />
-
-            <Requirement
-              label="Gas Testing"
-              required={
-                permit.permit_type?.requires_gas_test ?? false
-              }
-            />
-
-            <Requirement
-              label="LOTO"
-              required={
-                permit.permit_type?.requires_loto ?? false
-              }
-            />
-
+          <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+            {permit.safety_controls?.length ? (
+              permit.safety_controls.map((control) => (
+                <Requirement
+                  key={control.id}
+                  label={
+                    control.safety_control?.name ??
+                    'Safety Control'
+                  }
+                  required={control.is_required}
+                  status={control.status}
+                  permitId={permit.id}
+                  controlId={control.id}
+                />
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No safety controls configured for this permit.
+              </p>
+            )}
           </div>
         </section>
+
+        {/* Supervisor Assignment */}
+        {currentUserRole === 'admin' &&
+          (permit.status === 'submitted' ||
+            permit.status === 'pending_approval') && (
+            <section className="mt-6 rounded-xl border bg-background">
+              <SectionHeader title="Supervisor Assignment" />
+
+              <div className="p-6">
+                <AssignSupervisor
+                  permitId={permit.id}
+                  currentSupervisorId={
+                    permit.supervisor_id
+                  }
+                />
+              </div>
+            </section>
+          )}
 
         {/* Supervisor Review */}
         {permit.status === 'pending_approval' &&
@@ -562,10 +612,19 @@ function InfoItem({
 function Requirement({
   label,
   required,
+  status,
+  permitId,
+  controlId,
 }: {
   label: string
   required: boolean
+  status?: string
+  permitId?: number
+  controlId?: number
 }) {
+  const isPending = status === 'pending'
+  const isVerified = status === 'verified'
+
   return (
     <div className="rounded-lg border p-4">
       <p className="text-sm font-medium">
@@ -581,6 +640,27 @@ function Requirement({
       >
         {required ? 'Required' : 'Not required'}
       </p>
+
+      {status && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Status: {status.replaceAll('_', ' ')}
+        </p>
+      )}
+
+      {isPending &&
+        permitId &&
+        controlId && (
+          <VerifySafetyControlButton
+            permitId={permitId}
+            controlId={controlId}
+          />
+        )}
+
+      {isVerified && (
+        <p className="mt-3 text-xs font-medium text-green-600">
+          ✓ Verified
+        </p>
+      )}
     </div>
   )
 }

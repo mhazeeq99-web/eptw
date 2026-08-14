@@ -1,45 +1,49 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 
-export async function Header() {
-  const supabase = await createClient()
+export function Header() {
+  const [fullName, setFullName] = useState('User')
+  const [role, setRole] = useState('User')
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  useEffect(() => {
+    const supabase = createClient()
 
-  let fullName = 'User'
-  let role = 'User'
+    async function loadProfile() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name, role')
-      .eq('id', user.id)
-      .single()
+      if (!user) return
 
-    if (profile) {
-      fullName = profile.full_name
-      role = formatRole(profile.role)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile) {
+        setFullName(profile.full_name)
+        setRole(formatRole(profile.role))
+      }
     }
-  }
+
+    loadProfile()
+  }, [])
 
   const initials = getInitials(fullName)
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
-
-      {/* Left */}
       <div>
         <p className="text-sm text-muted-foreground">
           Electronic Permit to Work
         </p>
       </div>
 
-      {/* Right */}
       <div className="flex items-center gap-4">
-
-        {/* Notifications */}
         <button
           type="button"
           className="relative rounded-md p-2 hover:bg-muted"
@@ -48,9 +52,7 @@ export async function Header() {
           <Bell className="h-5 w-5" />
         </button>
 
-        {/* User */}
         <div className="flex items-center gap-3">
-
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
             {initials}
           </div>
@@ -64,7 +66,6 @@ export async function Header() {
               {role}
             </p>
           </div>
-
         </div>
       </div>
     </header>

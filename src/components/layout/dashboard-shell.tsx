@@ -2,7 +2,7 @@ import { ReactNode } from 'react'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
 
-export async function DashboardShell({
+export function DashboardShell({
   children,
 }: {
   children: ReactNode

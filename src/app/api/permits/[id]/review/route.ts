@@ -133,7 +133,83 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 8. Determine new status
+  // 8. Verify mandatory safety controls before approval
+  // ---------------------------------------------------------
+
+  if (action === 'approved') {
+    const {
+      data: safetyControls,
+      error: safetyControlsError,
+    } = await supabase
+      .from('permit_safety_controls')
+      .select(`
+        id,
+        is_required,
+        status,
+        safety_control:safety_controls (
+          code,
+          name
+        )
+      `)
+      .eq('permit_id', permit.id)
+      .eq('is_required', true)
+
+    if (safetyControlsError) {
+      return NextResponse.json(
+        {
+          error:
+            'Unable to verify permit safety controls',
+        },
+        { status: 500 }
+      )
+    }
+
+    if (!safetyControls || safetyControls.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            'Permit cannot be approved because no safety controls are configured for this permit.',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Cast the safety_control to a single object
+    const incompleteControls = safetyControls.filter(
+      (control) => {
+        const safetyControl = control.safety_control as unknown as {
+          code: string
+          name: string
+        }
+        return control.status !== 'verified'
+      }
+    )
+
+    if (incompleteControls.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            'Permit cannot be approved because required safety controls are not verified.',
+          incomplete_controls:
+            incompleteControls.map((control) => {
+              const safetyControl = control.safety_control as unknown as {
+                code: string
+                name: string
+              }
+              return {
+                code: safetyControl?.code ?? null,
+                name: safetyControl?.name ?? 'Safety Control',
+                status: control.status,
+              }
+            }),
+        },
+        { status: 400 }
+      )
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 9. Determine new status
   // ---------------------------------------------------------
 
   const newStatus =
@@ -142,7 +218,7 @@ export async function POST(
       : 'rejected'
 
   // ---------------------------------------------------------
-  // 9. Update permit
+  // 10. Update permit
   // ---------------------------------------------------------
 
   const {
@@ -173,7 +249,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 10. Record approval history
+  // 11. Record approval history
   // ---------------------------------------------------------
 
   const { error: historyError } =
@@ -204,7 +280,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 11. Return success
+  // 12. Return success
   // ---------------------------------------------------------
 
   return NextResponse.json({

@@ -14,6 +14,15 @@ type PermitType = {
   requires_loto: boolean
 }
 
+type SafetyControl = {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  category: string
+  is_required: boolean
+}
+
 type Area = {
   id: number
   name: string
@@ -37,6 +46,7 @@ export default function NewPermitPage() {
   const supabase = createClient()
 
   const [permitTypes, setPermitTypes] = useState<PermitType[]>([])
+  const [safetyControls, setSafetyControls] = useState<SafetyControl[]>([])
   const [areas, setAreas] = useState<Area[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
@@ -128,6 +138,64 @@ export default function NewPermitPage() {
 
     loadFormData()
   }, [supabase])
+
+  useEffect(() => {
+    async function loadSafetyControls() {
+      if (!permitTypeId) {
+        setSafetyControls([])
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('permit_type_safety_controls')
+        .select(`
+          is_required,
+          safety_control:safety_controls (
+            id,
+            code,
+            name,
+            description,
+            category
+          )
+        `)
+        .eq(
+          'permit_type_id',
+          Number(permitTypeId)
+        )
+        .eq('is_required', true)
+
+      if (error) {
+        setError(error.message)
+        setSafetyControls([])
+        return
+      }
+
+      const controls: SafetyControl[] = (data ?? [])
+        .filter((item) => item.safety_control)
+        .map((item) => {
+          const control = item.safety_control as unknown as {
+            id: number
+            code: string
+            name: string
+            description: string | null
+            category: string
+          }
+
+          return {
+            id: control.id,
+            code: control.code,
+            name: control.name,
+            description: control.description,
+            category: control.category,
+            is_required: item.is_required,
+          }
+        })
+
+      setSafetyControls(controls)
+    }
+
+    loadSafetyControls()
+  }, [permitTypeId, supabase])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -374,20 +442,20 @@ export default function NewPermitPage() {
               </p>
 
               <div className="mt-6 space-y-3">
-                <SafetyRequirement
-                  label="JSA / JHA"
-                  required={selectedPermitType.requires_jha}
-                />
-
-                <SafetyRequirement
-                  label="Gas Testing"
-                  required={selectedPermitType.requires_gas_test}
-                />
-
-                <SafetyRequirement
-                  label="LOTO"
-                  required={selectedPermitType.requires_loto}
-                />
+                {safetyControls.length > 0 ? (
+                  safetyControls.map((control) => (
+                    <SafetyRequirement
+                      key={control.id}
+                      label={control.name}
+                      required={control.is_required}
+                    />
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No specific safety controls are configured
+                    for this permit type.
+                  </p>
+                )}
               </div>
             </section>
           )}
