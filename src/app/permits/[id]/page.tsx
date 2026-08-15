@@ -13,6 +13,8 @@ import { CompletePermitButton } from '@/components/permits/complete-permit-butto
 import { ClosePermitButton } from '@/components/permits/close-permit-button'
 import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
 import { AssignSupervisor } from '@/components/permits/assign-supervisor'
+import { SendToContractorButton } from '@/components/permits/send-to-contractor-button'
+import { ApproveAndIssueButton } from '@/components/permits/approve-and-issue-button'
 
 type PermitType = {
   id: number
@@ -85,6 +87,14 @@ type Permit = {
   planned_start: string | null
   planned_end: string | null
   status: string
+  initiation_mode: string | null
+  workflow_stage: string | null
+  submitted_by: string | null
+  submitted_at: string | null
+  work_verified_by: string | null
+  work_verified_at: string | null
+  approved_by: string | null
+  approved_at: string | null
   remarks: string | null
   created_at: string
   permit_type: PermitType | null
@@ -142,6 +152,14 @@ export default async function PermitDetailsPage({
       planned_start,
       planned_end,
       status,
+      initiation_mode,
+      workflow_stage,
+      submitted_by,
+      submitted_at,
+      work_verified_by,
+      work_verified_at,
+      approved_by,
+      approved_at,
       remarks,
       created_at,
 
@@ -247,20 +265,39 @@ export default async function PermitDetailsPage({
             </p>
           </div>
 
-          {permit.status === 'draft' && (
-            <div className="flex gap-2">
-              <Link
-                href={`/permits/${permit.id}/edit`}
-                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-              >
-                Edit Permit
-              </Link>
-
+          {permit.status === 'draft' &&
+            permit.initiation_mode === 'internal' && (
               <SubmitPermitButton
                 permitId={permit.id}
               />
-            </div>
-          )}
+            )}
+
+          {permit.status === 'draft' &&
+            permit.initiation_mode ===
+              'contractor_work_supervisor' &&
+            permit.workflow_stage === 'draft' && (
+              <SendToContractorButton
+                permitId={permit.id}
+              />
+            )}
+
+          {permit.status === 'draft' &&
+            permit.initiation_mode ===
+              'contractor_direct' && (
+              <SubmitPermitButton
+                permitId={permit.id}
+              />
+            )}
+
+          {permit.status === 'draft' &&
+            permit.initiation_mode ===
+              'contractor_work_supervisor' &&
+            permit.workflow_stage ===
+              'contractor_completion' && (
+              <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                Awaiting contractor completion.
+              </div>
+            )}
 
           {permit.status === 'rejected' &&
             user?.id === permit.requester?.id && (
@@ -278,10 +315,12 @@ export default async function PermitDetailsPage({
               </div>
             )}
 
-          {permit.status === 'approved' &&
-            (currentUserRole === 'permit_issuer' ||
-              currentUserRole === 'admin') && (
-              <IssuePermitButton
+          {/* REPLACED OLD APPROVED -> ISSUE WITH NEW APPROVE & ISSUE */}
+          {permit.status === 'pending_approval' &&
+            permit.workflow_stage === 'safety_approval' &&
+            (currentUserRole === 'safety_coordinator' ||
+              currentUserRole === 'safety_manager') && (
+              <ApproveAndIssueButton
                 permitId={permit.id}
               />
             )}
@@ -326,6 +365,78 @@ export default async function PermitDetailsPage({
               />
             )}
         </div>
+
+        {/* Workflow Information */}
+        {(permit.initiation_mode ||
+          permit.workflow_stage ||
+          permit.submitted_by ||
+          permit.submitted_at ||
+          permit.work_verified_by ||
+          permit.work_verified_at ||
+          permit.approved_by ||
+          permit.approved_at) && (
+          <section className="mt-6 rounded-xl border bg-background">
+            <SectionHeader title="Workflow Information" />
+
+            <div className="grid gap-6 p-6 md:grid-cols-2">
+              {permit.initiation_mode && (
+                <InfoItem
+                  label="Initiation Mode"
+                  value={permit.initiation_mode}
+                />
+              )}
+
+              {permit.workflow_stage && (
+                <InfoItem
+                  label="Workflow Stage"
+                  value={permit.workflow_stage}
+                />
+              )}
+
+              {permit.submitted_by && (
+                <InfoItem
+                  label="Submitted By"
+                  value={permit.submitted_by}
+                />
+              )}
+
+              {permit.submitted_at && (
+                <InfoItem
+                  label="Submitted At"
+                  value={formatDate(permit.submitted_at)}
+                />
+              )}
+
+              {permit.work_verified_by && (
+                <InfoItem
+                  label="Work Verified By"
+                  value={permit.work_verified_by}
+                />
+              )}
+
+              {permit.work_verified_at && (
+                <InfoItem
+                  label="Work Verified At"
+                  value={formatDate(permit.work_verified_at)}
+                />
+              )}
+
+              {permit.approved_by && (
+                <InfoItem
+                  label="Approved By"
+                  value={permit.approved_by}
+                />
+              )}
+
+              {permit.approved_at && (
+                <InfoItem
+                  label="Approved At"
+                  value={formatDate(permit.approved_at)}
+                />
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Work Details */}
         <section className="mt-8 rounded-xl border bg-background">
@@ -456,7 +567,7 @@ export default async function PermitDetailsPage({
           </div>
         </section>
 
-        {/* Supervisor Assignment */}
+        {/* Supervisor Assignment - KEEP FOR NOW, WILL BE REMOVED LATER */}
         {currentUserRole === 'admin' &&
           (permit.status === 'submitted' ||
             permit.status === 'pending_approval') && (
@@ -474,13 +585,13 @@ export default async function PermitDetailsPage({
             </section>
           )}
 
-        {/* Supervisor Review */}
-        {permit.status === 'pending_approval' &&
+        {/* REMOVED: Supervisor Review block - no longer used in new workflow */}
+        {/* {permit.status === 'pending_approval' &&
           isAssignedSupervisor && (
             <ReviewPermit
               permitId={permit.id}
             />
-          )}
+          )} */}
 
         {/* Remarks */}
         {permit.remarks && (

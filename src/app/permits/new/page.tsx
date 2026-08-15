@@ -5,6 +5,18 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 
+type Profile = {
+  id: string
+  role: string
+  company_id: number | null
+}
+
+type Company = {
+  id: number
+  name: string
+  code: string
+}
+
 type PermitType = {
   id: number
   name: string
@@ -36,28 +48,24 @@ type Equipment = {
   area_id: number | null
 }
 
-type Contractor = {
-  id: number
-  company_name: string
-}
-
 export default function NewPermitPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [companies, setCompanies] = useState<Company[]>([])
   const [permitTypes, setPermitTypes] = useState<PermitType[]>([])
   const [safetyControls, setSafetyControls] = useState<SafetyControl[]>([])
   const [areas, setAreas] = useState<Area[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
-  const [contractors, setContractors] = useState<Contractor[]>([])
 
+  const [companyId, setCompanyId] = useState('')
   const [permitTypeId, setPermitTypeId] = useState('')
   const [workTitle, setWorkTitle] = useState('')
   const [workDescription, setWorkDescription] = useState('')
   const [workLocation, setWorkLocation] = useState('')
   const [areaId, setAreaId] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
-  const [contractorId, setContractorId] = useState('')
   const [plannedStart, setPlannedStart] = useState('')
   const [plannedEnd, setPlannedEnd] = useState('')
 
@@ -69,13 +77,256 @@ export default function NewPermitPage() {
     (type) => type.id === Number(permitTypeId)
   )
 
+  const selectedCompany = companies.find(
+    (company) => company.id === Number(companyId)
+  )
+
+  const isPlatformAdmin =
+    profile?.role === 'platform_admin'
+
+  const isContractor =
+    profile?.role === 'requester' &&
+    profile?.company_id === null
+
+  // ---------------------------------------------------------
+  // Load profile and company access
+  // ---------------------------------------------------------
+
   useEffect(() => {
-    async function loadFormData() {
+    async function loadProfileAndCompanies() {
+      setLoadingData(true)
+      setError('')
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+
+      const {
+        data: profileData,
+        error: profileError,
+      } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          role,
+          company_id
+        `)
+        .eq('id', user.id)
+        .single()
+
+      if (profileError || !profileData) {
+        setError(
+          profileError?.message ||
+            'Unable to load your profile.'
+        )
+        setLoadingData(false)
+        return
+      }
+
+      setProfile(profileData)
+
+      // -------------------------------------------------------
+      // Platform admin: can select any active company
+      // -------------------------------------------------------
+
+      if (
+        profileData.role === 'platform_admin'
+      ) {
+        const {
+          data,
+          error: companiesError,
+        } = await supabase
+          .from('companies')
+          .select('id, name, code')
+          .eq('is_active', true)
+          .order('name')
+
+        if (companiesError) {
+          setError(companiesError.message)
+        } else {
+          setCompanies(data ?? [])
+        }
+
+        setLoadingData(false)
+        return
+      }
+
+      // -------------------------------------------------------
+      // Internal company user:
+      // automatically use their company
+      // -------------------------------------------------------
+
+      if (profileData.company_id) {
+        const {
+          data,
+          error: companyError,
+        } = await supabase
+          .from('companies')
+          .select('id, name, code')
+          .eq('id', profileData.company_id)
+          .eq('is_active', true)
+          .single()
+
+        if (companyError || !data) {
+          setError(
+            companyError?.message ||
+              'Your company could not be loaded.'
+          )
+        } else {
+          setCompanies([data])
+          setCompanyId(String(data.id))
+        }
+
+        setLoadingData(false)
+        return
+      }
+
+      // -------------------------------------------------------
+      // Contractor:
+      // determine contractor through membership,
+      // then load only authorized companies
+      // -------------------------------------------------------
+
+      if (
+        profileData.role === 'requester'
+      ) {
+        const {
+          data: membership,
+          error: membershipError,
+        } = await supabase
+          .from('contractor_users')
+          .select(`
+            contractor_id,
+            is_active
+          `)
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single()
+
+        if (
+          membershipError ||
+          !membership
+        ) {
+          setError(
+            membershipError?.message ||
+              'Your contractor account is not configured.'
+          )
+          setLoadingData(false)
+          return
+        }
+
+        const {
+          data: relationships,
+          error: relationshipError,
+        } = await supabase
+          .from('contractor_companies')
+          .select(`
+            company_id,
+            companies (
+              id,
+              name,
+              code
+            )
+          `)
+          .eq(
+            'contractor_id',
+            membership.contractor_id
+          )
+          .eq('is_active', true)
+
+        if (relationshipError) {
+          setError(
+            relationshipError.message
+          )
+          setLoadingData(false)
+          return
+        }
+
+        const authorizedCompanies =
+          (relationships ?? [])
+            .map((relationship) => {
+              const company =
+                relationship.companies as unknown as
+                  | Company
+                  | Company[]
+                  | null
+
+              if (Array.isArray(company)) {
+                return company[0] ?? null
+              }
+
+              return company
+            })
+            .filter(
+              (
+                company
+              ): company is Company =>
+                company !== null
+            )
+
+        setCompanies(
+          authorizedCompanies
+        )
+
+        if (
+          authorizedCompanies.length === 1
+        ) {
+          setCompanyId(
+            String(
+              authorizedCompanies[0].id
+            )
+          )
+        }
+
+        if (
+          authorizedCompanies.length === 0
+        ) {
+          setError(
+            'Your contractor is not authorized to submit permits for any company.'
+          )
+        }
+
+        setLoadingData(false)
+        return
+      }
+
+      setError(
+        'Your account is not configured for permit creation.'
+      )
+
+      setLoadingData(false)
+    }
+
+    loadProfileAndCompanies()
+  }, [router, supabase])
+
+  // ---------------------------------------------------------
+  // Load company-specific permit data
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    async function loadCompanyData() {
+      if (!companyId) {
+        setPermitTypes([])
+        setAreas([])
+        setEquipment([])
+        setPermitTypeId('')
+        setAreaId('')
+        setEquipmentId('')
+        return
+      }
+
+      setError('')
+
       const [
         permitTypesResult,
         areasResult,
         equipmentResult,
-        contractorsResult,
       ] = await Promise.all([
         supabase
           .from('permit_types')
@@ -87,57 +338,78 @@ export default function NewPermitPage() {
             requires_gas_test,
             requires_loto
           `)
+          .eq(
+            'company_id',
+            Number(companyId)
+          )
           .eq('is_active', true)
           .order('name'),
 
         supabase
           .from('areas')
           .select('id, name, code')
+          .eq(
+            'company_id',
+            Number(companyId)
+          )
           .eq('is_active', true)
           .order('name'),
 
         supabase
           .from('equipment')
-          .select('id, name, equipment_no, area_id')
+          .select(
+            'id, name, equipment_no, area_id'
+          )
+          .eq(
+            'company_id',
+            Number(companyId)
+          )
           .eq('is_active', true)
           .order('name'),
-
-        supabase
-          .from('contractors')
-          .select('id, company_name')
-          .eq('is_active', true)
-          .order('company_name'),
       ])
 
       if (permitTypesResult.error) {
-        setError(permitTypesResult.error.message)
+        setError(
+          permitTypesResult.error.message
+        )
       } else {
-        setPermitTypes(permitTypesResult.data ?? [])
+        setPermitTypes(
+          permitTypesResult.data ?? []
+        )
       }
 
       if (areasResult.error) {
-        setError(areasResult.error.message)
+        setError(
+          areasResult.error.message
+        )
       } else {
-        setAreas(areasResult.data ?? [])
+        setAreas(
+          areasResult.data ?? []
+        )
       }
 
       if (equipmentResult.error) {
-        setError(equipmentResult.error.message)
+        setError(
+          equipmentResult.error.message
+        )
       } else {
-        setEquipment(equipmentResult.data ?? [])
+        setEquipment(
+          equipmentResult.data ?? []
+        )
       }
 
-      if (contractorsResult.error) {
-        setError(contractorsResult.error.message)
-      } else {
-        setContractors(contractorsResult.data ?? [])
-      }
-
-      setLoadingData(false)
+      // Reset selections when company changes
+      setPermitTypeId('')
+      setAreaId('')
+      setEquipmentId('')
     }
 
-    loadFormData()
-  }, [supabase])
+    loadCompanyData()
+  }, [companyId, supabase])
+
+  // ---------------------------------------------------------
+  // Load safety controls
+  // ---------------------------------------------------------
 
   useEffect(() => {
     async function loadSafetyControls() {
@@ -146,7 +418,10 @@ export default function NewPermitPage() {
         return
       }
 
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from('permit_type_safety_controls')
         .select(`
           is_required,
@@ -170,26 +445,34 @@ export default function NewPermitPage() {
         return
       }
 
-      const controls: SafetyControl[] = (data ?? [])
-        .filter((item) => item.safety_control)
-        .map((item) => {
-          const control = item.safety_control as unknown as {
-            id: number
-            code: string
-            name: string
-            description: string | null
-            category: string
-          }
+      const controls: SafetyControl[] =
+        (data ?? [])
+          .filter(
+            (item) =>
+              item.safety_control
+          )
+          .map((item) => {
+            const control =
+              item.safety_control as unknown as {
+                id: number
+                code: string
+                name: string
+                description: string | null
+                category: string
+              }
 
-          return {
-            id: control.id,
-            code: control.code,
-            name: control.name,
-            description: control.description,
-            category: control.category,
-            is_required: item.is_required,
-          }
-        })
+            return {
+              id: control.id,
+              code: control.code,
+              name: control.name,
+              description:
+                control.description,
+              category:
+                control.category,
+              is_required:
+                item.is_required,
+            }
+          })
 
       setSafetyControls(controls)
     }
@@ -197,57 +480,107 @@ export default function NewPermitPage() {
     loadSafetyControls()
   }, [permitTypeId, supabase])
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  // ---------------------------------------------------------
+  // Submit
+  // ---------------------------------------------------------
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault()
 
     setError('')
+
+    if (!companyId) {
+      setError(
+        'Please select a customer company.'
+      )
+      return
+    }
+
+    if (!permitTypeId) {
+      setError(
+        'Please select a valid permit type.'
+      )
+      return
+    }
+
+    if (!workTitle.trim()) {
+      setError(
+        'Work title is required.'
+      )
+      return
+    }
+
     setLoading(true)
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    try {
+      const response = await fetch(
+        '/api/permits',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          body: JSON.stringify({
+            company_id:
+              Number(companyId),
 
-    if (!user) {
-      router.replace('/login')
-      return
-    }
+            permit_type_id:
+              Number(permitTypeId),
 
-    const selectedPermitType = permitTypes.find(
-      (type) => type.id === Number(permitTypeId)
-    )
+            work_title:
+              workTitle.trim(),
 
-    if (!selectedPermitType) {
-      setError('Please select a valid permit type.')
+            work_description:
+              workDescription.trim() ||
+              null,
+
+            work_location:
+              workLocation.trim() ||
+              null,
+
+            area_id: areaId
+              ? Number(areaId)
+              : null,
+
+            equipment_id: equipmentId
+              ? Number(equipmentId)
+              : null,
+
+            planned_start:
+              plannedStart || null,
+
+            planned_end:
+              plannedEnd || null,
+          }),
+        }
+      )
+
+      const result =
+        await response.json()
+
+      if (!response.ok) {
+        setError(
+          result.error ||
+            'Unable to create permit.'
+        )
+        return
+      }
+
+      router.push(
+        `/permits/${result.permit.id}`
+      )
+
+      router.refresh()
+    } catch {
+      setError(
+        'Unable to connect to the server.'
+      )
+    } finally {
       setLoading(false)
-      return
     }
-
-    const { data, error } = await supabase
-      .from('permits')
-      .insert({
-        permit_type_id: Number(permitTypeId),
-        requester_id: user.id,
-        work_title: workTitle,
-        work_description: workDescription || null,
-        work_location: workLocation || null,
-        area_id: areaId ? Number(areaId) : null,
-        equipment_id: equipmentId ? Number(equipmentId) : null,
-        contractor_id: contractorId ? Number(contractorId) : null,
-        planned_start: plannedStart || null,
-        planned_end: plannedEnd || null,
-        status: 'draft',
-      })
-      .select('id, permit_no')
-      .single()
-
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
-    }
-
-    router.push(`/permits/${data.id}`)
-    router.refresh()
   }
 
   if (loadingData) {
@@ -263,6 +596,7 @@ export default function NewPermitPage() {
   return (
     <DashboardShell>
       <div className="max-w-4xl">
+
         <h1 className="text-3xl font-bold tracking-tight">
           Create Permit
         </h1>
@@ -275,43 +609,119 @@ export default function NewPermitPage() {
           onSubmit={handleSubmit}
           className="mt-8 space-y-8"
         >
+
+          {/* ------------------------------------------------ */}
+          {/* Permit Information */}
+          {/* ------------------------------------------------ */}
+
           <section className="rounded-xl border bg-background p-6">
+
             <h2 className="text-lg font-semibold">
               Permit Information
             </h2>
 
             <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <Field label="Permit Type" required>
+
+              {/* Customer Company */}
+
+              <Field
+                label="Customer Company"
+                required
+              >
+                {isPlatformAdmin ||
+                isContractor ? (
+                  <select
+                    value={companyId}
+                    onChange={(event) =>
+                      setCompanyId(
+                        event.target.value
+                      )
+                    }
+                    required
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">
+                      Select customer company
+                    </option>
+
+                    {companies.map(
+                      (company) => (
+                        <option
+                          key={company.id}
+                          value={company.id}
+                        >
+                          {company.name}
+                          {company.code
+                            ? ` (${company.code})`
+                            : ''}
+                        </option>
+                      )
+                    )}
+                  </select>
+                ) : (
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                    {selectedCompany
+                      ? `${selectedCompany.name}${
+                          selectedCompany.code
+                            ? ` (${selectedCompany.code})`
+                            : ''
+                        }`
+                      : 'Your company'}
+                  </div>
+                )}
+              </Field>
+
+              {/* Permit Type */}
+
+              <Field
+                label="Permit Type"
+                required
+              >
                 <select
                   value={permitTypeId}
                   onChange={(event) =>
-                    setPermitTypeId(event.target.value)
+                    setPermitTypeId(
+                      event.target.value
+                    )
                   }
                   required
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  disabled={
+                    !companyId ||
+                    permitTypes.length === 0
+                  }
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
                 >
                   <option value="">
-                    Select permit type
+                    {!companyId
+                      ? 'Select company first'
+                      : 'Select permit type'}
                   </option>
 
-                  {permitTypes.map((type) => (
-                    <option
-                      key={type.id}
-                      value={type.id}
-                    >
-                      {type.name}
-                    </option>
-                  ))}
+                  {permitTypes.map(
+                    (type) => (
+                      <option
+                        key={type.id}
+                        value={type.id}
+                      >
+                        {type.name}
+                      </option>
+                    )
+                  )}
                 </select>
               </Field>
+
+              {/* Area */}
 
               <Field label="Area">
                 <select
                   value={areaId}
                   onChange={(event) =>
-                    setAreaId(event.target.value)
+                    setAreaId(
+                      event.target.value
+                    )
                   }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  disabled={!companyId}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
                 >
                   <option value="">
                     Select area
@@ -328,13 +738,18 @@ export default function NewPermitPage() {
                 </select>
               </Field>
 
+              {/* Equipment */}
+
               <Field label="Equipment">
                 <select
                   value={equipmentId}
                   onChange={(event) =>
-                    setEquipmentId(event.target.value)
+                    setEquipmentId(
+                      event.target.value
+                    )
                   }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  disabled={!companyId}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
                 >
                   <option value="">
                     Select equipment
@@ -344,7 +759,8 @@ export default function NewPermitPage() {
                     .filter(
                       (item) =>
                         !areaId ||
-                        item.area_id === Number(areaId)
+                        item.area_id ===
+                          Number(areaId)
                     )
                     .map((item) => (
                       <option
@@ -360,43 +776,41 @@ export default function NewPermitPage() {
                 </select>
               </Field>
 
-              <Field label="Contractor">
-                <select
-                  value={contractorId}
-                  onChange={(event) =>
-                    setContractorId(event.target.value)
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">
-                    Select contractor
-                  </option>
-
-                  {contractors.map((contractor) => (
-                    <option
-                      key={contractor.id}
-                      value={contractor.id}
-                    >
-                      {contractor.company_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
             </div>
+
+            {isContractor && (
+              <p className="mt-4 text-xs text-muted-foreground">
+                You can only submit permits for
+                companies authorized for your
+                contractor account.
+              </p>
+            )}
+
           </section>
 
+          {/* ------------------------------------------------ */}
+          {/* Work Details */}
+          {/* ------------------------------------------------ */}
+
           <section className="rounded-xl border bg-background p-6">
+
             <h2 className="text-lg font-semibold">
               Work Details
             </h2>
 
             <div className="mt-6 space-y-6">
-              <Field label="Work Title" required>
+
+              <Field
+                label="Work Title"
+                required
+              >
                 <input
                   type="text"
                   value={workTitle}
                   onChange={(event) =>
-                    setWorkTitle(event.target.value)
+                    setWorkTitle(
+                      event.target.value
+                    )
                   }
                   placeholder="e.g. Welding repair at production machine"
                   required
@@ -408,7 +822,9 @@ export default function NewPermitPage() {
                 <textarea
                   value={workDescription}
                   onChange={(event) =>
-                    setWorkDescription(event.target.value)
+                    setWorkDescription(
+                      event.target.value
+                    )
                   }
                   rows={5}
                   placeholder="Describe the work to be performed..."
@@ -421,57 +837,83 @@ export default function NewPermitPage() {
                   type="text"
                   value={workLocation}
                   onChange={(event) =>
-                    setWorkLocation(event.target.value)
+                    setWorkLocation(
+                      event.target.value
+                    )
                   }
                   placeholder="Specific work location"
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </Field>
+
             </div>
+
           </section>
+
+          {/* ------------------------------------------------ */}
+          {/* Safety Requirements */}
+          {/* ------------------------------------------------ */}
 
           {selectedPermitType && (
             <section className="rounded-xl border bg-background p-6">
+
               <h2 className="text-lg font-semibold">
                 Safety Requirements
               </h2>
 
               <p className="mt-2 text-sm text-muted-foreground">
-                Safety requirements are determined automatically
-                based on the selected permit type.
+                Safety requirements are determined
+                automatically based on the selected
+                permit type.
               </p>
 
               <div className="mt-6 space-y-3">
+
                 {safetyControls.length > 0 ? (
-                  safetyControls.map((control) => (
-                    <SafetyRequirement
-                      key={control.id}
-                      label={control.name}
-                      required={control.is_required}
-                    />
-                  ))
+                  safetyControls.map(
+                    (control) => (
+                      <SafetyRequirement
+                        key={control.id}
+                        label={control.name}
+                        required={
+                          control.is_required
+                        }
+                      />
+                    )
+                  )
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No specific safety controls are configured
-                    for this permit type.
+                    No specific safety controls
+                    are configured for this
+                    permit type.
                   </p>
                 )}
+
               </div>
+
             </section>
           )}
 
+          {/* ------------------------------------------------ */}
+          {/* Planned Work Period */}
+          {/* ------------------------------------------------ */}
+
           <section className="rounded-xl border bg-background p-6">
+
             <h2 className="text-lg font-semibold">
               Planned Work Period
             </h2>
 
             <div className="mt-6 grid gap-6 md:grid-cols-2">
+
               <Field label="Planned Start">
                 <input
                   type="datetime-local"
                   value={plannedStart}
                   onChange={(event) =>
-                    setPlannedStart(event.target.value)
+                    setPlannedStart(
+                      event.target.value
+                    )
                   }
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
@@ -482,13 +924,21 @@ export default function NewPermitPage() {
                   type="datetime-local"
                   value={plannedEnd}
                   onChange={(event) =>
-                    setPlannedEnd(event.target.value)
+                    setPlannedEnd(
+                      event.target.value
+                    )
                   }
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </Field>
+
             </div>
+
           </section>
+
+          {/* ------------------------------------------------ */}
+          {/* Error */}
+          {/* ------------------------------------------------ */}
 
           {error && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -496,10 +946,17 @@ export default function NewPermitPage() {
             </div>
           )}
 
+          {/* ------------------------------------------------ */}
+          {/* Actions */}
+          {/* ------------------------------------------------ */}
+
           <div className="flex justify-end gap-3">
+
             <button
               type="button"
-              onClick={() => router.push('/permits')}
+              onClick={() =>
+                router.push('/permits')
+              }
               className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
             >
               Cancel
@@ -507,13 +964,22 @@ export default function NewPermitPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              disabled={
+                loading ||
+                !companyId ||
+                !permitTypeId
+              }
+              className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? 'Saving...' : 'Save Draft'}
+              {loading
+                ? 'Saving...'
+                : 'Save Draft'}
             </button>
+
           </div>
+
         </form>
+
       </div>
     </DashboardShell>
   )
@@ -530,6 +996,7 @@ function Field({
 }) {
   return (
     <div className="space-y-2">
+
       <label className="text-sm font-medium">
         {label}
 
@@ -541,6 +1008,7 @@ function Field({
       </label>
 
       {children}
+
     </div>
   )
 }
@@ -554,6 +1022,7 @@ function SafetyRequirement({
 }) {
   return (
     <div className="flex items-center justify-between rounded-lg border p-4">
+
       <span className="text-sm font-medium">
         {label}
       </span>
@@ -565,8 +1034,11 @@ function SafetyRequirement({
             : 'text-sm text-muted-foreground'
         }
       >
-        {required ? 'Required' : 'Not required'}
+        {required
+          ? 'Required'
+          : 'Not required'}
       </span>
+
     </div>
   )
 }

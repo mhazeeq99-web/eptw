@@ -14,7 +14,7 @@ export async function POST(
   const supabase = await createClient()
 
   // ---------------------------------------------------------
-  // 1. Check authentication
+  // 1. Authentication
   // ---------------------------------------------------------
 
   const {
@@ -29,7 +29,37 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 2. Get permit
+  // 2. Get current user's profile
+  // ---------------------------------------------------------
+
+  const { data: profile, error: profileError } =
+    await supabase
+      .from('profiles')
+      .select(`
+        id,
+        role,
+        company_id,
+        is_active
+      `)
+      .eq('id', user.id)
+      .single()
+
+  if (profileError || !profile) {
+    return NextResponse.json(
+      { error: 'User profile not found' },
+      { status: 404 }
+    )
+  }
+
+  if (!profile.is_active) {
+    return NextResponse.json(
+      { error: 'Your account is inactive' },
+      { status: 403 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 3. Get permit
   // ---------------------------------------------------------
 
   const { data: permit, error: permitError } =
@@ -39,10 +69,14 @@ export async function POST(
         id,
         permit_no,
         requester_id,
+        company_id,
+        contractor_id,
         work_title,
         planned_start,
         planned_end,
-        status
+        status,
+        initiation_mode,
+        workflow_stage
       `)
       .eq('id', id)
       .single()
@@ -55,21 +89,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 3. Make sure current user is the requester
-  // ---------------------------------------------------------
-
-  if (permit.requester_id !== user.id) {
-    return NextResponse.json(
-      {
-        error:
-          'You are not the requester of this permit',
-      },
-      { status: 403 }
-    )
-  }
-
-  // ---------------------------------------------------------
-  // 4. Permit must be in DRAFT status
+  // 4. Permit must be a draft
   // ---------------------------------------------------------
 
   if (permit.status !== 'draft') {
@@ -115,69 +135,269 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 7. Change status: DRAFT → SUBMITTED
+  // 7. Determine who is submitting
   // ---------------------------------------------------------
 
-  const {
-    data: updatedPermit,
-    error: updateError,
-  } = await supabase
-    .from('permits')
-    .update({
-      status: 'submitted',
-    })
-    .eq('id', id)
-    .eq('status', 'draft')
-    .select('id, permit_no, status')
-    .single()
+  const isContractorCompletion =
+    permit.initiation_mode ===
+      'contractor_work_supervisor' &&
+    permit.workflow_stage ===
+      'contractor_completion'
 
-  if (updateError) {
-    return NextResponse.json(
-      {
-        error: updateError.message,
-      },
-      { status: 500 }
-    )
-  }
+  const isContractorDirect =
+    permit.initiation_mode ===
+      'contractor_direct'
 
   // ---------------------------------------------------------
-  // 8. Record submission in approval history
+  // 8. Contractor submission
   // ---------------------------------------------------------
 
-  const { error: historyError } =
-    await supabase
-      .from('permit_approvals')
-      .insert({
-        permit_id: permit.id,
-        action: 'submitted',
-        performed_by: user.id,
-        remarks: 'Permit submitted for review',
+  if (
+    isContractorCompletion ||
+    isContractorDirect
+  ) {
+    // Contractor must have a contractor company assigned.
+    if (!permit.contractor_id) {
+      return NextResponse.json(
+        {
+          error:
+            'This permit does not have a contractor assigned',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Verify contractor user membership.
+    const {
+      data: contractorUser,
+      error: contractorUserError,
+    } = await supabase
+      .from('contractor_users')
+      .select(`
+        contractor_id,
+        is_active
+      `)
+      .eq('user_id', user.id)
+      .eq('contractor_id', permit.contractor_id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (
+      contractorUserError ||
+      !contractorUser
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'You are not an authorized user of the contractor assigned to this permit',
+        },
+        { status: 403 }
+      )
+    }
+
+    // Verify contractor is authorized for this company.
+    const {
+      data: relationship,
+      error: relationshipError,
+    } = await supabase
+      .from('contractor_companies')
+      .select(`
+        id,
+        contractor_id,
+        company_id,
+        is_active
+      `)
+      .eq(
+        'contractor_id',
+        permit.contractor_id
+      )
+      .eq('company_id', permit.company_id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (
+      relationshipError ||
+      !relationship
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'This contractor is no longer authorized for this company',
+        },
+        { status: 403 }
+      )
+    }
+
+    // Contractor submission moves directly to
+    // safety approval.
+    const {
+      data: updatedPermit,
+      error: updateError,
+    } = await supabase
+      .from('permits')
+      .update({
+        status: 'pending_approval',
+        workflow_stage: 'safety_approval',
+        submitted_by: user.id,
+        submitted_at: new Date().toISOString(),
       })
+      .eq('id', id)
+      .eq('status', 'draft')
+      .select(`
+        id,
+        permit_no,
+        status,
+        initiation_mode,
+        workflow_stage,
+        submitted_by,
+        submitted_at
+      `)
+      .single()
 
-  if (historyError) {
-    console.error(
-      'Failed to create approval history:',
-      historyError
-    )
+    if (updateError || !updatedPermit) {
+      console.error(
+        'Failed to submit contractor permit:',
+        updateError
+      )
 
-    // Important:
-    // The permit has already changed to SUBMITTED.
-    // We return an error so we know the audit record failed.
-    return NextResponse.json(
-      {
-        error:
-          'Permit was submitted, but the approval history could not be recorded.',
-      },
-      { status: 500 }
-    )
+      return NextResponse.json(
+        {
+          error:
+            updateError?.message ??
+            'Failed to submit permit',
+        },
+        { status: 500 }
+      )
+    }
+
+    // Record contractor submission.
+    const { error: historyError } =
+      await supabase
+        .from('permit_approvals')
+        .insert({
+          permit_id: permit.id,
+          action: 'submitted',
+          performed_by: user.id,
+          remarks:
+            'Contractor submitted permit for safety approval',
+        })
+
+    if (historyError) {
+      console.error(
+        'Failed to create contractor submission history:',
+        historyError
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      permit: updatedPermit,
+    })
   }
 
   // ---------------------------------------------------------
-  // 9. Return success
+  // 9. Internal PTW submission
   // ---------------------------------------------------------
 
-  return NextResponse.json({
-    success: true,
-    permit: updatedPermit,
-  })
+  if (
+    permit.initiation_mode === 'internal'
+  ) {
+    if (permit.requester_id !== user.id) {
+      return NextResponse.json(
+        {
+          error:
+            'You are not the requester of this permit',
+        },
+        { status: 403 }
+      )
+    }
+
+    if (
+      !profile.company_id ||
+      profile.company_id !== permit.company_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'You can only submit permits for your own company',
+        },
+        { status: 403 }
+      )
+    }
+
+    const {
+      data: updatedPermit,
+      error: updateError,
+    } = await supabase
+      .from('permits')
+      .update({
+        status: 'pending_approval',
+        workflow_stage: 'safety_approval',
+        submitted_by: user.id,
+        submitted_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'draft')
+      .select(`
+        id,
+        permit_no,
+        status,
+        initiation_mode,
+        workflow_stage,
+        submitted_by,
+        submitted_at
+      `)
+      .single()
+
+    if (updateError || !updatedPermit) {
+      console.error(
+        'Failed to submit internal permit:',
+        updateError
+      )
+
+      return NextResponse.json(
+        {
+          error:
+            updateError?.message ??
+            'Failed to submit permit',
+        },
+        { status: 500 }
+      )
+    }
+
+    const { error: historyError } =
+      await supabase
+        .from('permit_approvals')
+        .insert({
+          permit_id: permit.id,
+          action: 'submitted',
+          performed_by: user.id,
+          remarks:
+            'Internal permit submitted for safety approval',
+        })
+
+    if (historyError) {
+      console.error(
+        'Failed to create submission history:',
+        historyError
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      permit: updatedPermit,
+    })
+  }
+
+  // ---------------------------------------------------------
+  // 10. Unknown workflow
+  // ---------------------------------------------------------
+
+  return NextResponse.json(
+    {
+      error:
+        'Permit workflow is not configured correctly',
+    },
+    { status: 400 }
+  )
 }

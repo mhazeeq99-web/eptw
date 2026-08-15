@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   FileText,
   ClipboardCheck,
   Users,
+  UserCog,
   Wrench,
   MapPin,
   ShieldCheck,
@@ -14,6 +16,7 @@ import {
   Settings,
 } from 'lucide-react'
 
+import { createClient } from '@/lib/supabase/client'
 import { SignOutButton } from './sign-out-button'
 
 const navigation = [
@@ -76,10 +79,61 @@ const safety = [
 ]
 
 export function Sidebar() {
+  const [isSafetyManager, setIsSafetyManager] =
+    useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function loadRole() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role === 'safety_manager') {
+        setIsSafetyManager(true)
+      }
+    }
+
+    loadRole()
+  }, [])
+
+  const managementItems = isSafetyManager
+    ? [
+        {
+          label: 'Contractors',
+          href: '/contractors',
+          icon: Users,
+        },
+        {
+          label: 'Users',
+          href: '/company/users',
+          icon: UserCog,
+        },
+        {
+          label: 'Equipment',
+          href: '/equipment',
+          icon: Wrench,
+        },
+        {
+          label: 'Areas',
+          href: '/areas',
+          icon: MapPin,
+        },
+      ]
+    : management
+
   return (
     <aside className="hidden w-64 shrink-0 border-r bg-background lg:flex lg:flex-col">
 
-      {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
         <div>
           <div className="text-xl font-bold tracking-tight">
@@ -92,22 +146,18 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 space-y-6 overflow-y-auto p-4">
 
-        {/* Main */}
         <NavigationSection items={navigation} />
 
-        {/* Management */}
         <div>
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Management
           </p>
 
-          <NavigationSection items={management} />
+          <NavigationSection items={managementItems} />
         </div>
 
-        {/* Safety */}
         <div>
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Safety
@@ -118,7 +168,6 @@ export function Sidebar() {
 
       </nav>
 
-      {/* Bottom */}
       <div className="border-t p-4">
 
         <Link
