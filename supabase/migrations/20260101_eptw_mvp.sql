@@ -920,3 +920,18 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- Unique pair on contractor_companies is required by the
+-- set_contractor_authorization RPC's ON CONFLICT upsert.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'contractor_companies_contractor_company_key'
+  ) THEN
+    ALTER TABLE public.contractor_companies
+      ADD CONSTRAINT contractor_companies_contractor_company_key
+      UNIQUE (contractor_id, company_id);
+  END IF;
+END;
+$$;
