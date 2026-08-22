@@ -35,9 +35,21 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isDashboardRoute = request.nextUrl.pathname.startsWith('/dashboard')
+  const protectedPrefixes = [
+    '/dashboard',
+    '/permits',
+    '/contractors',
+    '/equipment',
+    '/areas',
+    '/settings',
+    '/company',
+  ]
 
-  if (isDashboardRoute && !user) {
+  const isProtectedRoute = protectedPrefixes.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  )
+
+  if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
 
@@ -50,5 +62,11 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/permits/:path*',
+    '/contractors/:path*',
+    '/equipment/:path*',
+    '/areas/:path*',
+    '/settings/:path*',
+    '/company/:path*',
   ],
 }

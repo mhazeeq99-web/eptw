@@ -118,7 +118,7 @@ export default function CompanyRegistrationPage() {
 
               <p className="text-sm text-muted-foreground">
                 This account will be the primary administrator
-                for your company's ePTW system.
+                for your company ePTW system.
               </p>
             </div>
 

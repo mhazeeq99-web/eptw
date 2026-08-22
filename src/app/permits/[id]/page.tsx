@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Printer } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { StartWorkButton } from '@/components/permits/start-work-button'
@@ -15,6 +16,11 @@ import { VerifySafetyControlButton } from '@/components/permits/verify-safety-co
 import { AssignSupervisor } from '@/components/permits/assign-supervisor'
 import { SendToContractorButton } from '@/components/permits/send-to-contractor-button'
 import { ApproveAndIssueButton } from '@/components/permits/approve-and-issue-button'
+import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
+import { JhaSection, type Jha } from '@/components/permits/safety-documents/jha-section'
+import { LotoSection, type LotoPoint } from '@/components/permits/safety-documents/loto-section'
+import { GasTestSection, type GasTest } from '@/components/permits/safety-documents/gas-test-section'
+import { AttachmentsSection, type Attachment } from '@/components/permits/attachments-section'
 
 type PermitType = {
   id: number
@@ -95,6 +101,12 @@ type Permit = {
   work_verified_at: string | null
   approved_by: string | null
   approved_at: string | null
+  completed_by: string | null
+  completed_at: string | null
+  closed_by: string | null
+  closed_at: string | null
+  cancelled_by: string | null
+  cancelled_at: string | null
   remarks: string | null
   created_at: string
   permit_type: PermitType | null
@@ -104,6 +116,10 @@ type Permit = {
   requester: Requester | null
   approvals: PermitApproval[]
   safety_controls: PermitSafetyControl[]
+  jhas: Jha[]
+  loto_points: LotoPoint[]
+  gas_tests: GasTest[]
+  attachments: Attachment[]
 }
 
 export default async function PermitDetailsPage({
@@ -160,6 +176,12 @@ export default async function PermitDetailsPage({
       work_verified_at,
       approved_by,
       approved_at,
+      completed_by,
+      completed_at,
+      closed_by,
+      closed_at,
+      cancelled_by,
+      cancelled_at,
       remarks,
       created_at,
 
@@ -222,6 +244,76 @@ export default async function PermitDetailsPage({
           full_name,
           role
         )
+      ),
+
+      jhas:jhas (
+        id,
+        title,
+        description,
+        hazards_controls,
+        status,
+        verified_by,
+        verified_at,
+        created_at,
+        creator:profiles!jhas_created_by_fkey (
+          full_name
+        ),
+        verifier:profiles!jhas_verified_by_fkey (
+          full_name
+        )
+      ),
+
+      loto_points:loto_isolation_points (
+        id,
+        tag_number,
+        description,
+        isolation_point,
+        lock_number,
+        status,
+        verified_by,
+        verified_at,
+        created_at,
+        creator:profiles!loto_isolation_points_created_by_fkey (
+          full_name
+        ),
+        verifier:profiles!loto_isolation_points_verified_by_fkey (
+          full_name
+        )
+      ),
+
+      gas_tests:gas_tests (
+        id,
+        tester_id,
+        tested_at,
+        o2,
+        lel,
+        h2s,
+        co,
+        remarks,
+        status,
+        verified_by,
+        verified_at,
+        created_at,
+        tester:profiles!gas_tests_tester_id_fkey (
+          full_name
+        ),
+        verifier:profiles!gas_tests_verified_by_fkey (
+          full_name
+        )
+      ),
+
+      attachments:permit_attachments (
+        id,
+        permit_id,
+        uploaded_by,
+        filename,
+        storage_path,
+        content_type,
+        size_bytes,
+        created_at,
+        uploader:profiles!permit_attachments_uploaded_by_fkey (
+          full_name
+        )
       )
     `)
     .eq('id', id)
@@ -244,6 +336,23 @@ export default async function PermitDetailsPage({
 
   const isAssignedSupervisor =
     user?.id === permit.supervisor_id
+
+  // ---------------------------------------------------------
+  // Safety-document permissions (JHA / LOTO / gas testing)
+  // ---------------------------------------------------------
+
+  const canAddSafetyDocs =
+    permit.status === 'draft' ||
+    permit.status === 'pending_approval'
+
+  const canVerifySafetyDocs =
+    currentUserRole === 'admin' ||
+    currentUserRole === 'permit_issuer' ||
+    currentUserRole === 'safety' ||
+    currentUserRole === 'safety_manager' ||
+    currentUserRole === 'safety_coordinator' ||
+    currentUserRole === 'work_supervisor' ||
+    currentUserRole === 'supervisor'
 
   return (
     <DashboardShell>
@@ -364,6 +473,30 @@ export default async function PermitDetailsPage({
                 permitId={permit.id}
               />
             )}
+
+          <Link
+            href={`/permits/${permit.id}/print`}
+            target="_blank"
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Printer className="h-4 w-4" />
+            Print / PDF
+          </Link>
+
+          {(permit.status === 'draft' ||
+            permit.status === 'pending_approval' ||
+            permit.status === 'rejected' ||
+            permit.status === 'approved' ||
+            permit.status === 'issued') &&
+            (user?.id === permit.requester?.id ||
+              currentUserRole === 'admin' ||
+              currentUserRole === 'permit_issuer' ||
+              currentUserRole === 'safety_manager' ||
+              currentUserRole === 'safety_coordinator') && (
+              <CancelPermitButton
+                permitId={permit.id}
+              />
+            )}
         </div>
 
         {/* Workflow Information */}
@@ -432,6 +565,48 @@ export default async function PermitDetailsPage({
                 <InfoItem
                   label="Approved At"
                   value={formatDate(permit.approved_at)}
+                />
+              )}
+
+              {permit.completed_by && (
+                <InfoItem
+                  label="Completed By"
+                  value={permit.completed_by}
+                />
+              )}
+
+              {permit.completed_at && (
+                <InfoItem
+                  label="Completed At"
+                  value={formatDate(permit.completed_at)}
+                />
+              )}
+
+              {permit.closed_by && (
+                <InfoItem
+                  label="Closed By"
+                  value={permit.closed_by}
+                />
+              )}
+
+              {permit.closed_at && (
+                <InfoItem
+                  label="Closed At"
+                  value={formatDate(permit.closed_at)}
+                />
+              )}
+
+              {permit.cancelled_by && (
+                <InfoItem
+                  label="Cancelled By"
+                  value={permit.cancelled_by}
+                />
+              )}
+
+              {permit.cancelled_at && (
+                <InfoItem
+                  label="Cancelled At"
+                  value={formatDate(permit.cancelled_at)}
                 />
               )}
             </div>
@@ -566,6 +741,45 @@ export default async function PermitDetailsPage({
             )}
           </div>
         </section>
+
+        {/* JHA / JSA */}
+        <JhaSection
+          permitId={permit.id}
+          canAdd={canAddSafetyDocs}
+          canVerify={canVerifySafetyDocs}
+          initialJhas={permit.jhas ?? []}
+        />
+
+        {/* LOTO */}
+        <LotoSection
+          permitId={permit.id}
+          canAdd={canAddSafetyDocs}
+          canVerify={canVerifySafetyDocs}
+          initialPoints={permit.loto_points ?? []}
+        />
+
+        {/* Gas Testing */}
+        <GasTestSection
+          permitId={permit.id}
+          canAdd={canAddSafetyDocs}
+          canVerify={canVerifySafetyDocs}
+          initialTests={permit.gas_tests ?? []}
+        />
+
+        {/* Attachments */}
+        <AttachmentsSection
+          permitId={permit.id}
+          canUpload={
+            permit.status !== 'closed' &&
+            permit.status !== 'cancelled'
+          }
+          canDelete={
+            currentUserRole === 'admin' ||
+            currentUserRole === 'safety_manager' ||
+            currentUserRole === 'platform_admin'
+          }
+          initialAttachments={permit.attachments ?? []}
+        />
 
         {/* Supervisor Assignment - KEEP FOR NOW, WILL BE REMOVED LATER */}
         {currentUserRole === 'admin' &&

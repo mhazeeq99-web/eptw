@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { NotificationsBell } from './notifications-bell'
 
 export function Header() {
   const [fullName, setFullName] = useState('User')
@@ -44,13 +44,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button
-          type="button"
-          className="relative rounded-md p-2 hover:bg-muted"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        <NotificationsBell />
 
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">

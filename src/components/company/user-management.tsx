@@ -24,6 +24,28 @@ type CompanyUser = {
 type UserRole =
   | 'safety_coordinator'
   | 'work_supervisor'
+  | 'permit_issuer'
+  | 'safety'
+  | 'supervisor'
+  | 'requester'
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  safety_coordinator: 'Safety Coordinator',
+  work_supervisor: 'Work Supervisor',
+  permit_issuer: 'Permit Issuer',
+  safety: 'Safety Officer',
+  supervisor: 'Supervisor',
+  requester: 'Requester',
+}
+
+const ASSIGNABLE_ROLES: UserRole[] = [
+  'safety_coordinator',
+  'work_supervisor',
+  'permit_issuer',
+  'safety',
+  'supervisor',
+  'requester',
+]
 
 export function UserManagement() {
   const [users, setUsers] = useState<CompanyUser[]>([])
@@ -44,8 +66,6 @@ export function UserManagement() {
   const [saving, setSaving] = useState(false)
 
   async function loadUsers() {
-    setLoading(true)
-    setError('')
 
     try {
       const response = await fetch('/api/company/users')
@@ -194,6 +214,55 @@ export function UserManagement() {
       user.role === 'work_supervisor'
   )
 
+  const permitIssuers = users.filter(
+    (user) => user.role === 'permit_issuer'
+  )
+
+  const otherUsers = users.filter((user) =>
+    ['safety', 'supervisor', 'requester'].includes(
+      user.role
+    )
+  )
+
+  async function changeUserRole(
+    user: CompanyUser,
+    role: UserRole
+  ) {
+    setError('')
+
+    try {
+      const response = await fetch(
+        `/api/company/users/${user.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            is_active: user.is_active,
+            role,
+          }),
+        }
+      )
+
+      const body = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          body.error ?? 'Failed to update user role'
+        )
+      }
+
+      await loadUsers()
+    } catch (roleError) {
+      setError(
+        roleError instanceof Error
+          ? roleError.message
+          : 'Failed to update user role'
+      )
+    }
+  }
+
   return (
     <div className="space-y-6">
 
@@ -203,8 +272,7 @@ export function UserManagement() {
         </h1>
 
         <p className="mt-2 text-muted-foreground">
-          Manage Safety Coordinators and Work Supervisors
-          for your company.
+          Manage company users, roles and access.
         </p>
       </div>
 
@@ -230,6 +298,7 @@ export function UserManagement() {
               openAddForm('safety_coordinator')
             }
             onToggleStatus={toggleUserStatus}
+            onRoleChange={changeUserRole}
           />
 
           <UserSection
@@ -241,6 +310,29 @@ export function UserManagement() {
               openAddForm('work_supervisor')
             }
             onToggleStatus={toggleUserStatus}
+            onRoleChange={changeUserRole}
+          />
+
+          <UserSection
+            title="Permit Issuers"
+            description="Personnel who can issue, start, suspend, resume, complete and close permits."
+            icon={ShieldCheck}
+            users={permitIssuers}
+            onAdd={() =>
+              openAddForm('permit_issuer')
+            }
+            onToggleStatus={toggleUserStatus}
+            onRoleChange={changeUserRole}
+          />
+
+          <UserSection
+            title="Other Roles"
+            description="Safety officers, supervisors and requesters."
+            icon={UserRound}
+            users={otherUsers}
+            onAdd={() => openAddForm('safety')}
+            onToggleStatus={toggleUserStatus}
+            onRoleChange={changeUserRole}
           />
 
         </div>
@@ -253,11 +345,7 @@ export function UserManagement() {
 
             <div className="mb-6">
               <h2 className="text-xl font-semibold">
-                Add{' '}
-                {selectedRole ===
-                'safety_coordinator'
-                  ? 'Safety Coordinator'
-                  : 'Work Supervisor'}
+                Add {ROLE_LABELS[selectedRole]}
               </h2>
 
               <p className="mt-1 text-sm text-muted-foreground">
@@ -371,10 +459,7 @@ export function UserManagement() {
                 </p>
 
                 <p className="mt-1 text-sm font-medium">
-                  {selectedRole ===
-                  'safety_coordinator'
-                    ? 'Safety Coordinator'
-                    : 'Work Supervisor'}
+                  {ROLE_LABELS[selectedRole]}
                 </p>
               </div>
 
@@ -417,14 +502,19 @@ function UserSection({
   icon: Icon,
   users,
   onAdd,
-  onToggleStatus, // ADD THIS PARAMETER
+  onToggleStatus,
+  onRoleChange,
 }: {
   title: string
   description: string
   icon: React.ElementType
   users: CompanyUser[]
   onAdd: () => void
-  onToggleStatus: (user: CompanyUser) => void // ADD THIS TYPE
+  onToggleStatus: (user: CompanyUser) => void
+  onRoleChange: (
+    user: CompanyUser,
+    role: UserRole
+  ) => void
 }) {
   return (
     <section className="overflow-hidden rounded-xl border bg-background">
@@ -494,6 +584,10 @@ function UserSection({
                 </th>
 
                 <th className="px-5 py-3 text-left font-medium">
+                  Role
+                </th>
+
+                <th className="px-5 py-3 text-left font-medium">
                   Status
                 </th>
 
@@ -534,6 +628,31 @@ function UserSection({
 
                   <td className="px-5 py-4">
                     {user.position ?? '—'}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <select
+                      value={user.role}
+                      onChange={(event) =>
+                        onRoleChange(
+                          user,
+                          event.target
+                            .value as UserRole
+                        )
+                      }
+                      className="rounded-md border bg-background px-2 py-1.5 text-xs"
+                    >
+                      {ASSIGNABLE_ROLES.map(
+                        (role) => (
+                          <option
+                            key={role}
+                            value={role}
+                          >
+                            {ROLE_LABELS[role]}
+                          </option>
+                        )
+                      )}
+                    </select>
                   </td>
 
                   <td className="px-5 py-4">

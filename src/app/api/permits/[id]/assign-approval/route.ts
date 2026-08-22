@@ -195,6 +195,14 @@ export async function POST(
       'Failed to record assignment history:',
       historyError
     )
+
+    return NextResponse.json(
+      {
+        error:
+          'Supervisor was assigned, but audit history could not be recorded. Please contact support.',
+      },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({

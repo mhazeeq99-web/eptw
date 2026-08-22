@@ -254,6 +254,14 @@ export async function POST(
       'Failed to record contractor handoff history:',
       historyError
     )
+
+    return NextResponse.json(
+      {
+        error:
+          'PTW was sent to the contractor, but audit history could not be recorded. Please contact support.',
+      },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({

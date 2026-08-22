@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { notifyPermitEvent } from '@/lib/notifications'
 
 export async function POST(
   request: Request,
@@ -287,7 +288,26 @@ export async function POST(
         'Failed to create contractor submission history:',
         historyError
       )
+
+      return NextResponse.json(
+        {
+          error:
+            'Permit was submitted, but audit history could not be recorded. Please contact support.',
+        },
+        { status: 500 }
+      )
     }
+
+    await notifyPermitEvent(supabase, {
+      permit: {
+        id: permit.id,
+        permit_no: permit.permit_no,
+        company_id: permit.company_id,
+        requester_id: permit.requester_id,
+      },
+      event: 'permit_submitted',
+      actorId: user.id,
+    })
 
     return NextResponse.json({
       success: true,
@@ -381,7 +401,26 @@ export async function POST(
         'Failed to create submission history:',
         historyError
       )
+
+      return NextResponse.json(
+        {
+          error:
+            'Permit was submitted, but audit history could not be recorded. Please contact support.',
+        },
+        { status: 500 }
+      )
     }
+
+    await notifyPermitEvent(supabase, {
+      permit: {
+        id: permit.id,
+        permit_no: permit.permit_no,
+        company_id: permit.company_id,
+        requester_id: permit.requester_id,
+      },
+      event: 'permit_submitted',
+      actorId: user.id,
+    })
 
     return NextResponse.json({
       success: true,

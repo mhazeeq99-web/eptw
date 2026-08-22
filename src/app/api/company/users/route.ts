@@ -9,8 +9,25 @@ type CreateUserBody = {
   phone?: string
   department?: string
   position?: string
-  role?: 'safety_coordinator' | 'work_supervisor'
+  role?:
+    | 'safety_coordinator'
+    | 'work_supervisor'
+    | 'permit_issuer'
+    | 'safety'
+    | 'supervisor'
+    | 'requester'
 }
+
+const MANAGER_ROLES = ['safety_manager', 'admin']
+
+const ASSIGNABLE_ROLES = [
+  'safety_coordinator',
+  'work_supervisor',
+  'permit_issuer',
+  'safety',
+  'supervisor',
+  'requester',
+]
 
 // ADD THIS GET FUNCTION
 export async function GET() {
@@ -43,11 +60,11 @@ export async function GET() {
       )
     }
 
-    if (profile.role !== 'safety_manager') {
+    if (!MANAGER_ROLES.includes(profile.role)) {
       return NextResponse.json(
         {
           error:
-            'Only Safety Manager can manage company users',
+            'Only Safety Manager or Admin can manage company users',
         },
         { status: 403 }
       )
@@ -73,6 +90,10 @@ export async function GET() {
           'safety_manager',
           'safety_coordinator',
           'work_supervisor',
+          'permit_issuer',
+          'safety',
+          'supervisor',
+          'requester',
         ])
         .order('created_at', {
           ascending: true,
@@ -143,12 +164,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Only Safety Manager can create company users
-    if (profile.role !== 'safety_manager') {
+    // Only Safety Manager / Admin can create company users
+    if (!MANAGER_ROLES.includes(profile.role)) {
       return NextResponse.json(
         {
           error:
-            'Only Safety Manager can create company users',
+            'Only Safety Manager or Admin can create company users',
         },
         { status: 403 }
       )
@@ -178,10 +199,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (
-      role !== 'safety_coordinator' &&
-      role !== 'work_supervisor'
-    ) {
+    if (!ASSIGNABLE_ROLES.includes(role)) {
       return NextResponse.json(
         { error: 'Invalid user role' },
         { status: 400 }

@@ -38,7 +38,7 @@ export async function PATCH(
   const { data: profile, error: profileError } =
     await supabase
       .from('profiles')
-      .select('role')
+      .select('role, company_id')
       .eq('id', user.id)
       .single()
 
@@ -54,6 +54,9 @@ export async function PATCH(
     'permit_issuer',
     'safety',
     'supervisor',
+    'safety_manager',
+    'safety_coordinator',
+    'work_supervisor',
   ]
 
   if (!allowedRoles.includes(profile.role)) {
@@ -64,6 +67,43 @@ export async function PATCH(
       },
       { status: 403 }
     )
+  }
+
+  // ---------------------------------------------------------
+  // 2b. Verify permit belongs to the user's company
+  // ---------------------------------------------------------
+
+  const permitId = Number(id)
+
+  if (Number.isInteger(permitId) && permitId > 0) {
+    const { data: permit, error: permitError } =
+      await supabase
+        .from('permits')
+        .select('id, company_id')
+        .eq('id', permitId)
+        .single()
+
+    if (permitError || !permit) {
+      return NextResponse.json(
+        { error: 'Permit not found' },
+        { status: 404 }
+      )
+    }
+
+    if (profile.role !== 'platform_admin') {
+      if (
+        !profile.company_id ||
+        permit.company_id !== profile.company_id
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'You can only verify safety controls for permits in your own company',
+          },
+          { status: 403 }
+        )
+      }
+    }
   }
 
   // ---------------------------------------------------------
@@ -89,7 +129,6 @@ export async function PATCH(
   // 4. Validate IDs
   // ---------------------------------------------------------
 
-  const permitId = Number(id)
   const safetyControlId = Number(controlId)
 
   if (

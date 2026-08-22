@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { syncPermitSafetyControls } from '@/lib/safety-controls'
 
 export async function PATCH(
   request: Request,
@@ -64,6 +65,7 @@ export async function PATCH(
         id,
         permit_no,
         requester_id,
+        permit_type_id,
         status
       `)
       .eq('id', id)
@@ -242,6 +244,51 @@ export async function PATCH(
       console.error(
         'Failed to record revision history:',
         historyError
+      )
+
+      return NextResponse.json(
+        {
+          error:
+            'Permit was updated, but revision history could not be recorded. Please contact support.',
+        },
+        { status: 500 }
+      )
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 10b. Resynchronize required safety controls when the
+  //      permit type changes
+  // ---------------------------------------------------------
+
+  if (
+    permit.permit_type_id &&
+    Number(body.permit_type_id) !== permit.permit_type_id
+  ) {
+    const syncResult = await syncPermitSafetyControls(
+      supabase,
+      permit.id
+    )
+
+    if (syncResult.error) {
+      console.error(
+        'Failed to resynchronize safety controls:',
+        syncResult.error
+      )
+
+      return NextResponse.json(
+        {
+          error:
+            'Permit was updated, but safety requirements could not be synchronized. Please contact support.',
+        },
+        { status: 500 }
+      )
+    }
+
+    if (!syncResult.applied) {
+      console.warn(
+        'sync_permit_safety_controls RPC not found; safety controls were not resynchronized for permit',
+        permit.id
       )
     }
   }

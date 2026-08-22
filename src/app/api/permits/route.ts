@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { syncPermitSafetyControls } from '@/lib/safety-controls'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -374,6 +375,37 @@ export async function POST(request: Request) {
           'Unable to create permit',
       },
       { status: 500 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 8b. Synchronize required safety controls for this permit
+  // ---------------------------------------------------------
+
+  const syncResult = await syncPermitSafetyControls(
+    supabase,
+    permit.id
+  )
+
+  if (syncResult.error) {
+    console.error(
+      'Failed to synchronize safety controls:',
+      syncResult.error
+    )
+
+    return NextResponse.json(
+      {
+        error:
+          'Permit was created, but safety requirements could not be synchronized. Please contact support.',
+      },
+      { status: 500 }
+    )
+  }
+
+  if (!syncResult.applied) {
+    console.warn(
+      'sync_permit_safety_controls RPC not found; relying on database trigger for permit',
+      permit.id
     )
   }
 

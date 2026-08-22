@@ -1,37 +1,279 @@
+import Link from 'next/link'
+import {
+  FileText,
+  ClipboardList,
+  PlayCircle,
+  PauseCircle,
+  CheckCircle2,
+  Archive,
+  XCircle,
+} from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
+import { createClient } from '@/lib/supabase/server'
 
-export default function DashboardPage() {
+type PermitRow = {
+  id: number
+  permit_no: string
+  work_title: string
+  status: string
+  planned_start: string | null
+  permit_type: {
+    name: string
+  } | null
+  requester: {
+    full_name: string
+  } | null
+}
+
+const STATUS_ORDER = [
+  'draft',
+  'pending_approval',
+  'active',
+  'suspended',
+  'completed',
+  'closed',
+  'rejected',
+  'cancelled',
+]
+
+export default async function DashboardPage() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, role, company_id, full_name')
+    .eq('id', user.id)
+    .single()
+
+  // Scope: company users see their company's permits; contractor
+  // users (no company) see the permits they requested.
+  let query = supabase
+    .from('permits')
+    .select(`
+      id,
+      permit_no,
+      work_title,
+      status,
+      planned_start,
+
+      permit_type:permit_types!permits_permit_type_id_fkey (
+        name
+      ),
+
+      requester:profiles!permits_requester_id_fkey (
+        full_name
+      )
+    `)
+
+  if (profile?.company_id) {
+    query = query.eq('company_id', profile.company_id)
+  } else {
+    query = query.eq('requester_id', user.id)
+  }
+
+  const { data: permits, error } = await query
+
+  if (error) {
+    console.error('Failed to load dashboard permits:', error)
+  }
+
+  const rows = (permits ?? []) as unknown as PermitRow[]
+
+  const counts: Record<string, number> = {}
+
+  for (const status of STATUS_ORDER) {
+    counts[status] = rows.filter(
+      (permit) => permit.status === status
+    ).length
+  }
+
+  const recentPermits = [...rows]
+    .sort(
+      (a, b) =>
+        new Date(b.planned_start ?? 0).getTime() -
+        new Date(a.planned_start ?? 0).getTime()
+    )
+    .slice(0, 5)
+
   return (
     <DashboardShell>
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Dashboard
-        </h1>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Dashboard
+          </h1>
 
-        <p className="mt-2 text-muted-foreground">
-          Overview of your permit-to-work activity.
-        </p>
+          <p className="mt-2 text-muted-foreground">
+            Overview of your permit-to-work activity.
+          </p>
+        </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Status counts */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <DashboardCard
-            title="Active Permits"
-            value="0"
+            title="Draft"
+            value={counts.draft ?? 0}
+            href="/permits?status=draft"
+            icon={<FileText className="h-4 w-4" />}
+            tone="muted"
           />
 
           <DashboardCard
             title="Pending Approval"
-            value="0"
+            value={counts.pending_approval ?? 0}
+            href="/permits?status=pending_approval"
+            icon={<ClipboardList className="h-4 w-4" />}
+            tone="yellow"
           />
 
           <DashboardCard
-            title="Completed Today"
-            value="0"
+            title="Active"
+            value={counts.active ?? 0}
+            href="/permits?status=active"
+            icon={<PlayCircle className="h-4 w-4" />}
+            tone="green"
           />
 
           <DashboardCard
-            title="Expired"
-            value="0"
+            title="Suspended"
+            value={counts.suspended ?? 0}
+            href="/permits?status=suspended"
+            icon={<PauseCircle className="h-4 w-4" />}
+            tone="orange"
           />
+
+          <DashboardCard
+            title="Completed"
+            value={counts.completed ?? 0}
+            href="/permits?status=completed"
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            tone="gray"
+          />
+
+          <DashboardCard
+            title="Closed"
+            value={counts.closed ?? 0}
+            href="/permits?status=closed"
+            icon={<Archive className="h-4 w-4" />}
+            tone="gray"
+          />
+
+          <DashboardCard
+            title="Rejected"
+            value={counts.rejected ?? 0}
+            href="/permits?status=rejected"
+            icon={<XCircle className="h-4 w-4" />}
+            tone="red"
+          />
+
+          <DashboardCard
+            title="Cancelled"
+            value={counts.cancelled ?? 0}
+            href="/permits?status=cancelled"
+            icon={<XCircle className="h-4 w-4" />}
+            tone="red"
+          />
+        </div>
+
+        {/* Recent permits */}
+        <div className="overflow-hidden rounded-xl border bg-background">
+          <div className="flex items-center justify-between border-b px-6 py-4">
+            <h2 className="font-semibold">Recent Permits</h2>
+
+            <Link
+              href="/permits"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+
+          {recentPermits.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <FileText className="h-10 w-10 text-muted-foreground" />
+
+              <h3 className="mt-4 font-semibold">
+                No permits yet
+              </h3>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Create your first permit-to-work application.
+              </p>
+
+              <Link
+                href="/permits/new"
+                className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Create Permit
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-medium">
+                      Permit
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium">
+                      Work
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium">
+                      Requester
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y">
+                  {recentPermits.map((permit) => (
+                    <tr
+                      key={permit.id}
+                      className="hover:bg-muted/40"
+                    >
+                      <td className="px-6 py-4">
+                        <Link
+                          href={`/permits/${permit.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {permit.permit_no}
+                        </Link>
+                      </td>
+
+                      <td className="px-6 py-4 font-medium">
+                        {permit.work_title}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {permit.permit_type?.name ?? '—'}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {permit.requester?.full_name ?? '—'}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <StatusBadge status={permit.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </DashboardShell>
@@ -41,19 +283,78 @@ export default function DashboardPage() {
 function DashboardCard({
   title,
   value,
+  href,
+  icon,
+  tone,
 }: {
   title: string
-  value: string
+  value: number
+  href: string
+  icon: React.ReactNode
+  tone: 'muted' | 'yellow' | 'green' | 'orange' | 'gray' | 'red'
 }) {
+  const tones: Record<typeof tone, string> = {
+    muted: 'bg-muted/40 text-muted-foreground',
+    yellow:
+      'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+    green:
+      'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
+    orange:
+      'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
+    gray: 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300',
+    red: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+  }
+
   return (
-    <div className="rounded-xl border bg-background p-5 shadow-sm">
-      <p className="text-sm text-muted-foreground">
-        {title}
-      </p>
+    <Link
+      href={href}
+      className="rounded-xl border bg-background p-5 shadow-sm transition-colors hover:bg-muted/40"
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {title}
+        </p>
+
+        <span
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${tones[tone]}`}
+        >
+          {icon}
+        </span>
+      </div>
 
       <p className="mt-2 text-3xl font-bold">
         {value}
       </p>
-    </div>
+    </Link>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    draft: 'bg-muted text-muted-foreground',
+    submitted: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+    pending_approval:
+      'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+    approved: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
+    issued: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
+    active: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
+    suspended:
+      'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
+    completed:
+      'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300',
+    closed: 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300',
+    rejected: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+    cancelled: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+    expired: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+  }
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
+        styles[status] ?? 'bg-muted text-muted-foreground'
+      }`}
+    >
+      {status.replaceAll('_', ' ')}
+    </span>
   )
 }

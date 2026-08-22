@@ -2,6 +2,17 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const MANAGER_ROLES = ['safety_manager', 'admin']
+
+const MANAGEABLE_ROLES = [
+  'safety_coordinator',
+  'work_supervisor',
+  'permit_issuer',
+  'safety',
+  'supervisor',
+  'requester',
+]
+
 type RouteContext = {
   params: Promise<{
     id: string
@@ -41,11 +52,11 @@ export async function PATCH(
       )
     }
 
-    if (profile.role !== 'safety_manager') {
+    if (!MANAGER_ROLES.includes(profile.role)) {
       return NextResponse.json(
         {
           error:
-            'Only Safety Manager can manage company users',
+            'Only Safety Manager or Admin can manage company users',
         },
         { status: 403 }
       )
@@ -93,22 +104,19 @@ export async function PATCH(
       )
     }
 
-    // Safety Manager cannot deactivate themselves.
+    // Managers cannot modify their own account through this route.
     if (targetUser.id === user.id) {
       return NextResponse.json(
         {
           error:
-            'Safety Manager cannot deactivate their own account',
+            'You cannot modify your own account here',
         },
         { status: 400 }
       )
     }
 
     // Only company-managed roles can be changed here.
-    if (
-      targetUser.role !== 'safety_coordinator' &&
-      targetUser.role !== 'work_supervisor'
-    ) {
+    if (!MANAGEABLE_ROLES.includes(targetUser.role)) {
       return NextResponse.json(
         { error: 'This user cannot be managed here' },
         { status: 400 }
@@ -127,14 +135,34 @@ export async function PATCH(
       )
     }
 
+    // Optional role change (validated against assignable roles).
+    let nextRole: string | null = null
+
+    if (body.role !== undefined && body.role !== null) {
+      if (!MANAGEABLE_ROLES.includes(body.role)) {
+        return NextResponse.json(
+          { error: 'Invalid user role' },
+          { status: 400 }
+        )
+      }
+
+      nextRole = body.role
+    }
+
     const admin = createAdminClient()
+
+    const updatePayload: Record<string, unknown> = {
+      is_active: body.is_active,
+    }
+
+    if (nextRole) {
+      updatePayload.role = nextRole
+    }
 
     const { data: updatedUser, error: updateError } =
       await admin
         .from('profiles')
-        .update({
-          is_active: body.is_active,
-        })
+        .update(updatePayload)
         .eq('id', targetUserId)
         .eq('company_id', profile.company_id)
         .select(`

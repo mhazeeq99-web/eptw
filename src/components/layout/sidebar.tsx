@@ -11,8 +11,6 @@ import {
   Wrench,
   MapPin,
   ShieldCheck,
-  LockKeyhole,
-  Gauge,
   Settings,
 } from 'lucide-react'
 
@@ -60,27 +58,8 @@ const management = [
   },
 ]
 
-const safety = [
-  {
-    label: 'JSA / JHA',
-    href: '/safety/jha',
-    icon: ClipboardCheck,
-  },
-  {
-    label: 'LOTO',
-    href: '/safety/loto',
-    icon: LockKeyhole,
-  },
-  {
-    label: 'Gas Testing',
-    href: '/safety/gas-testing',
-    icon: Gauge,
-  },
-]
-
 export function Sidebar() {
-  const [isSafetyManager, setIsSafetyManager] =
-    useState(false)
+  const [isManager, setIsManager] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -98,15 +77,18 @@ export function Sidebar() {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role === 'safety_manager') {
-        setIsSafetyManager(true)
+      if (
+        profile?.role === 'safety_manager' ||
+        profile?.role === 'admin'
+      ) {
+        setIsManager(true)
       }
     }
 
     loadRole()
   }, [])
 
-  const managementItems = isSafetyManager
+  const managementItems = isManager
     ? [
         {
           label: 'Contractors',
@@ -156,14 +138,6 @@ export function Sidebar() {
           </p>
 
           <NavigationSection items={managementItems} />
-        </div>
-
-        <div>
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Safety
-          </p>
-
-          <NavigationSection items={safety} />
         </div>
 
       </nav>

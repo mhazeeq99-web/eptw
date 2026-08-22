@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { notifyPermitEvent } from '@/lib/notifications'
 
 export async function POST(
   request: Request,
@@ -116,6 +117,8 @@ export async function POST(
     .select(`
       id,
       permit_no,
+      company_id,
+      requester_id,
       status
     `)
     .eq('id', id)
@@ -153,6 +156,8 @@ export async function POST(
     .from('permits')
     .update({
       status: 'closed',
+      closed_by: user.id,
+      closed_at: new Date().toISOString(),
     })
     .eq('id', id)
     .eq('status', 'completed')
@@ -197,14 +202,22 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          `Permit was closed, but audit history could not be recorded: ${historyError.message}`,
-        code: historyError.code,
-        details: historyError.details,
-        hint: historyError.hint,
+          'Permit was closed, but audit history could not be recorded. Please contact support.',
       },
       { status: 500 }
     )
   }
+
+  await notifyPermitEvent(supabase, {
+    permit: {
+      id: permit.id,
+      permit_no: permit.permit_no,
+      company_id: permit.company_id,
+      requester_id: permit.requester_id,
+    },
+    event: 'permit_closed',
+    actorId: user.id,
+  })
 
   // ---------------------------------------------------------
   // 9. Return success

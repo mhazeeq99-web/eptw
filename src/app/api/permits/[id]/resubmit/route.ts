@@ -252,10 +252,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          `Permit was moved to pending approval, but audit history failed: ${historyError.message}`,
-        code: historyError.code,
-        details: historyError.details,
-        hint: historyError.hint,
+          'Permit was moved to pending approval, but audit history could not be recorded. Please contact support.',
       },
       { status: 500 }
     )
