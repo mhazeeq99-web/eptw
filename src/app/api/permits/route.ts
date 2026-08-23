@@ -355,11 +355,18 @@ export async function POST(request: Request) {
       planned_end:
         body.planned_end || null,
       status: 'draft',
+      // The workflow dispatcher in the submit route branches on this
+      // field: internal users submit through safety review, contractor
+      // users submit directly.
+      initiation_mode: contractorId
+        ? 'contractor_direct'
+        : 'internal',
     })
     .select(`
       id,
       permit_no,
-      status
+      status,
+      initiation_mode
     `)
     .single()
 

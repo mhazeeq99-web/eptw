@@ -960,3 +960,122 @@ CREATE POLICY "notification_preferences_insert" ON public.notification_preferenc
 DROP POLICY IF EXISTS "notification_preferences_update" ON public.notification_preferences;
 CREATE POLICY "notification_preferences_update" ON public.notification_preferences
   FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- ----------------------------------------------------------------------------
+-- 10. Final QA fixes (applied to the live project)
+-- ----------------------------------------------------------------------------
+
+-- 10.1 permits.initiation_mode defaults to 'internal' so drafts created by
+--      the application (or seeded directly) always have a workflow.
+ALTER TABLE public.permits
+  ALTER COLUMN initiation_mode SET DEFAULT 'internal';
+
+-- 10.3 permits: safety coordinators/managers may transition a safety-stage
+--      permit to ACTIVE (approve & issue) or REJECTED (reject). The original
+--      policy only allowed ACTIVE, which blocked the commercial reject flow.
+DROP POLICY IF EXISTS "Safety coordinators and managers can review safety permits"
+  ON public.permits;
+
+CREATE POLICY "Safety coordinators and managers can review safety permits"
+  ON public.permits
+  FOR UPDATE
+  USING (
+    (company_id = get_my_company_id())
+    AND (get_my_role() = ANY (ARRAY[
+      'safety_coordinator'::user_role,
+      'safety_manager'::user_role
+    ]))
+    AND (status = 'pending_approval'::permit_status)
+    AND (workflow_stage = 'safety_approval'::text)
+  )
+  WITH CHECK (
+    (company_id = get_my_company_id())
+    AND (get_my_role() = ANY (ARRAY[
+      'safety_coordinator'::user_role,
+      'safety_manager'::user_role
+    ]))
+    AND (
+      (status = 'active'::permit_status AND workflow_stage = 'active'::text)
+      OR (status = 'rejected'::permit_status)
+    )
+  );
+
+-- 10.2 permit_safety_controls: the original policies only allowed
+--      admin/permit_issuer/safety/supervisor. Safety Coordinators and Safety
+--      Managers must be able to view and verify controls to perform their
+--      commercial approval role. Same-company restriction is preserved.
+DROP POLICY IF EXISTS "Authorized users can verify company permit safety controls"
+  ON public.permit_safety_controls;
+DROP POLICY IF EXISTS "Users can view company permit safety controls"
+  ON public.permit_safety_controls;
+
+CREATE POLICY "Users can view company permit safety controls"
+  ON public.permit_safety_controls
+  FOR SELECT
+  USING (
+    is_platform_admin()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.permits p
+        WHERE p.id = permit_safety_controls.permit_id
+          AND p.company_id = get_my_company_id()
+          AND (
+            p.requester_id = auth.uid()
+            OR p.supervisor_id = auth.uid()
+            OR p.permit_issuer_id = auth.uid()
+            OR p.safety_reviewer_id = auth.uid()
+            OR get_my_role() = ANY (ARRAY[
+              'admin'::user_role,
+              'permit_issuer'::user_role,
+              'safety'::user_role,
+              'supervisor'::user_role,
+              'safety_manager'::user_role,
+              'safety_coordinator'::user_role,
+              'work_supervisor'::user_role
+            ])
+          )
+      )
+    )
+  );
+
+CREATE POLICY "Authorized users can verify company permit safety controls"
+  ON public.permit_safety_controls
+  FOR UPDATE
+  USING (
+    is_platform_admin()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.permits p
+        WHERE p.id = permit_safety_controls.permit_id
+          AND p.company_id = get_my_company_id()
+      )
+      AND get_my_role() = ANY (ARRAY[
+        'admin'::user_role,
+        'permit_issuer'::user_role,
+        'safety'::user_role,
+        'supervisor'::user_role,
+        'safety_manager'::user_role,
+        'safety_coordinator'::user_role,
+        'work_supervisor'::user_role
+      ])
+    )
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR (
+      EXISTS (
+        SELECT 1 FROM public.permits p
+        WHERE p.id = permit_safety_controls.permit_id
+          AND p.company_id = get_my_company_id()
+      )
+      AND get_my_role() = ANY (ARRAY[
+        'admin'::user_role,
+        'permit_issuer'::user_role,
+        'safety'::user_role,
+        'supervisor'::user_role,
+        'safety_manager'::user_role,
+        'safety_coordinator'::user_role,
+        'work_supervisor'::user_role
+      ])
+    )
+  );

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { CheckCircle, FileText } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
+import { resolvePermitScope } from '@/lib/permit-scope'
 
 type Permit = {
   id: number
@@ -34,7 +35,11 @@ export default async function ApprovalQueuePage() {
     return null
   }
 
-  const { data: permits, error } = await supabase
+  const scope = await resolvePermitScope(supabase, user)
+
+  if (!scope) return null
+
+  let query = supabase
     .from('permits')
     .select(`
       id,
@@ -58,11 +63,20 @@ export default async function ApprovalQueuePage() {
         department
       )
     `)
-    .eq('supervisor_id', user.id)
     .eq('status', 'pending_approval')
-    .order('created_at', {
-      ascending: false,
-    })
+    .eq('workflow_stage', 'safety_approval')
+
+  if (!scope.isPlatformAdmin) {
+    if (scope.companyId !== null) {
+      query = query.eq('company_id', scope.companyId)
+    } else if (scope.contractorId !== null) {
+      query = query.eq('contractor_id', scope.contractorId)
+    }
+  }
+
+  const { data: permits, error } = await query.order('created_at', {
+    ascending: false,
+  })
 
   if (error) {
     console.error(
@@ -84,7 +98,15 @@ export default async function ApprovalQueuePage() {
           </h1>
 
           <p className="mt-2 text-muted-foreground">
-            Permits requiring your review and approval.
+            Permits awaiting safety approval.
+            {scope.profile.role === 'safety_coordinator' ||
+            scope.profile.role === 'safety_manager' ||
+            scope.profile.role === 'admin' ? (
+              <span className="mt-1 block">
+                You can approve or reject these permits from their
+                detail page.
+              </span>
+            ) : null}
           </p>
         </div>
 
@@ -100,7 +122,8 @@ export default async function ApprovalQueuePage() {
               </h2>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                There are currently no permits waiting for your review.
+                There are currently no permits waiting for safety
+                approval.
               </p>
 
             </div>
@@ -126,6 +149,10 @@ export default async function ApprovalQueuePage() {
 
                     <th className="px-6 py-3 text-left font-medium">
                       Type
+                    </th>
+
+                    <th className="px-6 py-3 text-left font-medium">
+                      Area
                     </th>
 
                     <th className="px-6 py-3 text-left font-medium">
@@ -178,6 +205,10 @@ export default async function ApprovalQueuePage() {
 
                       <td className="px-6 py-4">
                         {permit.permit_type?.name ?? '—'}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {permit.area?.name ?? '—'}
                       </td>
 
                       <td className="px-6 py-4">

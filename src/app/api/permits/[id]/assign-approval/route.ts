@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// DEPRECATED (legacy supervisor workflow)
+// The commercial workflow approves via the Safety Coordinator / Safety
+// Manager (approve-and-issue). This route is retained only for permits
+// already in the legacy state; it is not reachable from the current UI.
+
 export async function POST(
   request: Request,
   {

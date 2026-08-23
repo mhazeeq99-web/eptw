@@ -87,72 +87,13 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 5. A supervisor must already be assigned
+  // 5. (Legacy supervisor checks removed — the commercial safety
+  //    workflow does not assign supervisors; rejection returns the
+  //    permit directly to safety review.)
   // ---------------------------------------------------------
 
-  if (!permit.supervisor_id) {
-    return NextResponse.json(
-      {
-        error:
-          'This permit has no assigned supervisor. Please contact an administrator.',
-      },
-      { status: 400 }
-    )
-  }
-
   // ---------------------------------------------------------
-  // 6. Verify assigned supervisor is still active
-  // ---------------------------------------------------------
-
-  const {
-    data: supervisor,
-    error: supervisorError,
-  } = await supabase
-    .from('profiles')
-    .select(`
-      id,
-      full_name,
-      role,
-      is_active
-    `)
-    .eq('id', permit.supervisor_id)
-    .single()
-
-  if (supervisorError || !supervisor) {
-    return NextResponse.json(
-      {
-        error:
-          'The assigned supervisor could not be found.',
-      },
-      { status: 400 }
-    )
-  }
-
-  if (!supervisor.is_active) {
-    return NextResponse.json(
-      {
-        error:
-          'The assigned supervisor is inactive. Please contact an administrator.',
-      },
-      { status: 400 }
-    )
-  }
-
-  if (
-    supervisor.role !== 'supervisor' &&
-    supervisor.role !== 'admin'
-  ) {
-    return NextResponse.json(
-      {
-        error:
-          'The assigned reviewer no longer has supervisor permission.',
-      },
-      { status: 400 }
-    )
-  }
-
-  // ---------------------------------------------------------
-  // 7. Validate required fields
+  // 6. Validate required fields
   // ---------------------------------------------------------
 
   if (!permit.permit_type_id) {
@@ -205,6 +146,7 @@ export async function POST(
     .from('permits')
     .update({
       status: 'pending_approval',
+      workflow_stage: 'safety_approval',
     })
     .eq('id', id)
     .eq('requester_id', user.id)
@@ -213,7 +155,7 @@ export async function POST(
       id,
       permit_no,
       status,
-      supervisor_id
+      workflow_stage
     `)
     .single()
 
@@ -240,7 +182,7 @@ export async function POST(
         action: 'resubmitted',
         performed_by: user.id,
         remarks:
-          `Permit resubmitted to ${supervisor.full_name} for review.`,
+          'Permit resubmitted for safety approval',
       })
 
   if (historyError) {

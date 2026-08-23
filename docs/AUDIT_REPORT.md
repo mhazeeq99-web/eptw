@@ -102,3 +102,69 @@
 ~95%. All 20 audit areas are implemented or verified; the remaining 5%
 is production hardening (email provider wiring, scheduled expiry checks,
 full automated UI test coverage).
+
+---
+
+# Final QA / Commercial Hardening Results
+
+## Approval flow decision
+The legacy supervisor review chain (`assign-approval`, `review`, `issue`, `start`)
+is **deprecated** — the supervisor-assignment UI was removed from the permit detail
+page and the routes are no longer reachable from the UI (kept only for permits
+already in the legacy state). The single commercial workflow is:
+
+DRAFT → submit → PENDING_APPROVAL + SAFETY_APPROVAL → Safety Coordinator/Manager →
+Approve & Issue (or Reject) → ACTIVE (or REJECTED → revise/resubmit).
+
+The Approval Queue page now lists the company's safety-stage permits instead of
+supervisor-scoped items, making the workflow obvious. Resubmit no longer depends on
+the removed supervisor assignment.
+
+## Live QA test results (real users, real API, against the live Supabase)
+52 automated checks executed against the running app + database:
+
+- Test A — full happy path (create → submit → JHA → controls → approve → suspend →
+  resume → complete → close): 30/30 PASS, audit trail exactly
+  `submitted, approved, issued, suspended, resumed, completed, closed`.
+- Test B — reject + resubmit: 9/9 PASS (`rejected` + rejection_reason persisted;
+  resubmit → `pending_approval` + `safety_approval`; history `submitted, rejected,
+  resubmitted`).
+- Test C — role + cross-company restrictions: 7/7 PASS (cross-company approve hidden
+  as 404, contractor/requester denials 403, cross-company user management denied,
+  manager lists own users only).
+- Test D — expiry sweep + dedup: 3/3 PASS (expiring-soon notifications created,
+  repeat dashboard visits do not duplicate them).
+- Test E — storage security: 3/3 PASS (company A cannot read company B attachment,
+  company B can, unauthenticated denied; bucket remains private).
+
+## Bugs found and fixed during QA
+1. **New permits could not be submitted** — the create route never set
+   `initiation_mode` (null), so the submit workflow had no branch to follow.
+   Fixed in the route (`internal` / `contractor_direct`) and a DB default
+   `'internal'` was added (migration section 10.1, applied live).
+2. **Safety Coordinators/Managers could never approve** — the pre-existing
+   `permit_safety_controls` policies excluded those roles from SELECT/UPDATE, so
+   approve-and-issue always failed with "no safety controls configured". Policies
+   refreshed to include safety roles (same-company restriction preserved).
+3. **Safety reject was impossible** — the pre-existing `permits` UPDATE policy for
+   safety roles only allowed the `active` outcome. Extended to also allow
+   `rejected` (still same-company, pending_approval + safety_approval only).
+
+All three fixes are in the migration (section 10, idempotent) and applied live.
+
+## Expiry handling
+Badges (Active / Expiring Soon / Expired) verified on lists and dashboard;
+expiring-soon notifications are created on dashboard visits with per-permit
+deduplication. Scheduler/background execution is documented as a production
+deployment task — not built in.
+
+## Email
+SMTP stays optional (SMTP_* env vars). Without them, emails are skipped and
+in-app notifications continue; verified by code path and the live QA runs (which
+had no SMTP configured and all notification logic passed).
+
+## Mobile
+Drawer navigation, filters, tables (horizontal scroll), permit detail actions,
+JHA/LOTO/gas sections and attachments use responsive layouts; no blocking mobile
+issues found in code review. Browser-based visual QA remains part of
+docs/TESTING.md.

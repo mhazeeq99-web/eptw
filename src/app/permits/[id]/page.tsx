@@ -5,15 +5,12 @@ import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { StartWorkButton } from '@/components/permits/start-work-button'
 import { SubmitPermitButton } from '@/components/permits/submit-permit-button'
-import { ReviewPermit } from '@/components/permits/review-permit'
 import { ResubmitPermitButton } from '@/components/permits/resubmit-permit-button'
-import { IssuePermitButton } from '@/components/permits/issue-permit-button'
 import { SuspendPermitButton } from '@/components/permits/suspend-permit-button'
 import { ResumePermitButton } from '@/components/permits/resume-permit-button'
 import { CompletePermitButton } from '@/components/permits/complete-permit-button'
 import { ClosePermitButton } from '@/components/permits/close-permit-button'
 import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
-import { AssignSupervisor } from '@/components/permits/assign-supervisor'
 import { SendToContractorButton } from '@/components/permits/send-to-contractor-button'
 import { ApproveAndIssueButton } from '@/components/permits/approve-and-issue-button'
 import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
@@ -820,32 +817,6 @@ export default async function PermitDetailsPage({
           }
           initialAttachments={permit.attachments ?? []}
         />
-
-        {/* Supervisor Assignment - KEEP FOR NOW, WILL BE REMOVED LATER */}
-        {currentUserRole === 'admin' &&
-          (permit.status === 'submitted' ||
-            permit.status === 'pending_approval') && (
-            <section className="mt-6 rounded-xl border bg-background">
-              <SectionHeader title="Supervisor Assignment" />
-
-              <div className="p-6">
-                <AssignSupervisor
-                  permitId={permit.id}
-                  currentSupervisorId={
-                    permit.supervisor_id
-                  }
-                />
-              </div>
-            </section>
-          )}
-
-        {/* REMOVED: Supervisor Review block - no longer used in new workflow */}
-        {/* {permit.status === 'pending_approval' &&
-          isAssignedSupervisor && (
-            <ReviewPermit
-              permitId={permit.id}
-            />
-          )} */}
 
         {/* Remarks */}
         {permit.remarks && (
