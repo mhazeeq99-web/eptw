@@ -1,4 +1,7 @@
-# ePTW — Manual Test Procedure
+# ePTW — Manual Test Procedure (Final 5-Role Business Model)
+
+Roles: `platform_admin`, `safety_manager`, `safety_coordinator`, `internal_staff`,
+`contractor_admin`. All test accounts use password `Test@123456` (set during setup).
 
 Prerequisites:
 1. Apply the migration `supabase/migrations/20260101_eptw_mvp.sql` in the
@@ -8,116 +11,125 @@ Prerequisites:
    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
    (service-role key is server-side only).
 
-> The confirmed working permit **PTW-2026-0020** should remain `active` /
-> `active` after the migration. Its approval history must not change.
+> The confirmed working permit **PTW-2026-0020** must remain `active` /
+> `active` with its original history (`submitted`, `approved`) intact.
 
 ---
 
-## TEST 1 — Internal Work Supervisor: create + submit
-1. Log in as an internal work supervisor (or requester).
-2. Permits → Create Permit. Fill work title, location, planned start/end,
+## TEST 1 — Internal Staff: create + submit internal PTW
+1. Log in as **Internal Staff** (e.g. `supervisor@company.com`).
+2. My Permits → Create Permit. Fill work title, location, planned start/end,
    select a permit type (e.g. HOT WORK).
-3. Save Draft → status `draft`, workflow_stage `draft` (or default).
-4. Confirm the permit detail page lists the required safety controls
-   (JHA, Gas Test, Fire Watch, ...) with status `pending`.
+3. Save Draft → status `draft`. Edit draft works (Edit Permit).
+4. The detail page lists required safety controls (JHA, Gas Test, ...) as
+   `pending`.
 5. Click **Submit Permit** → confirm.
-6. Verify: status `pending_approval`, workflow_stage `safety_approval`;
-   audit history contains `submitted` (by you); safety staff of the company
-   received a notification.
+6. Verify: status `pending_approval`, workflow_stage `safety_approval`; audit
+   has `submitted`; safety staff of the company received a notification.
+7. Internal Staff must **not** see Approve & Issue / Reject.
 
-## TEST 2 — Safety Coordinator: approve & issue
-1. Log in as the company Safety Coordinator / Safety Manager.
-2. Open the permit (via notification or Permits list filtered by
-   `pending_approval`).
-3. Verify JHA / LOTO / gas-test sections behave:
-   - Add a JHA (title + hazards/controls) → status `pending`.
-   - If the permit type requires gas testing, record a gas test
-     (O₂ / LEL / H₂S / CO) → status `pending`.
-   - If it requires LOTO, add isolation point(s).
-4. **Approve & Issue** → expect rejection (400) with a clear message listing
-   the unverified controls/documents.
-5. Verify each required safety control (`permit_safety_controls`) and each
-   required document, then **Approve & Issue** again.
+## TEST 2 — Safety Coordinator / Safety Manager: approve & issue another user's PTW
+1. Log in as a Safety Coordinator (or Safety Manager) of the same company.
+2. Approval Queue → the permit appears tagged **Internal PTW**.
+3. On the permit detail page, verify JHA / LOTO / gas sections behave; add a
+   JHA if not present (title + hazards/controls) → `pending`.
+4. **Approve & Issue** → expect rejection (400) listing unverified controls /
+   documents (safety gate).
+5. Verify required controls + documents, then **Approve & Issue**.
 6. Verify: status `active`, workflow_stage `active`, `approved_by`,
-   `approved_at`, `actual_start` set; audit history contains `approved`
-   and `issued` (never `approved_and_issued`).
+   `approved_at`, `actual_start` set; audit has `approved` and `issued`
+   (never `approved_and_issued`).
 
-## TEST 3 — Suspend
-1. As permit issuer/admin, click **Suspend Permit**, enter a reason
+## TEST 3 — Self-approval (Safety Coordinator)
+1. Log in as a Safety Coordinator. Create a PTW, submit it, add + verify JHA
+   and required controls.
+2. On the same permit (created by yourself) click **Approve & Issue**.
+3. Verify: status `active`, workflow_stage `active`; audit history is exactly
+   `submitted, approved, issued` (same user). Self-approval is allowed.
+
+## TEST 4 — Self-approval (Safety Manager)
+1. Log in as a Safety Manager. Create a PTW in their company, submit, verify
+   required documents/controls, then **Approve & Issue** on their own permit.
+2. Verify: status `active`, workflow_stage `active`; audit `submitted,
+   approved, issued`.
+
+## TEST 5 — Safety gate blocks self-approval without verified controls
+1. Create + submit a PTW as a Safety Manager/Coordinator (own permit).
+2. Do **not** verify JHA / controls. **Approve & Issue** → must fail (400)
+   with a clear message. Self-approval does not bypass safety gates.
+
+## TEST 6 — Suspend / Resume
+1. As Safety Manager or Safety Coordinator: **Suspend Permit**, enter a reason
    (e.g. "Unsafe condition – gas leak").
-2. Verify: status `suspended`; audit history contains `suspended` with the
-   remarks; requester received a notification.
+2. Verify: status `suspended`, `suspension_reason` recorded, audit has
+   `suspended`; requester notified.
+3. **Resume Work**, enter a reason → status `active`, audit has `resumed`.
 
-## TEST 4 — Resume
-1. Click **Resume Work**, enter a reason.
-2. Verify: status `active`; audit history contains `resumed`.
+## TEST 7 — Complete / Close
+1. As a Safety Manager/Coordinator: **Complete Work** (remark) → status
+   `completed`, `completed_by`/`completed_at` set, audit has `completed`.
+2. **Close Permit** (remark) → status `closed`, `closed_by`/`closed_at` set,
+   audit has `closed`.
 
-## TEST 5 — Complete
-1. Click **Complete Work**, enter a completion remark.
-2. Verify: status `completed`, `completed_by`, `completed_at` set; audit
-   history contains `completed`.
-
-## TEST 6 — Close
-1. Click **Close Permit**, enter a closing remark.
-2. Verify: status `closed`, `closed_by`, `closed_at` set; audit history
-   contains `closed`.
-
-## TEST 7 — Reject
+## TEST 8 — Reject → Revise → Resubmit
 1. Create + submit another permit.
-2. As the safety reviewer, click **Reject** — the UI must require a reason.
-3. Verify: status `rejected`; audit history contains `rejected` with remarks;
-   requester can **Revise Permit** (edit) and **Resubmit**; resubmission
-   records `revised` and `resubmitted`.
+2. As a Safety Coordinator/Manager: **Reject** (reason required) → status
+   `rejected`, `rejection_reason` recorded, audit has `rejected`.
+3. The requester can **Revise Permit** (edit) and **Resubmit**.
+4. Resubmit → status `pending_approval`, workflow_stage `safety_approval`;
+   audit has `resubmitted`.
 
-## TEST 8 — Cancel
-1. On a draft or pending permit, click **Cancel Permit**, enter a reason.
-2. Verify: status `cancelled`; audit history contains `cancelled`;
-   no further actions are offered.
+## TEST 9 — Cancel
+1. On a draft or pending permit, **Cancel Permit** (reason required) → status
+   `cancelled`, audit has `cancelled`.
 
-## TEST 9 — Company isolation
-1. Register a second company (Register Your Company).
-2. As company B user, attempt to open company A's permit URL directly
-   (e.g. `/permits/<A-permit-id>`) → must be `404`/not found (RLS blocks it).
-3. Verify company B cannot see company A's permits in the list, attachments,
-   or approval history.
+## TEST 10 — Contractor Admin flow (with Staff Reference)
+1. Log in as **Contractor Admin** (e.g. `contractor@test.com`).
+2. Create Permit → the form shows **Worker Details** (Worker Name *, Worker
+   ID *) and **"{Customer Company}'s Staff Reference"** * (single name field).
+3. The Staff Reference label uses the selected customer company name
+   (e.g. "Test Company's Staff Reference"). Helper: "Name of the company staff
+   you are liaising with for this work."
+4. Submit without worker/staff fields → error. Fill them and submit.
+5. Verify: initiation mode `contractor_direct`; worker name/ID + staff
+   reference stored; appears in the customer's Approval Queue tagged
+   **Contractor PTW** (contractor company, worker, staff reference shown).
+6. Contractor Admin cannot Approve/Reject (no buttons, API returns 403).
 
-## TEST 10 — Contractor isolation
-1. Register as a contractor (Register as Contractor).
-2. Company A Safety Manager → Contractors → **Authorize** the contractor.
-3. Contractor logs in: Permits → Create Permit → customer company dropdown
-   shows only Company A.
-4. Contractor submits a permit → it appears in Company A's safety queue.
-5. Company A Safety Manager → Contractors → **Revoke** authorization.
-6. Contractor can no longer create permits for Company A (403).
+## TEST 11 — Platform Admin is not operational
+1. Log in as `platform_admin`. Create Permit shows a "Platform Admin does not
+   create operational permits" notice.
+2. Attempting to create/approve via API returns 403.
 
-## TEST 11 — Attachments
-1. On a permit, upload a PDF/image (Attachments section).
-2. Verify the file appears with uploader + timestamp; download works.
-3. As a user of another company, verify the file is not downloadable (403/404).
-4. Delete the attachment (uploader or admin).
+## TEST 12 — Company isolation
+1. Company A users cannot open Company B permits (404), attachments, JHA/LOTO/
+   gas, approval history, or manage Company B users.
 
-## TEST 12 — Print / PDF
-1. On any permit, click **Print / PDF** → new tab with the printable layout
-   including QR code; use the browser's Print → Save as PDF.
-2. Verify sections: company, permit no., type, status, work details, area,
-   equipment, contractor, planned times, requester, safety controls,
-   JHA/LOTO/gas status, approval info, history.
+## TEST 13 — Contractor isolation
+1. Contractor Admin sees only permits for authorized customer companies;
+   cannot access unauthorized companies (403/404).
 
-## TEST 13 — Dashboard & search
-1. Dashboard shows real counts per status and the 5 most recent permits;
-   cards link to filtered lists.
-2. Permits page: use filters (text, status, type, area, contractor,
-   requester, date range) — results are server-side filtered; the URL
-   reflects the filters.
+## TEST 14 — Attachments
+1. Upload a PDF/image on a permit; verify uploader + timestamp; download works.
+2. Another company cannot download it (403/404). Delete by uploader or Safety
+   Manager.
 
-## TEST 14 — User management & settings
-1. Safety Manager → Users: invite a Permit Issuer, change a user's role,
-   deactivate a user → the user cannot log in to take actions.
-2. Settings: create a permit type with JHA/Gas/LOTO requirements; create a
-   safety control; map controls to a permit type and mark one as required;
-   verify the required control appears on new permits of that type.
+## TEST 15 — Print / PDF
+1. On any permit, **Print / PDF** → printable layout with QR code; browser
+   Print → Save as PDF. Includes contractor details + staff reference for
+   contractor permits.
 
-## TEST 15 — Notifications
+## TEST 16 — Reports
+1. Reports page shows per-status counts + breakdowns by type/area/contractor/
+   month, scoped to the user's company.
+
+## TEST 17 — User management & settings
+1. Safety Manager → Users: create a user with role **Safety Coordinator** or
+   **Internal Staff**, change a role, deactivate a user.
+2. Settings (Safety Manager): create permit types, safety controls, map
+   controls to types; verify required controls appear on new permits.
+
+## TEST 18 — Notifications
 1. Perform a submit/approve/suspend/complete cycle while logged in as the
-   requester in another browser → the bell shows unread notifications;
-   clicking one opens the permit and marks it read.
+   requester in another browser → bell shows unread notifications; clicking
+   opens the permit and marks it read.

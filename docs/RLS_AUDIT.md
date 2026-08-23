@@ -35,7 +35,7 @@
 | jhas | via `can_access_permit(permit_id)` | via `can_access_permit` | via `can_access_permit` (verify route role-checks) | none |
 | loto_isolation_points | via `can_access_permit` | via `can_access_permit` | via `can_access_permit` | none |
 | gas_tests | via `can_access_permit` | via `can_access_permit` | via `can_access_permit` | none |
-| permit_attachments | via `can_access_permit` | via `can_access_permit` | none | via `can_access_permit` (route restricts to uploader/admin) |
+| permit_attachments | via `can_access_permit` | via `can_access_permit` | none | via `can_access_permit` (route restricts to uploader or Safety Manager) |
 | notifications | own rows (`user_id = auth.uid()`) | via `notify_user` RPC | own rows | none |
 | storage.objects (bucket `permit-attachments`) | `can_access_attachment_path(name)` | same | same | same |
 

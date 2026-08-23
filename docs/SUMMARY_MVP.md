@@ -33,7 +33,7 @@
 - Penapis server-side di `/permits` (teks, status, jenis, kawasan, kontraktor, requester, tarikh).
 
 ## Fasa 14 — Pengurusan pengguna
-- Safety Manager dan Admin boleh jemput pengguna, tukar peranan (permit_issuer/safety/supervisor/requester), nyahaktifkan akaun.
+- Safety Manager boleh jemput pengguna, tukar peranan (safety_coordinator/internal_staff), nyahaktifkan akaun.
 
 ## Fasa 15 — Konfigurasi syarikat
 - Halaman `/areas`, `/equipment`, `/settings` (jenis permit + katalog kawalan keselamatan + pemetaan wajib per jenis).
@@ -56,5 +56,15 @@
 - Permit 18 (PTW-2026-0020) diselaraskan (mendapat kawalan JHA; status kekal active/active; sejarah asal dikekalkan).
 - Akaun baharu: `safetycoord1@test.com` (Safety Coordinator, syarikat 1).
 
+## Model Peranan 5 (Final) & Kontraktor PTW
+- **5 peranan perniagaan**: `platform_admin`, `safety_manager`, `safety_coordinator`, `internal_staff`, `contractor_admin`. Peranan lama (requester/supervisor/permit_issuer/safety/admin/work_supervisor) digantikan dan tidak dipaparkan di UI.
+- **Self-approval**: Safety Manager & Safety Coordinator boleh cipta, hantar dan **lulus sendiri** PTW mereka (tidak perlu pelulus lain). Internal Staff & Contractor Admin **tidak boleh** meluluskan.
+- **Kontraktor PTW**: borang memerlukan Worker Name, Worker ID, dan **"{Nama Syarikat}'s Staff Reference"** (satu medan nama sahaja, label dinamik mengikut syarikat pelanggan).
+- **Pintu keselamatan**: self-approval tidak memintas keperluan JHA/LOTO/gas/kawalan yang belum disahkan.
+- Semua migrasi peranan + polisi RLS terkini direkod dalam `supabase/migrations/20260101_eptw_mvp.sql` dan diterapkan ke pangkalan data langsung.
+- Disahkan: 71 semakan QA langsung lulus; `tsc` 0 ralat, `lint` 0 ralat, `next build --webpack` berjaya; PTW-2026-0020 kekal `active`/`active`.
+
 ## Git
-- 3 komit tempatan pada `main`: `da12648` (MVP penuh), `3d05f3b` (fix constraint), `3b51c2f` (sidebar drawer) — belum di-push.
+- Komit pada `main` (telah di-push ke GitHub `mhazeeq99-web/eptw`):
+  `df26237` (5-role model), `400fc92` (release candidate), `1643555` (hardening+QA),
+  `5119f85` (audit+gap closure), `3b51c2f` (sidebar drawer), `3d05f3b` (fix constraint), `da12648` (MVP penuh).

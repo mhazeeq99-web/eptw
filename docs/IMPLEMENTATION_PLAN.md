@@ -1,5 +1,11 @@
 # ePTW MVP — Implementation Plan (based on repository inspection)
 
+> **Historical working document.** The business model was finalized to the
+> **5-role model** (`platform_admin`, `safety_manager`, `safety_coordinator`,
+> `internal_staff`, `contractor_admin`) with safety self-approval and a
+> contractor PTW Staff Reference field. See `docs/ROLE_MATRIX.md` and
+> `docs/TESTING.md` for the current model.
+
 > Internal plan produced after Phase 1 inspection. This documents what exists and what
 > will be implemented incrementally. It is a working document, not a spec.
 

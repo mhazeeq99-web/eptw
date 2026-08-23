@@ -168,3 +168,55 @@ Drawer navigation, filters, tables (horizontal scroll), permit detail actions,
 JHA/LOTO/gas sections and attachments use responsive layouts; no blocking mobile
 issues found in code review. Browser-based visual QA remains part of
 docs/TESTING.md.
+
+---
+
+# Final 5-Role Business Model (supersedes earlier role references)
+
+## Roles
+Exactly five business roles: `platform_admin`, `safety_manager`,
+`safety_coordinator`, `internal_staff`, `contractor_admin`. The previous roles
+(requester, supervisor, permit_issuer, safety, admin, work_supervisor) were
+replaced and are not exposed anywhere in the user-facing application.
+
+## Migration of existing users (applied live)
+- `admin` → `safety_manager`
+- `safety` → `safety_coordinator`
+- `permit_issuer` / `supervisor` / `work_supervisor` → `internal_staff`
+- `requester` (company employee) → `internal_staff`
+- `requester` (contractor member) → `contractor_admin`
+
+Live distribution: 1 platform_admin · 1 safety_manager · 2 safety_coordinator ·
+5 internal_staff · 1 contractor_admin. No legacy roles remain on active profiles.
+
+## Self-approval
+Safety Manager and Safety Coordinator may create, submit and **self-approve**
+their own PTWs (no creator-block). Internal Staff and Contractor Admin can
+never approve or reject. Self-approval does not bypass the safety gates.
+Verified live: self-approval → `active`/`active` with audit
+`submitted, approved, issued`.
+
+## Contractor PTW + Staff Reference
+Contractor Admin creates/submits contractor PTWs requiring Worker Name,
+Worker ID and a single **"{Customer Company}'s Staff Reference"** name field
+(dynamic label). Data stored on `permits` (`worker_name`, `worker_id`,
+`staff_reference_name`); shown on the permit detail page and in the approval
+queue (tagged Contractor PTW vs Internal PTW).
+
+## Authorization (RLS) summary
+- Company isolation preserved on all tables; nothing weakened.
+- New policies: internal-staff/safety submit, contractor submit (fixed
+  with_check), rejected-edit, contractor edit, safety-role operational update,
+  safety_controls and permit_type_safety_controls writes; admin-management
+  policies moved from `admin` to `safety_manager`.
+- Lifecycle actions (suspend/resume/complete/close/cancel/verify) are gated to
+  safety roles.
+
+## Tests
+71 live checks pass: self-approval A/B, safety gates, internal-staff and
+contractor-admin negatives, platform-admin restrictions, full lifecycle,
+reject/resubmit, expiry dedup, storage security, RLS isolation. tsc 0 errors,
+lint 0 errors, build success. PTW-2026-0020 regression intact.
+
+Current authorization and testing details are in `docs/ROLE_MATRIX.md` and
+`docs/TESTING.md`.
