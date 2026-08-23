@@ -51,7 +51,7 @@
 
 ## Kerja langsung pada Supabase
 - Migrasi diterapkan & disahkan — semua jadual, lajur, fungsi, constraint, bucket wujud.
-- Kata laluan 8 akaun ujian direset -> `Test@123456` (login disahkan HTTP 200).
+- Kata laluan 8 akaun ujian direset ke nilai ujian yang diketahui (login disahkan HTTP 200).
 - Pemetaan kawalan syarikat 3 diisi (jenis 9–13 tiada pemetaan sebelum ini).
 - Permit 18 (PTW-2026-0020) diselaraskan (mendapat kawalan JHA; status kekal active/active; sejarah asal dikekalkan).
 - Akaun baharu: `safetycoord1@test.com` (Safety Coordinator, syarikat 1).

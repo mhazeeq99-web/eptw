@@ -7,7 +7,7 @@ SR=$(grep SUPABASE_SERVICE_ROLE_KEY .env.local | cut -d= -f2 | tr -d ' \r')
 REF=$(echo "$URL" | sed -E 's|https://([^.]+)\..*|\1|')
 BASE=http://localhost:3457
 COOKIE_NAME="sb-$REF-auth-token"
-PW="Test@123456"
+PW="${QA_PASSWORD:?Set QA_PASSWORD (test-account password) to run the QA harness}"
 
 get_cookie () {
   local email="$1"
