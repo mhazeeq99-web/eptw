@@ -65,14 +65,12 @@ export async function POST(
 
   if (
     profile.role !== 'safety_coordinator' &&
-    profile.role !== 'safety_manager' &&
-    profile.role !== 'admin' &&
-    profile.role !== 'platform_admin'
+    profile.role !== 'safety_manager'
   ) {
     return NextResponse.json(
       {
         error:
-          'Only Safety Coordinator, Safety Manager or Admin can reject a permit',
+          'Only Safety Coordinator or Safety Manager can reject a permit',
       },
       { status: 403 }
     )

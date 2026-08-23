@@ -50,13 +50,8 @@ export async function PATCH(
   }
 
   const allowedRoles = [
-    'admin',
-    'permit_issuer',
-    'safety',
-    'supervisor',
     'safety_manager',
     'safety_coordinator',
-    'work_supervisor',
   ]
 
   if (!allowedRoles.includes(profile.role)) {

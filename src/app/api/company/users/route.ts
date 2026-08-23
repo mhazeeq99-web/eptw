@@ -9,24 +9,14 @@ type CreateUserBody = {
   phone?: string
   department?: string
   position?: string
-  role?:
-    | 'safety_coordinator'
-    | 'work_supervisor'
-    | 'permit_issuer'
-    | 'safety'
-    | 'supervisor'
-    | 'requester'
+  role?: 'safety_coordinator' | 'internal_staff'
 }
 
-const MANAGER_ROLES = ['safety_manager', 'admin']
+const MANAGER_ROLES = ['safety_manager']
 
 const ASSIGNABLE_ROLES = [
   'safety_coordinator',
-  'work_supervisor',
-  'permit_issuer',
-  'safety',
-  'supervisor',
-  'requester',
+  'internal_staff',
 ]
 
 // ADD THIS GET FUNCTION
@@ -89,11 +79,7 @@ export async function GET() {
         .in('role', [
           'safety_manager',
           'safety_coordinator',
-          'work_supervisor',
-          'permit_issuer',
-          'safety',
-          'supervisor',
-          'requester',
+          'internal_staff',
         ])
         .order('created_at', {
           ascending: true,

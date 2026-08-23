@@ -50,7 +50,7 @@ export async function GET() {
   // ---------------------------------------------------------
 
   if (
-    profile.role === 'requester' &&
+    profile.role === 'contractor_admin' &&
     !profile.company_id
   ) {
     const { data: membership } = await supabase
@@ -206,7 +206,6 @@ export async function POST(request: Request) {
 
   if (
     profile.role !== 'safety_manager' &&
-    profile.role !== 'admin' &&
     profile.role !== 'platform_admin'
   ) {
     return NextResponse.json(

@@ -1079,3 +1079,314 @@ CREATE POLICY "Authorized users can verify company permit safety controls"
       ])
     )
   );
+
+-- ----------------------------------------------------------------------------
+-- 11. FINAL 5-ROLE BUSINESS MODEL (platform_admin, safety_manager,
+--     safety_coordinator, internal_staff, contractor_admin)
+-- ----------------------------------------------------------------------------
+
+-- 11.1 New enum values (idempotent)
+ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'internal_staff';
+ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'contractor_admin';
+
+-- 11.2 Contractor PTW columns
+ALTER TABLE public.permits
+  ADD COLUMN IF NOT EXISTS worker_name text,
+  ADD COLUMN IF NOT EXISTS worker_id text,
+  ADD COLUMN IF NOT EXISTS staff_reference_name text;
+
+-- 11.3 Migrate existing profiles to the 5-role model (idempotent)
+UPDATE public.profiles SET role = 'safety_manager'::user_role WHERE role = 'admin'::user_role;
+UPDATE public.profiles SET role = 'safety_coordinator'::user_role WHERE role = 'safety'::user_role;
+UPDATE public.profiles SET role = 'internal_staff'::user_role
+  WHERE role IN ('permit_issuer'::user_role, 'supervisor'::user_role, 'work_supervisor'::user_role);
+UPDATE public.profiles SET role = 'internal_staff'::user_role
+  WHERE role = 'requester'::user_role AND company_id IS NOT NULL;
+UPDATE public.profiles SET role = 'contractor_admin'::user_role
+  WHERE role = 'requester'::user_role
+    AND company_id IS NULL
+    AND EXISTS (
+      SELECT 1 FROM public.contractor_users cu WHERE cu.user_id = profiles.id
+    );
+
+-- 11.4 Contractor registration now creates a Contractor Admin
+CREATE OR REPLACE FUNCTION public.register_contractor(
+  p_company_name text,
+  p_full_name text,
+  p_email text,
+  p_phone text DEFAULT NULL,
+  p_position text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_contractor_id bigint;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  IF p_company_name IS NULL OR btrim(p_company_name) = '' THEN
+    RAISE EXCEPTION 'Contractor company name is required';
+  END IF;
+
+  INSERT INTO public.contractors (company_name)
+  VALUES (btrim(p_company_name))
+  RETURNING id INTO v_contractor_id;
+
+  INSERT INTO public.profiles (id, full_name, email, phone, position, role, is_active, company_id)
+  VALUES (
+    v_user_id,
+    btrim(p_full_name),
+    btrim(p_email),
+    NULLIF(btrim(COALESCE(p_phone, '')), ''),
+    NULLIF(btrim(COALESCE(p_position, '')), ''),
+    'contractor_admin'::user_role,
+    true,
+    NULL
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    position = EXCLUDED.position,
+    role = 'contractor_admin'::user_role,
+    is_active = true;
+
+  INSERT INTO public.contractor_users (user_id, contractor_id, is_active)
+  VALUES (v_user_id, v_contractor_id, true);
+
+  RETURN jsonb_build_object(
+    'contractor_id', v_contractor_id,
+    'user_id', v_user_id
+  );
+END;
+$$;
+
+-- 11.5 RLS updates for the 5-role model
+
+-- Edit own drafts / revise rejected permits (internal + safety roles).
+DROP POLICY IF EXISTS "Requesters can update own company drafts" ON public.permits;
+CREATE POLICY "Requesters can update own company drafts" ON public.permits
+  FOR UPDATE
+  USING (
+    is_platform_admin()
+    OR (
+      (company_id = get_my_company_id())
+      AND (requester_id = auth.uid())
+      AND (status IN ('draft'::permit_status, 'rejected'::permit_status))
+    )
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR (
+      (company_id = get_my_company_id())
+      AND (requester_id = auth.uid())
+      AND (status IN ('draft'::permit_status, 'rejected'::permit_status))
+    )
+  );
+
+-- Contractor Admin edits own drafts / revises rejected permits.
+DROP POLICY IF EXISTS "Contractor admins can update own contractor drafts" ON public.permits;
+CREATE POLICY "Contractor admins can update own contractor drafts" ON public.permits
+  FOR UPDATE
+  USING (
+    (requester_id = auth.uid())
+    AND (contractor_id IS NOT NULL)
+    AND (status IN ('draft'::permit_status, 'rejected'::permit_status))
+    AND (get_my_role() = 'contractor_admin'::user_role)
+  )
+  WITH CHECK (
+    (requester_id = auth.uid())
+    AND (contractor_id IS NOT NULL)
+    AND (status IN ('draft'::permit_status, 'rejected'::permit_status))
+    AND (get_my_role() = 'contractor_admin'::user_role)
+  );
+
+-- Contractor Admin submits own contractor PTW (fixes the old policy whose
+-- with_check required status='submitted').
+DROP POLICY IF EXISTS "Requesters can submit own contractor drafts" ON public.permits;
+CREATE POLICY "Requesters can submit own contractor drafts" ON public.permits
+  FOR UPDATE
+  USING (
+    (requester_id = auth.uid())
+    AND (status = 'draft'::permit_status)
+    AND (contractor_id IS NOT NULL)
+  )
+  WITH CHECK (
+    (requester_id = auth.uid())
+    AND (status = 'pending_approval'::permit_status)
+    AND (workflow_stage = 'safety_approval'::text)
+    AND (contractor_id IS NOT NULL)
+  );
+
+-- Internal Staff and safety roles submit their own internal PTW.
+DROP POLICY IF EXISTS "Work supervisors can submit own internal permits" ON public.permits;
+CREATE POLICY "Company users can submit own internal permits" ON public.permits
+  FOR UPDATE
+  USING (
+    (requester_id = auth.uid())
+    AND (company_id = get_my_company_id())
+    AND (status = 'draft'::permit_status)
+    AND (initiation_mode = 'internal'::text)
+    AND (get_my_role() = ANY (ARRAY[
+      'internal_staff'::user_role,
+      'safety_manager'::user_role,
+      'safety_coordinator'::user_role
+    ]))
+  )
+  WITH CHECK (
+    (requester_id = auth.uid())
+    AND (company_id = get_my_company_id())
+    AND (status = 'pending_approval'::permit_status)
+    AND (workflow_stage = 'safety_approval'::text)
+    AND (initiation_mode = 'internal'::text)
+    AND (get_my_role() = ANY (ARRAY[
+      'internal_staff'::user_role,
+      'safety_manager'::user_role,
+      'safety_coordinator'::user_role
+    ]))
+  );
+
+-- Company administration policies move from role 'admin' to 'safety_manager'.
+DROP POLICY IF EXISTS "Admins can manage company areas" ON public.areas;
+CREATE POLICY "Admins can manage company areas" ON public.areas
+  FOR ALL
+  USING (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  );
+
+DROP POLICY IF EXISTS "Admins can manage company equipment" ON public.equipment;
+CREATE POLICY "Admins can manage company equipment" ON public.equipment
+  FOR ALL
+  USING (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  );
+
+DROP POLICY IF EXISTS "Admins can manage company permit types" ON public.permit_types;
+CREATE POLICY "Admins can manage company permit types" ON public.permit_types
+  FOR ALL
+  USING (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  );
+
+DROP POLICY IF EXISTS "Admins can manage contractors" ON public.contractors;
+CREATE POLICY "Admins can manage contractors" ON public.contractors
+  FOR ALL
+  USING (
+    is_platform_admin()
+    OR (
+      (get_my_role() = 'safety_manager'::user_role)
+      AND EXISTS (
+        SELECT 1 FROM public.contractor_companies cc
+        WHERE cc.contractor_id = contractors.id
+          AND cc.company_id = get_my_company_id()
+      )
+    )
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR (get_my_role() = 'safety_manager'::user_role)
+  );
+
+DROP POLICY IF EXISTS "Admins can manage contractor relationships" ON public.contractor_companies;
+CREATE POLICY "Admins can manage contractor relationships" ON public.contractor_companies
+  FOR ALL
+  USING (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR ((get_my_role() = 'safety_manager'::user_role) AND (company_id = get_my_company_id()))
+  );
+
+-- safety_controls: allow company admins (Safety Manager) and platform admin
+-- to create/update the control catalog.
+DROP POLICY IF EXISTS "Safety managers can create safety controls" ON public.safety_controls;
+CREATE POLICY "Safety managers can create safety controls" ON public.safety_controls
+  FOR INSERT
+  WITH CHECK (
+    is_platform_admin()
+    OR (get_my_role() = 'safety_manager'::user_role)
+  );
+
+DROP POLICY IF EXISTS "Safety managers can update safety controls" ON public.safety_controls;
+CREATE POLICY "Safety managers can update safety controls" ON public.safety_controls
+  FOR UPDATE
+  USING (
+    is_platform_admin()
+    OR (get_my_role() = 'safety_manager'::user_role)
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR (get_my_role() = 'safety_manager'::user_role)
+  );
+
+-- permit_type_safety_controls: allow company admins / platform admin to
+-- manage the mapping.
+DROP POLICY IF EXISTS "Safety managers can manage control mappings" ON public.permit_type_safety_controls;
+CREATE POLICY "Safety managers can manage control mappings" ON public.permit_type_safety_controls
+  FOR INSERT
+  WITH CHECK (
+    is_platform_admin()
+    OR (get_my_role() = 'safety_manager'::user_role)
+  );
+
+DROP POLICY IF EXISTS "Safety managers can update control mappings" ON public.permit_type_safety_controls;
+CREATE POLICY "Safety managers can update control mappings" ON public.permit_type_safety_controls
+  FOR UPDATE
+  USING (
+    is_platform_admin()
+    OR (get_my_role() = 'safety_manager'::user_role)
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR (get_my_role() = 'safety_manager'::user_role)
+  );
+
+-- 11.6 Safety roles are the operational PTW users: same-company update
+--      covering the operational lifecycle states (suspend/resume/complete/
+--      close). State-transition correctness is enforced by the API routes.
+DROP POLICY IF EXISTS "Authorized users can update company permits" ON public.permits;
+CREATE POLICY "Authorized users can update company permits" ON public.permits
+  FOR UPDATE
+  USING (
+    is_platform_admin()
+    OR (
+      (company_id = get_my_company_id())
+      AND (get_my_role() = ANY (ARRAY[
+        'safety_manager'::user_role,
+        'safety_coordinator'::user_role
+      ]))
+    )
+  )
+  WITH CHECK (
+    is_platform_admin()
+    OR (
+      (company_id = get_my_company_id())
+      AND (get_my_role() = ANY (ARRAY[
+        'safety_manager'::user_role,
+        'safety_coordinator'::user_role
+      ]))
+    )
+  );

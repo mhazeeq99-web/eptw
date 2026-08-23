@@ -71,7 +71,6 @@ export async function DELETE(
   // Only the uploader, company administrators, or platform admin may delete.
   const profile = access.data.profile
   const isAdmin =
-    profile.role === 'admin' ||
     profile.role === 'safety_manager' ||
     profile.role === 'platform_admin'
 

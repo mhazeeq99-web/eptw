@@ -2,15 +2,11 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const MANAGER_ROLES = ['safety_manager', 'admin']
+const MANAGER_ROLES = ['safety_manager']
 
 const MANAGEABLE_ROLES = [
   'safety_coordinator',
-  'work_supervisor',
-  'permit_issuer',
-  'safety',
-  'supervisor',
-  'requester',
+  'internal_staff',
 ]
 
 type RouteContext = {

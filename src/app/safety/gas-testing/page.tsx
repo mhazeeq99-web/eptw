@@ -22,13 +22,8 @@ type GasTest = {
 }
 
 const VERIFY_ROLES = [
-  'admin',
-  'permit_issuer',
-  'safety',
   'safety_manager',
   'safety_coordinator',
-  'work_supervisor',
-  'supervisor',
 ]
 
 export default async function GasTestingPage() {

@@ -11,7 +11,7 @@ db () { curl -s -m 15 -H "apikey: $SR" -H "Authorization: Bearer $SR" "$URL/rest
 dbpost () { curl -s -m 15 -X POST -H "apikey: $SR" -H "Authorization: Bearer $SR" -H "Content-Type: application/json" -d "$2" "$URL/rest/v1/$1"; }
 
 C1=$(get_cookie supervisor@company.com)      # company 1 supervisor
-ISS=$(get_cookie issuer@company.com)          # company 1 permit issuer
+ISS=$(get_cookie safetycoord1@test.com)      # company 1 safety coordinator (lifecycle actions)
 SC1=$(get_cookie safetycoord1@test.com)       # company 1 safety coordinator
 C3=$(get_cookie worksup@test.com)             # company 3 work supervisor
 SM3=$(get_cookie safetymanager@test.com)      # company 3 safety manager

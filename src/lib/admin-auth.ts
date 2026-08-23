@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 const ADMIN_ROLES = [
   'safety_manager',
-  'admin',
   'platform_admin',
 ]
 

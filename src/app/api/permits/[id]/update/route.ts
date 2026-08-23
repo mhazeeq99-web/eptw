@@ -43,6 +43,9 @@ export async function PATCH(
     contractor_id?: number | null
     planned_start?: string | null
     planned_end?: string | null
+    worker_name?: string | null
+    worker_id?: string | null
+    staff_reference_name?: string | null
   }
 
   try {
@@ -205,6 +208,18 @@ export async function PATCH(
         contractor_id: body.contractor_id ?? null,
         planned_start: body.planned_start || null,
         planned_end: body.planned_end || null,
+        worker_name:
+          typeof body.worker_name === 'string'
+            ? body.worker_name.trim() || null
+            : null,
+        worker_id:
+          typeof body.worker_id === 'string'
+            ? body.worker_id.trim() || null
+            : null,
+        staff_reference_name:
+          typeof body.staff_reference_name === 'string'
+            ? body.staff_reference_name.trim() || null
+            : null,
       })
       .eq('id', id)
       .eq('requester_id', user.id)

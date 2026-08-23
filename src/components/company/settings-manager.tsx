@@ -85,7 +85,6 @@ export function SettingsManager() {
 
       if (
         profile?.role === 'safety_manager' ||
-        profile?.role === 'admin' ||
         profile?.role === 'platform_admin'
       ) {
         setIsAdmin(true)

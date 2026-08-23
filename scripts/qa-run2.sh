@@ -8,7 +8,7 @@ check () { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "PASS | $1 (got $3)";
 db () { curl -s -m 15 -H "apikey: $SR" -H "Authorization: Bearer $SR" "$URL/rest/v1/$1"; }
 
 C1=$(get_cookie supervisor@company.com)
-ISS=$(get_cookie issuer@company.com)
+ISS=$(get_cookie safetycoord1@test.com)
 SC1=$(get_cookie safetycoord1@test.com)
 C3=$(get_cookie worksup@test.com)
 SM3=$(get_cookie safetymanager@test.com)
@@ -71,8 +71,8 @@ echo "========== TEST D DONE =========="
 echo "========== TEST E: STORAGE SECURITY =========="
 # upload a private object for a company-3 permit path via service role
 curl -s -m 15 -o /dev/null -X POST "$URL/storage/v1/object/permit-attachments/18/qa-sec.txt" -H "apikey: $SR" -H "Authorization: Bearer $SR" -H "Content-Type: text/plain" -d "secret company3 data"
-C1TOK=$(curl -s -m 15 -X POST "$URL/auth/v1/token?grant_type=password" -H "apikey: $SR" -H "Content-Type: application/json" -d '{"email":"supervisor@company.com","password":"$PW"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
-C3TOK=$(curl -s -m 15 -X POST "$URL/auth/v1/token?grant_type=password" -H "apikey: $SR" -H "Content-Type: application/json" -d '{"email":"safetymanager@test.com","password":"$PW"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+C1TOK=$(curl -s -m 15 -X POST "$URL/auth/v1/token?grant_type=password" -H "apikey: $SR" -H "Content-Type: application/json" -d "{\"email\":\"supervisor@company.com\",\"password\":\"$PW\"}" | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+C3TOK=$(curl -s -m 15 -X POST "$URL/auth/v1/token?grant_type=password" -H "apikey: $SR" -H "Content-Type: application/json" -d "{\"email\":\"safetymanager@test.com\",\"password\":\"$PW\"}" | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
 R1=$(curl -s -o /dev/null -w "%{http_code}" -m 15 "$URL/storage/v1/object/info/permit-attachments/18/qa-sec.txt" -H "apikey: $SR" -H "Authorization: Bearer $C1TOK")
 R2=$(curl -s -o /dev/null -w "%{http_code}" -m 15 "$URL/storage/v1/object/info/permit-attachments/18/qa-sec.txt" -H "apikey: $SR" -H "Authorization: Bearer $C3TOK")
 RU=$(curl -s -o /dev/null -w "%{http_code}" -m 15 "$URL/storage/v1/object/info/permit-attachments/18/qa-sec.txt")

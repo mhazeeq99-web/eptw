@@ -67,6 +67,9 @@ export async function POST(request: Request) {
     equipment_id?: number | null
     planned_start?: string | null
     planned_end?: string | null
+    worker_name?: string | null
+    worker_id?: string | null
+    staff_reference_name?: string | null
   }
 
   try {
@@ -117,11 +120,16 @@ export async function POST(request: Request) {
   let contractorId: number | null = null
 
   if (profile.role === 'platform_admin') {
-    // Platform admin may create a permit for any company.
-    // No contractor is automatically assigned.
-    contractorId = null
+    // Platform Admin is not an operational PTW user.
+    return NextResponse.json(
+      {
+        error:
+          'Platform Admin does not create operational permits',
+      },
+      { status: 403 }
+    )
   } else if (profile.company_id) {
-    // Internal company user.
+    // Internal company user (internal_staff / safety roles).
     if (companyId !== profile.company_id) {
       return NextResponse.json(
         {
@@ -131,8 +139,8 @@ export async function POST(request: Request) {
         { status: 403 }
       )
     }
-  } else if (profile.role === 'requester') {
-    // External contractor user.
+  } else if (profile.role === 'contractor_admin') {
+    // External contractor user (Contractor Admin).
     const {
       data: contractorUser,
       error: contractorUserError,
@@ -203,6 +211,37 @@ export async function POST(request: Request) {
       },
       { status: 403 }
     )
+  }
+
+  // ---------------------------------------------------------
+  // 4b. Contractor PTW: worker details + customer staff reference
+  // ---------------------------------------------------------
+
+  const workerName =
+    typeof body.worker_name === 'string'
+      ? body.worker_name.trim()
+      : ''
+
+  const workerId =
+    typeof body.worker_id === 'string'
+      ? body.worker_id.trim()
+      : ''
+
+  const staffReferenceName =
+    typeof body.staff_reference_name === 'string'
+      ? body.staff_reference_name.trim()
+      : ''
+
+  if (contractorId !== null) {
+    if (!workerName || !workerId || !staffReferenceName) {
+      return NextResponse.json(
+        {
+          error:
+            'Worker name, worker ID and the customer staff reference are required for contractor permits',
+        },
+        { status: 400 }
+      )
+    }
   }
 
   // ---------------------------------------------------------
@@ -361,6 +400,10 @@ export async function POST(request: Request) {
       initiation_mode: contractorId
         ? 'contractor_direct'
         : 'internal',
+      // Contractor PTW details (null for internal permits).
+      worker_name: workerName || null,
+      worker_id: workerId || null,
+      staff_reference_name: staffReferenceName || null,
     })
     .select(`
       id,

@@ -5,7 +5,6 @@ import {
   Plus,
   UserRound,
   ShieldCheck,
-  BriefcaseBusiness,
 } from 'lucide-react'
 
 type CompanyUser = {
@@ -21,30 +20,16 @@ type CompanyUser = {
   created_at: string
 }
 
-type UserRole =
-  | 'safety_coordinator'
-  | 'work_supervisor'
-  | 'permit_issuer'
-  | 'safety'
-  | 'supervisor'
-  | 'requester'
+type UserRole = 'safety_coordinator' | 'internal_staff'
 
 const ROLE_LABELS: Record<UserRole, string> = {
   safety_coordinator: 'Safety Coordinator',
-  work_supervisor: 'Work Supervisor',
-  permit_issuer: 'Permit Issuer',
-  safety: 'Safety Officer',
-  supervisor: 'Supervisor',
-  requester: 'Requester',
+  internal_staff: 'Internal Staff',
 }
 
 const ASSIGNABLE_ROLES: UserRole[] = [
   'safety_coordinator',
-  'work_supervisor',
-  'permit_issuer',
-  'safety',
-  'supervisor',
-  'requester',
+  'internal_staff',
 ]
 
 export function UserManagement() {
@@ -209,19 +194,8 @@ export function UserManagement() {
       user.role === 'safety_coordinator'
   )
 
-  const workSupervisors = users.filter(
-    (user) =>
-      user.role === 'work_supervisor'
-  )
-
-  const permitIssuers = users.filter(
-    (user) => user.role === 'permit_issuer'
-  )
-
-  const otherUsers = users.filter((user) =>
-    ['safety', 'supervisor', 'requester'].includes(
-      user.role
-    )
+  const internalStaff = users.filter(
+    (user) => user.role === 'internal_staff'
   )
 
   async function changeUserRole(
@@ -302,35 +276,13 @@ export function UserManagement() {
           />
 
           <UserSection
-            title="Work Supervisors"
-            description="Personnel responsible for supervising work activities and PTW review."
-            icon={BriefcaseBusiness}
-            users={workSupervisors}
-            onAdd={() =>
-              openAddForm('work_supervisor')
-            }
-            onToggleStatus={toggleUserStatus}
-            onRoleChange={changeUserRole}
-          />
-
-          <UserSection
-            title="Permit Issuers"
-            description="Personnel who can issue, start, suspend, resume, complete and close permits."
-            icon={ShieldCheck}
-            users={permitIssuers}
-            onAdd={() =>
-              openAddForm('permit_issuer')
-            }
-            onToggleStatus={toggleUserStatus}
-            onRoleChange={changeUserRole}
-          />
-
-          <UserSection
-            title="Other Roles"
-            description="Safety officers, supervisors and requesters."
+            title="Internal Staff"
+            description="Company employees who create and submit internal permits."
             icon={UserRound}
-            users={otherUsers}
-            onAdd={() => openAddForm('safety')}
+            users={internalStaff}
+            onAdd={() =>
+              openAddForm('internal_staff')
+            }
             onToggleStatus={toggleUserStatus}
             onRoleChange={changeUserRole}
           />

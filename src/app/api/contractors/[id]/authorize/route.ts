@@ -47,7 +47,6 @@ export async function PATCH(
 
   if (
     profile.role !== 'safety_manager' &&
-    profile.role !== 'admin' &&
     profile.role !== 'platform_admin'
   ) {
     return NextResponse.json(

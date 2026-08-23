@@ -33,7 +33,6 @@ export function ContractorsManager() {
 
   const isAdmin =
     viewerRole === 'safety_manager' ||
-    viewerRole === 'admin' ||
     viewerRole === 'platform_admin'
 
   async function loadContractors() {

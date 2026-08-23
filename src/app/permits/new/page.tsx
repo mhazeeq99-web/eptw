@@ -69,6 +69,10 @@ export default function NewPermitPage() {
   const [plannedStart, setPlannedStart] = useState('')
   const [plannedEnd, setPlannedEnd] = useState('')
 
+  const [workerName, setWorkerName] = useState('')
+  const [workerId, setWorkerId] = useState('')
+  const [staffReferenceName, setStaffReferenceName] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState('')
@@ -85,7 +89,7 @@ export default function NewPermitPage() {
     profile?.role === 'platform_admin'
 
   const isContractor =
-    profile?.role === 'requester' &&
+    profile?.role === 'contractor_admin' &&
     profile?.company_id === null
 
   // ---------------------------------------------------------
@@ -554,6 +558,18 @@ export default function NewPermitPage() {
 
             planned_end:
               plannedEnd || null,
+
+            worker_name: isContractor
+              ? workerName.trim() || null
+              : null,
+
+            worker_id: isContractor
+              ? workerId.trim() || null
+              : null,
+
+            staff_reference_name: isContractor
+              ? staffReferenceName.trim() || null
+              : null,
           }),
         }
       )
@@ -589,6 +605,33 @@ export default function NewPermitPage() {
         <p className="text-muted-foreground">
           Loading permit form...
         </p>
+      </DashboardShell>
+    )
+  }
+
+  if (isPlatformAdmin) {
+    return (
+      <DashboardShell>
+        <div className="max-w-4xl">
+          <h1 className="text-3xl font-bold tracking-tight">
+            Create Permit
+          </h1>
+
+          <p className="mt-2 text-muted-foreground">
+            Create a new permit-to-work application.
+          </p>
+
+          <div className="mt-8 rounded-xl border bg-background p-8 text-center">
+            <p className="font-semibold">
+              Platform Admin does not create operational permits
+            </p>
+
+            <p className="mt-2 text-sm text-muted-foreground">
+              Operational permits are created by Safety Managers, Safety
+              Coordinators, Internal Staff and Contractor Admins.
+            </p>
+          </div>
+        </div>
       </DashboardShell>
     )
   }
@@ -787,6 +830,79 @@ export default function NewPermitPage() {
             )}
 
           </section>
+
+          {/* ------------------------------------------------ */}
+          {/* Contractor: Worker Details + Staff Reference */}
+          {/* ------------------------------------------------ */}
+
+          {isContractor && (
+            <>
+              <section className="rounded-xl border bg-background p-6">
+                <h2 className="text-lg font-semibold">
+                  Worker Details
+                </h2>
+
+                <div className="mt-6 grid gap-6 md:grid-cols-2">
+                  <Field label="Worker Name" required>
+                    <input
+                      type="text"
+                      value={workerName}
+                      onChange={(event) =>
+                        setWorkerName(event.target.value)
+                      }
+                      placeholder="e.g. Mohd Ali"
+                      required
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+
+                  <Field label="Worker ID" required>
+                    <input
+                      type="text"
+                      value={workerId}
+                      onChange={(event) =>
+                        setWorkerId(event.target.value)
+                      }
+                      placeholder="e.g. CT-2045"
+                      required
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+                </div>
+              </section>
+
+              <section className="rounded-xl border bg-background p-6">
+                <h2 className="text-lg font-semibold">
+                  {`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                </h2>
+
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Name of the company staff you are
+                  liaising with for this work.
+                </p>
+
+                <div className="mt-6">
+                  <Field
+                    label={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                    required
+                  >
+                    <input
+                      type="text"
+                      value={staffReferenceName}
+                      onChange={(event) =>
+                        setStaffReferenceName(
+                          event.target.value
+                        )
+                      }
+                      placeholder="e.g. Ahmad bin Ali"
+                      required
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+                </div>
+              </section>
+            </>
+          )}
 
           {/* ------------------------------------------------ */}
           {/* Work Details */}

@@ -34,7 +34,7 @@ export async function resolvePermitScope(
   let contractorId: number | null = null
 
   if (
-    profile.role === 'requester' &&
+    profile.role === 'contractor_admin' &&
     !profile.company_id
   ) {
     const { data: membership } = await supabase

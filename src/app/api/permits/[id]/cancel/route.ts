@@ -125,11 +125,8 @@ export async function POST(
   // ---------------------------------------------------------
 
   const cancellableRoles = [
-    'admin',
-    'permit_issuer',
     'safety_manager',
     'safety_coordinator',
-    'work_supervisor',
   ]
 
   const isRequester = permit.requester_id === user.id

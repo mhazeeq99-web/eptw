@@ -41,6 +41,9 @@ type Permit = {
   contractor_id: number | null
   planned_start: string | null
   planned_end: string | null
+  worker_name: string | null
+  worker_id: string | null
+  staff_reference_name: string | null
   status: string
 }
 
@@ -68,6 +71,9 @@ export default function EditPermitForm({
   const [contractorId, setContractorId] = useState('')
   const [plannedStart, setPlannedStart] = useState('')
   const [plannedEnd, setPlannedEnd] = useState('')
+  const [workerName, setWorkerName] = useState('')
+  const [workerId, setWorkerId] = useState('')
+  const [staffReferenceName, setStaffReferenceName] = useState('')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -114,6 +120,9 @@ export default function EditPermitForm({
             contractor_id,
             planned_start,
             planned_end,
+            worker_name,
+            worker_id,
+            staff_reference_name,
             status
           `)
           .eq('id', permitId)
@@ -228,6 +237,18 @@ export default function EditPermitForm({
         )
       )
 
+      setWorkerName(
+        existingPermit.worker_name ?? ''
+      )
+
+      setWorkerId(
+        existingPermit.worker_id ?? ''
+      )
+
+      setStaffReferenceName(
+        existingPermit.staff_reference_name ?? ''
+      )
+
       setPermitTypes(
         permitTypesResult.data ?? []
       )
@@ -286,6 +307,12 @@ export default function EditPermitForm({
               plannedStart || null,
             planned_end:
               plannedEnd || null,
+            worker_name:
+              workerName.trim() || null,
+            worker_id:
+              workerId.trim() || null,
+            staff_reference_name:
+              staffReferenceName.trim() || null,
           }),
         }
       )
@@ -485,6 +512,45 @@ export default function EditPermitForm({
                 )}
               </select>
             </Field>
+
+            {contractorId && (
+              <>
+                <Field label="Worker Name">
+                  <input
+                    type="text"
+                    value={workerName}
+                    onChange={(event) =>
+                      setWorkerName(event.target.value)
+                    }
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  />
+                </Field>
+
+                <Field label="Worker ID">
+                  <input
+                    type="text"
+                    value={workerId}
+                    onChange={(event) =>
+                      setWorkerId(event.target.value)
+                    }
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  />
+                </Field>
+
+                <Field label="Staff Reference Name">
+                  <input
+                    type="text"
+                    value={staffReferenceName}
+                    onChange={(event) =>
+                      setStaffReferenceName(
+                        event.target.value
+                      )
+                    }
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  />
+                </Field>
+              </>
+            )}
 
             <div className="md:col-span-2">
               <Field

@@ -25,6 +25,171 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { SignOutButton } from './sign-out-button'
 
+type NavItem = {
+  label: string
+  href: string
+  icon: React.ElementType
+}
+
+const ALL_PERMITS: NavItem[] = [
+  { label: 'All Permits', href: '/permits', icon: FileText },
+  { label: 'My Permits', href: '/permits/mine', icon: ClipboardCheck },
+  { label: 'Approval Queue', href: '/permits/approvals', icon: ShieldCheck },
+  { label: 'Active Permits', href: '/permits/active', icon: PlayCircle },
+  { label: 'Suspended', href: '/permits/suspended', icon: PauseCircle },
+  { label: 'History', href: '/permits/history', icon: History },
+]
+
+const SAFETY_ITEMS: NavItem[] = [
+  { label: 'JSA / JHA', href: '/safety/jha', icon: ClipboardList },
+  { label: 'LOTO', href: '/safety/loto', icon: LockKeyhole },
+  { label: 'Gas Testing', href: '/safety/gas-testing', icon: Gauge },
+]
+
+const MANAGEMENT_ITEMS: NavItem[] = [
+  { label: 'Contractors', href: '/contractors', icon: Users },
+  { label: 'Users', href: '/company/users', icon: UserCog },
+  { label: 'Equipment', href: '/equipment', icon: Wrench },
+  { label: 'Areas', href: '/areas', icon: MapPin },
+]
+
+function buildSections(
+  role: string | null
+): Array<{ title: string; items: NavItem[] }> {
+  const dashboard: NavItem = {
+    label: 'Dashboard',
+    href: '/dashboard',
+    icon: LayoutDashboard,
+  }
+
+  const createPermit: NavItem = {
+    label:
+      role === 'contractor_admin'
+        ? 'Create Contractor PTW'
+        : 'Create Permit',
+    href: '/permits/new',
+    icon: FileText,
+  }
+
+  const reports: NavItem = {
+    label: 'Reports',
+    href: '/reports',
+    icon: BarChart3,
+  }
+
+  switch (role) {
+    case 'platform_admin':
+      return [
+        { title: 'Main', items: [dashboard] },
+        {
+          title: 'Permits',
+          items: [
+            { label: 'All Permits', href: '/permits', icon: FileText },
+            {
+              label: 'Active Permits',
+              href: '/permits/active',
+              icon: PlayCircle,
+            },
+            {
+              label: 'Suspended',
+              href: '/permits/suspended',
+              icon: PauseCircle,
+            },
+          ],
+        },
+        { title: 'Reports', items: [reports] },
+        {
+          title: 'Settings',
+          items: [
+            { label: 'Settings', href: '/settings', icon: Settings },
+          ],
+        },
+      ]
+
+    case 'safety_manager':
+      return [
+        { title: 'Main', items: [dashboard] },
+        { title: 'Permits', items: [createPermit, ...ALL_PERMITS] },
+        { title: 'Management', items: MANAGEMENT_ITEMS },
+        { title: 'Safety', items: SAFETY_ITEMS },
+        { title: 'Reports', items: [reports] },
+        {
+          title: 'Settings',
+          items: [
+            { label: 'Settings', href: '/settings', icon: Settings },
+          ],
+        },
+      ]
+
+    case 'safety_coordinator':
+      return [
+        { title: 'Main', items: [dashboard] },
+        { title: 'Permits', items: [createPermit, ...ALL_PERMITS] },
+        { title: 'Safety', items: SAFETY_ITEMS },
+        { title: 'Reports', items: [reports] },
+      ]
+
+    case 'internal_staff':
+      return [
+        { title: 'Main', items: [dashboard] },
+        {
+          title: 'Permits',
+          items: [
+            {
+              label: 'My Permits',
+              href: '/permits/mine',
+              icon: ClipboardCheck,
+            },
+            createPermit,
+            {
+              label: 'Permit History',
+              href: '/permits/history',
+              icon: History,
+            },
+          ],
+        },
+      ]
+
+    case 'contractor_admin':
+      return [
+        { title: 'Main', items: [dashboard] },
+        {
+          title: 'Permits',
+          items: [
+            {
+              label: 'My Permits',
+              href: '/permits/mine',
+              icon: ClipboardCheck,
+            },
+            createPermit,
+            { label: 'Permits', href: '/permits', icon: FileText },
+            {
+              label: 'Permit History',
+              href: '/permits/history',
+              icon: History,
+            },
+          ],
+        },
+      ]
+
+    default:
+      return [
+        { title: 'Main', items: [dashboard] },
+        {
+          title: 'Permits',
+          items: [
+            {
+              label: 'My Permits',
+              href: '/permits/mine',
+              icon: ClipboardCheck,
+            },
+            createPermit,
+          ],
+        },
+      ]
+  }
+}
+
 export function Sidebar({
   open,
   onClose,
@@ -32,7 +197,7 @@ export function Sidebar({
   open: boolean
   onClose: () => void
 }) {
-  const [isManager, setIsManager] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -50,11 +215,8 @@ export function Sidebar({
         .eq('id', user.id)
         .single()
 
-      if (
-        profile?.role === 'safety_manager' ||
-        profile?.role === 'admin'
-      ) {
-        setIsManager(true)
+      if (profile) {
+        setRole(profile.role)
       }
     }
 
@@ -90,97 +252,7 @@ export function Sidebar({
     }
   }, [open])
 
-  const permitItems = [
-    {
-      label: 'All Permits',
-      href: '/permits',
-      icon: FileText,
-    },
-    {
-      label: 'My Permits',
-      href: '/permits/mine',
-      icon: ClipboardCheck,
-    },
-    {
-      label: 'Approval Queue',
-      href: '/permits/approvals',
-      icon: ShieldCheck,
-    },
-    {
-      label: 'Active Permits',
-      href: '/permits/active',
-      icon: PlayCircle,
-    },
-    {
-      label: 'Suspended',
-      href: '/permits/suspended',
-      icon: PauseCircle,
-    },
-    {
-      label: 'History',
-      href: '/permits/history',
-      icon: History,
-    },
-  ]
-
-  const managementItems = isManager
-    ? [
-        {
-          label: 'Contractors',
-          href: '/contractors',
-          icon: Users,
-        },
-        {
-          label: 'Users',
-          href: '/company/users',
-          icon: UserCog,
-        },
-        {
-          label: 'Equipment',
-          href: '/equipment',
-          icon: Wrench,
-        },
-        {
-          label: 'Areas',
-          href: '/areas',
-          icon: MapPin,
-        },
-      ]
-    : [
-        {
-          label: 'Contractors',
-          href: '/contractors',
-          icon: Users,
-        },
-        {
-          label: 'Equipment',
-          href: '/equipment',
-          icon: Wrench,
-        },
-        {
-          label: 'Areas',
-          href: '/areas',
-          icon: MapPin,
-        },
-      ]
-
-  const safetyItems = [
-    {
-      label: 'JSA / JHA',
-      href: '/safety/jha',
-      icon: ClipboardList,
-    },
-    {
-      label: 'LOTO',
-      href: '/safety/loto',
-      icon: LockKeyhole,
-    },
-    {
-      label: 'Gas Testing',
-      href: '/safety/gas-testing',
-      icon: Gauge,
-    },
-  ]
+  const sections = buildSections(role)
 
   return (
     <>
@@ -224,77 +296,32 @@ export function Sidebar({
         </div>
 
         <nav className="flex-1 space-y-6 overflow-y-auto p-4">
-          <NavigationSection
-            items={[
-              {
-                label: 'Dashboard',
-                href: '/dashboard',
-                icon: LayoutDashboard,
-              },
-            ]}
-            onNavigate={onClose}
-          />
+          {sections.map((section) => (
+            <div key={section.title}>
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {section.title}
+              </p>
 
-          <div>
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Permits
-            </p>
-
-            <NavigationSection
-              items={permitItems}
-              onNavigate={onClose}
-            />
-          </div>
-
-          <div>
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Management
-            </p>
-
-            <NavigationSection
-              items={managementItems}
-              onNavigate={onClose}
-            />
-          </div>
-
-          <div>
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Safety
-            </p>
-
-            <NavigationSection
-              items={safetyItems}
-              onNavigate={onClose}
-            />
-          </div>
-
-          <div>
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Reports
-            </p>
-
-            <NavigationSection
-              items={[
-                {
-                  label: 'Reports',
-                  href: '/reports',
-                  icon: BarChart3,
-                },
-              ]}
-              onNavigate={onClose}
-            />
-          </div>
+              <NavigationSection
+                items={section.items}
+                onNavigate={onClose}
+              />
+            </div>
+          ))}
         </nav>
 
         <div className="border-t p-4">
-          <Link
-            href="/settings"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </Link>
+          {(role === 'safety_manager' ||
+            role === 'platform_admin') && (
+            <Link
+              href="/settings"
+              onClick={onClose}
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </Link>
+          )}
 
           <SignOutButton />
         </div>
@@ -307,11 +334,7 @@ function NavigationSection({
   items,
   onNavigate,
 }: {
-  items: {
-    label: string
-    href: string
-    icon: React.ElementType
-  }[]
+  items: NavItem[]
   onNavigate: () => void
 }) {
   return (

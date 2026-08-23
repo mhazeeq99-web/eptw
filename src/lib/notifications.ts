@@ -48,7 +48,6 @@ export async function resolvePermitRecipients(
       .in('role', [
         'safety_manager',
         'safety_coordinator',
-        'admin',
       ])
 
     for (const staff of safetyStaff ?? []) {

@@ -62,13 +62,13 @@ export async function POST(
   }
 
   if (
-    profile.role !== 'permit_issuer' &&
-    profile.role !== 'admin'
+    profile.role !== 'safety_manager' &&
+    profile.role !== 'safety_coordinator'
   ) {
     return NextResponse.json(
       {
         error:
-          'Only permit issuers or administrators can start work',
+          'Only Safety Manager or Safety Coordinator can start work',
       },
       { status: 403 }
     )

@@ -18,6 +18,12 @@ type Permit = {
     name: string
     code: string
   } | null
+  contractor: {
+    company_name: string
+  } | null
+  worker_name: string | null
+  worker_id: string | null
+  staff_reference_name: string | null
   requester: {
     full_name: string
     department: string | null
@@ -57,6 +63,14 @@ export default async function ApprovalQueuePage() {
         name,
         code
       ),
+
+      contractor:contractors!permits_contractor_id_fkey (
+        company_name
+      ),
+
+      worker_name,
+      worker_id,
+      staff_reference_name,
 
       requester:profiles!permits_requester_id_fkey (
         full_name,
@@ -209,6 +223,41 @@ export default async function ApprovalQueuePage() {
 
                       <td className="px-6 py-4">
                         {permit.area?.name ?? '—'}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {permit.contractor ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                              Contractor PTW
+                            </span>
+
+                            <p className="text-xs font-medium">
+                              {permit.contractor.company_name}
+                            </p>
+
+                            {permit.worker_name && (
+                              <p className="text-xs text-muted-foreground">
+                                Worker:{' '}
+                                {permit.worker_name}
+                                {permit.worker_id
+                                  ? ` (${permit.worker_id})`
+                                  : ''}
+                              </p>
+                            )}
+
+                            {permit.staff_reference_name && (
+                              <p className="text-xs text-muted-foreground">
+                                Staff Ref:{' '}
+                                {permit.staff_reference_name}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                            Internal PTW
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-6 py-4">

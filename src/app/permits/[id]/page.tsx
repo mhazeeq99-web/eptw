@@ -107,12 +107,19 @@ type Permit = {
   cancelled_at: string | null
   suspension_reason: string | null
   rejection_reason: string | null
+  worker_name: string | null
+  worker_id: string | null
+  staff_reference_name: string | null
   remarks: string | null
   created_at: string
   permit_type: PermitType | null
   area: Area | null
   equipment: Equipment | null
   contractor: Contractor | null
+  company: {
+    id: number
+    name: string
+  } | null
   requester: Requester | null
   approvals: PermitApproval[]
   safety_controls: PermitSafetyControl[]
@@ -184,6 +191,9 @@ export default async function PermitDetailsPage({
       cancelled_at,
       suspension_reason,
       rejection_reason,
+      worker_name,
+      worker_id,
+      staff_reference_name,
       remarks,
       created_at,
 
@@ -219,6 +229,11 @@ export default async function PermitDetailsPage({
         employee_no,
         department,
         position
+      ),
+
+      company:companies!permits_company_id_fkey (
+        id,
+        name
       ),
 
       safety_controls:permit_safety_controls (
@@ -348,13 +363,8 @@ export default async function PermitDetailsPage({
     permit.status === 'pending_approval'
 
   const canVerifySafetyDocs =
-    currentUserRole === 'admin' ||
-    currentUserRole === 'permit_issuer' ||
-    currentUserRole === 'safety' ||
     currentUserRole === 'safety_manager' ||
-    currentUserRole === 'safety_coordinator' ||
-    currentUserRole === 'work_supervisor' ||
-    currentUserRole === 'supervisor'
+    currentUserRole === 'safety_coordinator'
 
   return (
     <DashboardShell>
@@ -461,32 +471,32 @@ export default async function PermitDetailsPage({
             )}
 
           {permit.status === 'active' &&
-            (currentUserRole === 'permit_issuer' ||
-              currentUserRole === 'admin') && (
+            (currentUserRole === 'safety_manager' ||
+              currentUserRole === 'safety_coordinator') && (
               <SuspendPermitButton
                 permitId={permit.id}
               />
             )}
 
           {permit.status === 'suspended' &&
-            (currentUserRole === 'permit_issuer' ||
-              currentUserRole === 'admin') && (
+            (currentUserRole === 'safety_manager' ||
+              currentUserRole === 'safety_coordinator') && (
               <ResumePermitButton
                 permitId={permit.id}
               />
             )}
 
           {permit.status === 'active' &&
-            (currentUserRole === 'permit_issuer' ||
-              currentUserRole === 'admin') && (
+            (currentUserRole === 'safety_manager' ||
+              currentUserRole === 'safety_coordinator') && (
               <CompletePermitButton
                 permitId={permit.id}
               />
             )}
 
           {permit.status === 'completed' &&
-            (currentUserRole === 'permit_issuer' ||
-              currentUserRole === 'admin') && (
+            (currentUserRole === 'safety_manager' ||
+              currentUserRole === 'safety_coordinator') && (
               <ClosePermitButton
                 permitId={permit.id}
               />
@@ -508,8 +518,6 @@ export default async function PermitDetailsPage({
             permit.status === 'issued' ||
             permit.status === 'suspended') &&
             (user?.id === permit.requester?.id ||
-              currentUserRole === 'admin' ||
-              currentUserRole === 'permit_issuer' ||
               currentUserRole === 'safety_manager' ||
               currentUserRole === 'safety_coordinator') && (
               <CancelPermitButton
@@ -723,6 +731,55 @@ export default async function PermitDetailsPage({
           </div>
         </section>
 
+        {/* Contractor Details (contractor PTW) */}
+        {permit.contractor && (
+          <section className="mt-6 rounded-xl border bg-background">
+            <SectionHeader title="Contractor Details" />
+
+            <div className="grid gap-6 p-6 md:grid-cols-2">
+              <InfoItem
+                label="Contractor Company"
+                value={permit.contractor.company_name}
+              />
+
+              <InfoItem
+                label="Contractor Admin"
+                value={permit.requester?.full_name}
+              />
+
+              {permit.worker_name && (
+                <InfoItem
+                  label="Worker Name"
+                  value={permit.worker_name}
+                />
+              )}
+
+              {permit.worker_id && (
+                <InfoItem
+                  label="Worker ID"
+                  value={permit.worker_id}
+                />
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Customer Staff Reference (contractor PTW) */}
+        {permit.contractor && permit.staff_reference_name && (
+          <section className="mt-6 rounded-xl border bg-background">
+            <SectionHeader
+              title={`${permit.company?.name ?? 'Customer Company'}'s Staff Reference`}
+            />
+
+            <div className="grid gap-6 p-6 md:grid-cols-2">
+              <InfoItem
+                label="Reference Name"
+                value={permit.staff_reference_name}
+              />
+            </div>
+          </section>
+        )}
+
         {/* Requester */}
         <section className="mt-6 rounded-xl border bg-background">
           <SectionHeader title="Requester" />
@@ -811,7 +868,6 @@ export default async function PermitDetailsPage({
             permit.status !== 'cancelled'
           }
           canDelete={
-            currentUserRole === 'admin' ||
             currentUserRole === 'safety_manager' ||
             currentUserRole === 'platform_admin'
           }
