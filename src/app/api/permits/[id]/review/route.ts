@@ -231,6 +231,9 @@ export async function POST(
     .from('permits')
     .update({
       status: newStatus,
+      ...(action === 'rejected'
+        ? { rejection_reason: remarks }
+        : {}),
     })
     .eq('id', id)
     .eq('status', 'pending_approval')

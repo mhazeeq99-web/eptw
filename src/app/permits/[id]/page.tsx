@@ -17,6 +17,7 @@ import { AssignSupervisor } from '@/components/permits/assign-supervisor'
 import { SendToContractorButton } from '@/components/permits/send-to-contractor-button'
 import { ApproveAndIssueButton } from '@/components/permits/approve-and-issue-button'
 import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
+import { RejectPermitButton } from '@/components/permits/reject-permit-button'
 import { JhaSection, type Jha } from '@/components/permits/safety-documents/jha-section'
 import { LotoSection, type LotoPoint } from '@/components/permits/safety-documents/loto-section'
 import { GasTestSection, type GasTest } from '@/components/permits/safety-documents/gas-test-section'
@@ -107,6 +108,8 @@ type Permit = {
   closed_at: string | null
   cancelled_by: string | null
   cancelled_at: string | null
+  suspension_reason: string | null
+  rejection_reason: string | null
   remarks: string | null
   created_at: string
   permit_type: PermitType | null
@@ -182,6 +185,8 @@ export default async function PermitDetailsPage({
       closed_at,
       cancelled_by,
       cancelled_at,
+      suspension_reason,
+      rejection_reason,
       remarks,
       created_at,
 
@@ -408,6 +413,16 @@ export default async function PermitDetailsPage({
               </div>
             )}
 
+          {permit.status === 'draft' &&
+            user?.id === permit.requester?.id && (
+              <Link
+                href={`/permits/${permit.id}/edit`}
+                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+              >
+                Edit Permit
+              </Link>
+            )}
+
           {permit.status === 'rejected' &&
             user?.id === permit.requester?.id && (
               <div className="flex gap-2">
@@ -429,9 +444,15 @@ export default async function PermitDetailsPage({
             permit.workflow_stage === 'safety_approval' &&
             (currentUserRole === 'safety_coordinator' ||
               currentUserRole === 'safety_manager') && (
-              <ApproveAndIssueButton
-                permitId={permit.id}
-              />
+              <div className="flex flex-wrap items-start gap-2">
+                <ApproveAndIssueButton
+                  permitId={permit.id}
+                />
+
+                <RejectPermitButton
+                  permitId={permit.id}
+                />
+              </div>
             )}
 
           {permit.status === 'issued' &&
@@ -487,7 +508,8 @@ export default async function PermitDetailsPage({
             permit.status === 'pending_approval' ||
             permit.status === 'rejected' ||
             permit.status === 'approved' ||
-            permit.status === 'issued') &&
+            permit.status === 'issued' ||
+            permit.status === 'suspended') &&
             (user?.id === permit.requester?.id ||
               currentUserRole === 'admin' ||
               currentUserRole === 'permit_issuer' ||
@@ -608,6 +630,24 @@ export default async function PermitDetailsPage({
                   label="Cancelled At"
                   value={formatDate(permit.cancelled_at)}
                 />
+              )}
+
+              {permit.suspension_reason && (
+                <div className="md:col-span-2">
+                  <InfoItem
+                    label="Suspension Reason"
+                    value={permit.suspension_reason}
+                  />
+                </div>
+              )}
+
+              {permit.rejection_reason && (
+                <div className="md:col-span-2">
+                  <InfoItem
+                    label="Rejection Reason"
+                    value={permit.rejection_reason}
+                  />
+                </div>
               )}
             </div>
           </section>

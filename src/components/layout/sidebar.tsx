@@ -6,58 +6,24 @@ import {
   LayoutDashboard,
   FileText,
   ClipboardCheck,
+  ShieldCheck,
+  PlayCircle,
+  PauseCircle,
+  History,
   Users,
   UserCog,
   Wrench,
   MapPin,
-  ShieldCheck,
+  ClipboardList,
+  LockKeyhole,
+  Gauge,
+  BarChart3,
   Settings,
   X,
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
 import { SignOutButton } from './sign-out-button'
-
-const navigation = [
-  {
-    label: 'Dashboard',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    label: 'Permits',
-    href: '/permits',
-    icon: FileText,
-  },
-  {
-    label: 'My Permits',
-    href: '/permits/mine',
-    icon: ClipboardCheck,
-  },
-  {
-    label: 'Approval Queue',
-    href: '/permits/approvals',
-    icon: ShieldCheck,
-  },
-]
-
-const management = [
-  {
-    label: 'Contractors',
-    href: '/contractors',
-    icon: Users,
-  },
-  {
-    label: 'Equipment',
-    href: '/equipment',
-    icon: Wrench,
-  },
-  {
-    label: 'Areas',
-    href: '/areas',
-    icon: MapPin,
-  },
-]
 
 export function Sidebar({
   open,
@@ -124,6 +90,39 @@ export function Sidebar({
     }
   }, [open])
 
+  const permitItems = [
+    {
+      label: 'All Permits',
+      href: '/permits',
+      icon: FileText,
+    },
+    {
+      label: 'My Permits',
+      href: '/permits/mine',
+      icon: ClipboardCheck,
+    },
+    {
+      label: 'Approval Queue',
+      href: '/permits/approvals',
+      icon: ShieldCheck,
+    },
+    {
+      label: 'Active Permits',
+      href: '/permits/active',
+      icon: PlayCircle,
+    },
+    {
+      label: 'Suspended',
+      href: '/permits/suspended',
+      icon: PauseCircle,
+    },
+    {
+      label: 'History',
+      href: '/permits/history',
+      icon: History,
+    },
+  ]
+
   const managementItems = isManager
     ? [
         {
@@ -147,7 +146,41 @@ export function Sidebar({
           icon: MapPin,
         },
       ]
-    : management
+    : [
+        {
+          label: 'Contractors',
+          href: '/contractors',
+          icon: Users,
+        },
+        {
+          label: 'Equipment',
+          href: '/equipment',
+          icon: Wrench,
+        },
+        {
+          label: 'Areas',
+          href: '/areas',
+          icon: MapPin,
+        },
+      ]
+
+  const safetyItems = [
+    {
+      label: 'JSA / JHA',
+      href: '/safety/jha',
+      icon: ClipboardList,
+    },
+    {
+      label: 'LOTO',
+      href: '/safety/loto',
+      icon: LockKeyhole,
+    },
+    {
+      label: 'Gas Testing',
+      href: '/safety/gas-testing',
+      icon: Gauge,
+    },
+  ]
 
   return (
     <>
@@ -192,9 +225,26 @@ export function Sidebar({
 
         <nav className="flex-1 space-y-6 overflow-y-auto p-4">
           <NavigationSection
-            items={navigation}
+            items={[
+              {
+                label: 'Dashboard',
+                href: '/dashboard',
+                icon: LayoutDashboard,
+              },
+            ]}
             onNavigate={onClose}
           />
+
+          <div>
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Permits
+            </p>
+
+            <NavigationSection
+              items={permitItems}
+              onNavigate={onClose}
+            />
+          </div>
 
           <div>
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -203,6 +253,34 @@ export function Sidebar({
 
             <NavigationSection
               items={managementItems}
+              onNavigate={onClose}
+            />
+          </div>
+
+          <div>
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Safety
+            </p>
+
+            <NavigationSection
+              items={safetyItems}
+              onNavigate={onClose}
+            />
+          </div>
+
+          <div>
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Reports
+            </p>
+
+            <NavigationSection
+              items={[
+                {
+                  label: 'Reports',
+                  href: '/reports',
+                  icon: BarChart3,
+                },
+              ]}
               onNavigate={onClose}
             />
           </div>

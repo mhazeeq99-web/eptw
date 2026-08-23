@@ -162,6 +162,7 @@ export async function POST(
     'rejected',
     'approved',
     'issued',
+    'suspended',
   ]
 
   if (!cancellableStatuses.includes(permit.status)) {

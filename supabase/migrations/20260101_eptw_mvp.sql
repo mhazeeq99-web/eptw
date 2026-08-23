@@ -935,3 +935,28 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- ----------------------------------------------------------------------------
+-- 9. Notification preferences (per-user email toggles per event type)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS public.notification_preferences (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  email_enabled boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, event_type)
+);
+
+ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "notification_preferences_select" ON public.notification_preferences;
+CREATE POLICY "notification_preferences_select" ON public.notification_preferences
+  FOR SELECT USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "notification_preferences_insert" ON public.notification_preferences;
+CREATE POLICY "notification_preferences_insert" ON public.notification_preferences
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "notification_preferences_update" ON public.notification_preferences;
+CREATE POLICY "notification_preferences_update" ON public.notification_preferences
+  FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());

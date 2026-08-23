@@ -10,6 +10,11 @@ import {
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
+import { notifyExpiringPermits } from '@/lib/notifications'
+import {
+  StatusBadge,
+  getExpiryState,
+} from '@/components/permits/status-badge'
 
 type PermitRow = {
   id: number
@@ -17,6 +22,7 @@ type PermitRow = {
   work_title: string
   status: string
   planned_start: string | null
+  planned_end: string | null
   permit_type: {
     name: string
   } | null
@@ -63,6 +69,7 @@ export default async function DashboardPage() {
       work_title,
       status,
       planned_start,
+      planned_end,
 
       permit_type:permit_types!permits_permit_type_id_fkey (
         name
@@ -83,6 +90,28 @@ export default async function DashboardPage() {
 
   if (error) {
     console.error('Failed to load dashboard permits:', error)
+  }
+
+  // Best-effort: notify about permits expiring within the next 24h.
+  if (profile?.company_id) {
+    await notifyExpiringPermits(supabase, profile.company_id)
+  }
+
+  // ---------------------------------------------------------
+  // First-time setup check: company has no permit types yet
+  // ---------------------------------------------------------
+
+  let needsSetup = false
+
+  if (profile?.company_id) {
+    const { data: types } = await supabase
+      .from('permit_types')
+      .select('id')
+      .eq('company_id', profile.company_id)
+      .eq('is_active', true)
+      .limit(1)
+
+    needsSetup = !types || types.length === 0
   }
 
   const rows = (permits ?? []) as unknown as PermitRow[]
@@ -106,6 +135,28 @@ export default async function DashboardPage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        {needsSetup && (
+          <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/30">
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-300">
+                Complete your company setup
+              </p>
+
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                Add permit types and safety controls so your team can
+                start creating permits.
+              </p>
+            </div>
+
+            <Link
+              href="/settings"
+              className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Go to Settings
+            </Link>
+          </div>
+        )}
+
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Dashboard
@@ -266,7 +317,13 @@ export default async function DashboardPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <StatusBadge status={permit.status} />
+                        <StatusBadge
+                          status={permit.status}
+                          expiry={getExpiryState(
+                            permit.status,
+                            permit.planned_end
+                          )}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -329,32 +386,3 @@ function DashboardCard({
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: 'bg-muted text-muted-foreground',
-    submitted: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-    pending_approval:
-      'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-    approved: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-    issued: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-    active: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-    suspended:
-      'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-    completed:
-      'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300',
-    closed: 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300',
-    rejected: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-    cancelled: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-    expired: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-  }
-
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
-        styles[status] ?? 'bg-muted text-muted-foreground'
-      }`}
-    >
-      {status.replaceAll('_', ' ')}
-    </span>
-  )
-}

@@ -11,6 +11,7 @@ export type PermitEventType =
   | 'permit_closed'
   | 'permit_cancelled'
   | 'permit_started'
+  | 'permit_expiring_soon'
 
 type Recipient = {
   id: string
@@ -34,7 +35,10 @@ export async function resolvePermitRecipients(
 ): Promise<Recipient[]> {
   const recipients = new Map<string, Recipient>()
 
-  if (event === 'permit_submitted') {
+  if (
+    event === 'permit_submitted' ||
+    event === 'permit_expiring_soon'
+  ) {
     // Notify company safety staff.
     const { data: safetyStaff } = await supabase
       .from('profiles')
@@ -100,13 +104,17 @@ export async function notifyPermitEvent(
     permit_closed: 'Permit closed',
     permit_cancelled: 'Permit cancelled',
     permit_started: 'Permit started',
+    permit_expiring_soon: 'Permit expiring soon',
   }
 
   const title = `${labels[event]} — ${permit.permit_no}`
 
-  const message = `Permit ${permit.permit_no} has been ${event
-    .replace('permit_', '')
-    .replaceAll('_', ' ')}.`
+  const message =
+    event === 'permit_expiring_soon'
+      ? `Permit ${permit.permit_no} is nearing its planned end time.`
+      : `Permit ${permit.permit_no} has been ${event
+          .replace('permit_', '')
+          .replaceAll('_', ' ')}.`
 
   let recipients: Recipient[]
 
@@ -135,7 +143,14 @@ export async function notifyPermitEvent(
       )
     }
 
-    if (recipient.email) {
+    if (
+      recipient.email &&
+      (await isEmailEnabled(
+        supabase,
+        recipient.id,
+        event
+      ))
+    ) {
       await sendEmail(
         recipient.email,
         title,
@@ -143,6 +158,25 @@ export async function notifyPermitEvent(
       )
     }
   }
+}
+
+/**
+ * Checks a user's email preference for an event type. Absence of a
+ * preference row means email is enabled (default).
+ */
+export async function isEmailEnabled(
+  supabase: SupabaseClient,
+  userId: string,
+  eventType: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('notification_preferences')
+    .select('email_enabled')
+    .eq('user_id', userId)
+    .eq('event_type', eventType)
+    .maybeSingle()
+
+  return data?.email_enabled ?? true
 }
 
 export function getPermitUrl(permitId: number) {
@@ -153,8 +187,7 @@ export function getPermitUrl(permitId: number) {
  * Best-effort email via SMTP (nodemailer). No-op when SMTP is not
  * configured. Requires SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
  * SMTP_FROM in the environment.
- */
-export async function sendEmail(
+ */export async function sendEmail(
   to: string,
   subject: string,
   text: string
@@ -190,5 +223,69 @@ export async function sendEmail(
     })
   } catch (error) {
     console.error('Failed to send notification email:', error)
+  }
+}
+
+/**
+ * Finds active permits in a company that are expiring within the next
+ * 24 hours and creates a "permit_expiring_soon" notification for their
+ * requesters and the company's safety staff — once per permit (guarded by
+ * an existing notification of the same type). Call this on page loads
+ * (e.g. dashboard); it is best-effort and idempotent per permit.
+ */
+export async function notifyExpiringPermits(
+  supabase: SupabaseClient,
+  companyId: number | null
+): Promise<void> {
+  if (!companyId) return
+
+  const now = Date.now()
+  const soon = new Date(now + 24 * 60 * 60 * 1000).toISOString()
+
+  const { data: permits, error } = await supabase
+    .from('permits')
+    .select(`
+      id,
+      permit_no,
+      company_id,
+      requester_id,
+      planned_end
+    `)
+    .eq('company_id', companyId)
+    .eq('status', 'active')
+    .not('planned_end', 'is', null)
+    .lte('planned_end', soon)
+
+  if (error) {
+    console.error('Failed to load expiring permits:', error)
+    return
+  }
+
+  for (const permit of permits ?? []) {
+    const end = new Date(permit.planned_end).getTime()
+
+    // Only permits still in the future (already-late ones are "expired").
+    if (end < now) continue
+
+    // Guard against duplicate notifications per permit.
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('permit_id', permit.id)
+      .eq('type', 'permit_expiring_soon')
+      .limit(1)
+
+    if (existing && existing.length > 0) continue
+
+    await notifyPermitEvent(supabase, {
+      permit: {
+        id: permit.id,
+        permit_no: permit.permit_no,
+        company_id: permit.company_id,
+        requester_id: permit.requester_id,
+      },
+      event: 'permit_expiring_soon',
+      actorId: '',
+    })
   }
 }

@@ -30,17 +30,20 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 2. Verify user's role
+  // 2. Current user's profile
   // ---------------------------------------------------------
 
-  const {
-    data: profile,
-    error: profileError,
-  } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, is_active')
-    .eq('id', user.id)
-    .single()
+  const { data: profile, error: profileError } =
+    await supabase
+      .from('profiles')
+      .select(`
+        id,
+        role,
+        company_id,
+        is_active
+      `)
+      .eq('id', user.id)
+      .single()
 
   if (profileError || !profile) {
     return NextResponse.json(
@@ -56,21 +59,27 @@ export async function POST(
     )
   }
 
+  // ---------------------------------------------------------
+  // 3. Safety roles only
+  // ---------------------------------------------------------
+
   if (
-    profile.role !== 'permit_issuer' &&
-    profile.role !== 'admin'
+    profile.role !== 'safety_coordinator' &&
+    profile.role !== 'safety_manager' &&
+    profile.role !== 'admin' &&
+    profile.role !== 'platform_admin'
   ) {
     return NextResponse.json(
       {
         error:
-          'Only permit issuers or administrators can suspend permits',
+          'Only Safety Coordinator, Safety Manager or Admin can reject a permit',
       },
       { status: 403 }
     )
   }
 
   // ---------------------------------------------------------
-  // 3. Read request body
+  // 4. Read remarks (required)
   // ---------------------------------------------------------
 
   let body: {
@@ -91,15 +100,11 @@ export async function POST(
       ? body.remarks.trim()
       : ''
 
-  // ---------------------------------------------------------
-  // 4. Suspension reason is required
-  // ---------------------------------------------------------
-
   if (!remarks) {
     return NextResponse.json(
       {
         error:
-          'A reason is required when suspending a permit',
+          'Please provide a reason when rejecting a permit',
       },
       { status: 400 }
     )
@@ -109,20 +114,19 @@ export async function POST(
   // 5. Get permit
   // ---------------------------------------------------------
 
-  const {
-    data: permit,
-    error: permitError,
-  } = await supabase
-    .from('permits')
-    .select(`
-      id,
-      permit_no,
-      company_id,
-      requester_id,
-      status
-    `)
-    .eq('id', id)
-    .single()
+  const { data: permit, error: permitError } =
+    await supabase
+      .from('permits')
+      .select(`
+        id,
+        permit_no,
+        company_id,
+        requester_id,
+        status,
+        workflow_stage
+      `)
+      .eq('id', id)
+      .single()
 
   if (permitError || !permit) {
     return NextResponse.json(
@@ -132,21 +136,42 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 6. Permit must be ACTIVE
+  // 6. Verify company ownership
   // ---------------------------------------------------------
 
-  if (permit.status !== 'active') {
+  if (
+    profile.role !== 'platform_admin' &&
+    (!profile.company_id ||
+      permit.company_id !== profile.company_id)
+  ) {
     return NextResponse.json(
       {
         error:
-          `Only active permits can be suspended. Current status: ${permit.status}`,
+          'You can only reject permits for your own company',
+      },
+      { status: 403 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 7. Permit must be awaiting safety approval
+  // ---------------------------------------------------------
+
+  if (
+    permit.status !== 'pending_approval' ||
+    permit.workflow_stage !== 'safety_approval'
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'This permit is not awaiting safety approval',
       },
       { status: 400 }
     )
   }
 
   // ---------------------------------------------------------
-  // 7. Change status to SUSPENDED
+  // 8. Reject the permit
   // ---------------------------------------------------------
 
   const {
@@ -155,32 +180,38 @@ export async function POST(
   } = await supabase
     .from('permits')
     .update({
-      status: 'suspended',
-      suspension_reason: remarks,
+      status: 'rejected',
+      rejection_reason: remarks,
     })
     .eq('id', id)
-    .eq('status', 'active')
+    .eq('status', 'pending_approval')
+    .eq('workflow_stage', 'safety_approval')
     .select(`
       id,
       permit_no,
       status,
-      suspension_reason
+      rejection_reason
     `)
     .single()
 
   if (updateError || !updatedPermit) {
+    console.error(
+      'Failed to reject permit:',
+      updateError
+    )
+
     return NextResponse.json(
       {
         error:
-          updateError?.message ||
-          'Unable to suspend permit',
+          updateError?.message ??
+          'Unable to reject permit',
       },
       { status: 500 }
     )
   }
 
   // ---------------------------------------------------------
-  // 8. Record suspension history
+  // 9. Record audit history
   // ---------------------------------------------------------
 
   const { error: historyError } =
@@ -188,25 +219,29 @@ export async function POST(
       .from('permit_approvals')
       .insert({
         permit_id: permit.id,
-        action: 'suspended',
+        action: 'rejected',
         performed_by: user.id,
         remarks,
       })
 
   if (historyError) {
     console.error(
-      'Failed to create suspension history:',
+      'Failed to create rejection history:',
       historyError
     )
 
     return NextResponse.json(
       {
         error:
-          'Permit was suspended, but audit history could not be recorded. Please contact support.',
+          'Permit was rejected, but audit history could not be recorded. Please contact support.',
       },
       { status: 500 }
     )
   }
+
+  // ---------------------------------------------------------
+  // 10. Notify the requester
+  // ---------------------------------------------------------
 
   await notifyPermitEvent(supabase, {
     permit: {
@@ -215,13 +250,9 @@ export async function POST(
       company_id: permit.company_id,
       requester_id: permit.requester_id,
     },
-    event: 'permit_suspended',
+    event: 'permit_rejected',
     actorId: user.id,
   })
-
-  // ---------------------------------------------------------
-  // 9. Return success
-  // ---------------------------------------------------------
 
   return NextResponse.json({
     success: true,

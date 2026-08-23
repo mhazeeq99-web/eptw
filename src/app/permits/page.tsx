@@ -3,6 +3,10 @@ import { Plus, FileText } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { PermitFilters } from '@/components/permits/permit-filters'
+import {
+  StatusBadge,
+  getExpiryState,
+} from '@/components/permits/status-badge'
 
 type Permit = {
   id: number
@@ -335,6 +339,10 @@ export default async function PermitsPage({
                       <td className="px-6 py-4">
                         <StatusBadge
                           status={permit.status}
+                          expiry={getExpiryState(
+                            permit.status,
+                            permit.planned_end
+                          )}
                         />
                       </td>
                     </tr>
@@ -352,60 +360,6 @@ export default async function PermitsPage({
 
 function escapeLike(value: string) {
   return value.replace(/[%_\\]/g, (char) => `\\${char}`)
-}
-
-function StatusBadge({
-  status,
-}: {
-  status: string
-}) {
-  const styles: Record<string, string> = {
-    draft:
-      'bg-muted text-muted-foreground',
-
-    submitted:
-      'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-
-    pending_approval:
-      'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-
-    approved:
-      'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-
-    issued:
-      'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-
-    active:
-      'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-
-    suspended:
-      'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-
-    completed:
-      'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300',
-
-    closed:
-      'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300',
-
-    rejected:
-      'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-
-    cancelled:
-      'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-
-    expired:
-      'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-  }
-
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
-        styles[status] ?? 'bg-muted text-muted-foreground'
-      }`}
-    >
-      {status.replaceAll('_', ' ')}
-    </span>
-  )
 }
 
 function formatDate(value: string) {

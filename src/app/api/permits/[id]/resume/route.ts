@@ -156,6 +156,7 @@ export async function POST(
     .from('permits')
     .update({
       status: 'active',
+      suspension_reason: null,
     })
     .eq('id', id)
     .eq('status', 'suspended')
