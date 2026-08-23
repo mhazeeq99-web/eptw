@@ -12,6 +12,7 @@ import {
   MapPin,
   ShieldCheck,
   Settings,
+  X,
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
@@ -58,7 +59,13 @@ const management = [
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({
+  open,
+  onClose,
+}: {
+  open: boolean
+  onClose: () => void
+}) {
   const [isManager, setIsManager] = useState(false)
 
   useEffect(() => {
@@ -88,6 +95,35 @@ export function Sidebar() {
     loadRole()
   }, [])
 
+  // Close the drawer with the Escape key.
+  useEffect(() => {
+    if (!open) return
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () =>
+      document.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
+
+  // Prevent background scrolling while the drawer is open.
+  useEffect(() => {
+    if (!open) return
+
+    const previousOverflow = document.body.style.overflow
+
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
+
   const managementItems = isManager
     ? [
         {
@@ -114,59 +150,91 @@ export function Sidebar() {
     : management
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r bg-background lg:flex lg:flex-col">
+    <>
+      {/* Overlay */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 ${
+          open
+            ? 'opacity-100'
+            : 'pointer-events-none opacity-0'
+        }`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-      <div className="flex h-16 items-center border-b px-6">
-        <div>
-          <div className="text-xl font-bold tracking-tight">
-            ePTW
+      {/* Drawer */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-background shadow-xl transition-transform duration-200 ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-hidden={!open}
+      >
+        <div className="flex h-16 items-center justify-between border-b px-6">
+          <div>
+            <div className="text-xl font-bold tracking-tight">
+              ePTW
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Permit to Work
+            </div>
           </div>
 
-          <div className="text-xs text-muted-foreground">
-            Permit to Work
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-2 hover:bg-muted"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-6 overflow-y-auto p-4">
+          <NavigationSection
+            items={navigation}
+            onNavigate={onClose}
+          />
+
+          <div>
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Management
+            </p>
+
+            <NavigationSection
+              items={managementItems}
+              onNavigate={onClose}
+            />
           </div>
+        </nav>
+
+        <div className="border-t p-4">
+          <Link
+            href="/settings"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </Link>
+
+          <SignOutButton />
         </div>
-      </div>
-
-      <nav className="flex-1 space-y-6 overflow-y-auto p-4">
-
-        <NavigationSection items={navigation} />
-
-        <div>
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Management
-          </p>
-
-          <NavigationSection items={managementItems} />
-        </div>
-
-      </nav>
-
-      <div className="border-t p-4">
-
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Settings className="h-4 w-4" />
-          Settings
-        </Link>
-
-        <SignOutButton />
-
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }
 
 function NavigationSection({
   items,
+  onNavigate,
 }: {
   items: {
     label: string
     href: string
     icon: React.ElementType
   }[]
+  onNavigate: () => void
 }) {
   return (
     <div className="space-y-1">
@@ -177,6 +245,7 @@ function NavigationSection({
           <Link
             key={item.label}
             href={item.href}
+            onClick={onNavigate}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Icon className="h-4 w-4" />

@@ -1,10 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationsBell } from './notifications-bell'
 
-export function Header() {
+export function Header({
+  onMenuClick,
+}: {
+  onMenuClick: () => void
+}) {
   const [fullName, setFullName] = useState('User')
   const [role, setRole] = useState('User')
 
@@ -36,9 +41,19 @@ export function Header() {
   const initials = getInitials(fullName)
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-6">
-      <div>
-        <p className="text-sm text-muted-foreground">
+    <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="rounded-md p-2 hover:bg-muted"
+          aria-label="Open menu"
+          aria-expanded={false}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <p className="truncate text-sm text-muted-foreground">
           Electronic Permit to Work
         </p>
       </div>
