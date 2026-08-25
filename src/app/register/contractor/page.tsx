@@ -12,11 +12,13 @@ export default function ContractorRegistrationPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [companyName, setCompanyName] = useState('')
+  const [ssm, setSsm] = useState('')
   const [phone, setPhone] = useState('')
   const [position, setPosition] = useState('')
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [companyCode, setCompanyCode] = useState('')
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -53,6 +55,7 @@ export default function ContractorRegistrationPage() {
       error: registrationError,
     } = await supabase.rpc('register_contractor', {
       p_company_name: companyName.trim(),
+      p_ssm: ssm.trim(),
       p_full_name: fullName.trim(),
       p_email: email.trim(),
       p_phone: phone.trim() || null,
@@ -79,8 +82,76 @@ export default function ContractorRegistrationPage() {
       registrationData
     )
 
-    router.push('/dashboard')
-    router.refresh()
+    // register_contractor returns a jsonb object with the
+    // generated company code.
+    const code = registrationData?.company_code
+
+    if (!code) {
+      console.error(
+        'Contractor registration succeeded but no company code was returned:',
+        registrationData
+      )
+
+      setError(
+        'Registration succeeded but the company code could not be retrieved.'
+      )
+
+      setLoading(false)
+      return
+    }
+
+    setCompanyCode(code)
+    setLoading(false)
+  }
+
+  if (companyCode) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
+        <div className="w-full max-w-2xl rounded-xl border bg-background p-8 shadow-sm">
+          <div className="space-y-6 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl font-bold text-green-700">
+              ✓
+            </div>
+
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                Contractor Registered
+              </h1>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                Your contractor account has been created
+                successfully.
+              </p>
+            </div>
+
+            <div className="mx-auto w-full max-w-sm space-y-2 rounded-lg border border-green-600/30 bg-green-50 p-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-green-700">
+                Company Code
+              </p>
+
+              <p className="text-2xl font-bold tracking-tight text-green-700">
+                {companyCode}
+              </p>
+
+              <p className="text-sm text-green-800">
+                This is your unique ePTW company code.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                router.push('/dashboard')
+                router.refresh()
+              }}
+              className="w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Continue to Dashboard
+            </button>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -185,23 +256,44 @@ export default function ContractorRegistrationPage() {
               </h2>
             </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="companyName"
-                className="text-sm font-medium"
-              >
-                Company Name *
-              </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label
+                  htmlFor="companyName"
+                  className="text-sm font-medium"
+                >
+                  Company Name *
+                </label>
 
-              <input
-                id="companyName"
-                value={companyName}
-                onChange={(event) =>
-                  setCompanyName(event.target.value)
-                }
-                required
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
+                <input
+                  id="companyName"
+                  value={companyName}
+                  onChange={(event) =>
+                    setCompanyName(event.target.value)
+                  }
+                  required
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="ssm"
+                  className="text-sm font-medium"
+                >
+                  SSM Registration No. *
+                </label>
+
+                <input
+                  id="ssm"
+                  value={ssm}
+                  onChange={(event) =>
+                    setSsm(event.target.value)
+                  }
+                  required
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

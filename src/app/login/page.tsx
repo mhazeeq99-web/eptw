@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -37,6 +38,13 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
       <div className="w-full max-w-md rounded-xl border bg-background p-8 shadow-sm">
+        <Link
+          href="/"
+          className="mb-6 inline-block text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:underline"
+        >
+          ← Back to Home
+        </Link>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
             ePTW

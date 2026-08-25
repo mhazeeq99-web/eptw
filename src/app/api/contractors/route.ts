@@ -204,14 +204,15 @@ export async function POST(request: Request) {
     )
   }
 
-  if (
-    profile.role !== 'safety_manager' &&
-    profile.role !== 'platform_admin'
-  ) {
+  // Contractor companies are created through self-service registration
+  // (register_contractor). Only Platform Admin may create a contractor here
+  // (administrative seeding); a customer Safety Manager must instead search for
+  // an existing registered contractor and authorize it for their company.
+  if (profile.role !== 'platform_admin') {
     return NextResponse.json(
       {
         error:
-          'Only company administrators can create contractors',
+          'Only Platform Admin can create contractor companies. To work with a contractor, search for and authorize an existing registered contractor company.',
       },
       { status: 403 }
     )

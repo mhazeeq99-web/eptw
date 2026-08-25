@@ -20,6 +20,10 @@ import {
   CsePersonnelEditor,
   type CsePersonnelDraft,
 } from '@/components/permits/specialised/cse-personnel-editor'
+import {
+  SearchableCombobox,
+  type ComboboxOption,
+} from '@/components/company/searchable-combobox'
 
 type Profile = {
   id: string
@@ -76,6 +80,8 @@ export default function NewPermitPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([])
 
   const [companyId, setCompanyId] = useState('')
+  const [companyOption, setCompanyOption] =
+    useState<ComboboxOption | null>(null)
   const [permitTypeId, setPermitTypeId] = useState('')
   const [workTitle, setWorkTitle] = useState('')
   const [workDescription, setWorkDescription] = useState('')
@@ -122,6 +128,49 @@ export default function NewPermitPage() {
   const isContractor =
     profile?.role === 'contractor_admin' &&
     profile?.company_id === null
+
+  // ---------------------------------------------------------
+  // Customer company search + selection
+  // ---------------------------------------------------------
+
+  async function searchCompanies(
+    query: string
+  ): Promise<ComboboxOption[]> {
+    const response = await fetch(
+      `/api/companies/search?q=${encodeURIComponent(query)}`
+    )
+
+    if (!response.ok) {
+      throw new Error(
+        'Failed to search companies'
+      )
+    }
+
+    const data = await response.json()
+
+    return (data.companies ?? []).map(
+      (company: {
+        id: number
+        name: string
+        code: string | null
+        ssm_registration_no: string | null
+      }) => ({
+        id: company.id,
+        label: company.name,
+        code: company.code,
+        subtitle: company.ssm_registration_no,
+      })
+    )
+  }
+
+  function handleCompanyChange(
+    option: ComboboxOption | null
+  ) {
+    setCompanyOption(option)
+    setCompanyId(
+      option ? String(option.id) : ''
+    )
+  }
 
   // ---------------------------------------------------------
   // Load profile and company access
@@ -215,6 +264,11 @@ export default function NewPermitPage() {
         } else {
           setCompanies([data])
           setCompanyId(String(data.id))
+          setCompanyOption({
+            id: data.id,
+            label: data.name,
+            code: data.code,
+          })
         }
 
         setLoadingData(false)
@@ -316,6 +370,11 @@ export default function NewPermitPage() {
               authorizedCompanies[0].id
             )
           )
+          setCompanyOption({
+            id: authorizedCompanies[0].id,
+            label: authorizedCompanies[0].name,
+            code: authorizedCompanies[0].code,
+          })
         }
 
         if (
@@ -843,47 +902,15 @@ export default function NewPermitPage() {
                 label="Customer Company"
                 required
               >
-                {isPlatformAdmin ||
-                isContractor ? (
-                  <select
-                    value={companyId}
-                    onChange={(event) =>
-                      setCompanyId(
-                        event.target.value
-                      )
-                    }
-                    required
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">
-                      Select customer company
-                    </option>
-
-                    {companies.map(
-                      (company) => (
-                        <option
-                          key={company.id}
-                          value={company.id}
-                        >
-                          {company.name}
-                          {company.code
-                            ? ` (${company.code})`
-                            : ''}
-                        </option>
-                      )
-                    )}
-                  </select>
-                ) : (
-                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                    {selectedCompany
-                      ? `${selectedCompany.name}${
-                          selectedCompany.code
-                            ? ` (${selectedCompany.code})`
-                            : ''
-                        }`
-                      : 'Your company'}
-                  </div>
-                )}
+                <SearchableCombobox
+                  searchFn={searchCompanies}
+                  value={companyOption}
+                  onChange={handleCompanyChange}
+                  placeholder="Search customer company..."
+                  clearable={
+                    isPlatformAdmin || isContractor
+                  }
+                />
               </Field>
 
               {/* Permit Type */}

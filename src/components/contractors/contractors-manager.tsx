@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Users } from 'lucide-react'
+import { SearchableCombobox } from '@/components/company/searchable-combobox'
+import type { ComboboxOption } from '@/components/company/searchable-combobox'
 
 type Contractor = {
   id: number
@@ -21,15 +23,26 @@ type Contractor = {
   }>
 }
 
+type ContractorSearchResult = {
+  contractor_id: number
+  company_name: string
+  company_code: string | null
+  registration_no: string | null
+  is_authorized: boolean
+}
+
 export function ContractorsManager() {
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [viewerRole, setViewerRole] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [showForm, setShowForm] = useState(false)
-  const [companyName, setCompanyName] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [showPanel, setShowPanel] = useState(false)
+  const [selectedContractor, setSelectedContractor] =
+    useState<ComboboxOption | null>(null)
+  const [authorizing, setAuthorizing] = useState(false)
+  const [panelError, setPanelError] = useState('')
+  const [panelSuccess, setPanelSuccess] = useState('')
 
   const isAdmin =
     viewerRole === 'safety_manager' ||
@@ -65,46 +78,106 @@ export function ContractorsManager() {
     loadContractors()
   }, [])
 
-  async function handleCreate() {
-    setError('')
+  async function searchContractors(
+    query: string
+  ): Promise<ComboboxOption[]> {
+    const params = new URLSearchParams({ q: query })
 
-    if (!companyName.trim()) {
-      setError('Contractor company name is required.')
+    const response = await fetch(
+      `/api/contractors/search?${params.toString()}`
+    )
+
+    const body = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        body.error ?? 'Failed to search contractors'
+      )
+    }
+
+    const results: ContractorSearchResult[] =
+      body.contractors ?? []
+
+    return results.map((item) => ({
+      id: item.contractor_id,
+      label: item.company_name,
+      code: item.company_code,
+      subtitle: item.registration_no,
+      disabled: item.is_authorized,
+    }))
+  }
+
+  function openPanel() {
+    setShowPanel(true)
+    setSelectedContractor(null)
+    setPanelError('')
+    setPanelSuccess('')
+  }
+
+  function closePanel() {
+    setShowPanel(false)
+    setSelectedContractor(null)
+    setPanelError('')
+    setPanelSuccess('')
+  }
+
+  function handleSelectContractor(
+    option: ComboboxOption | null
+  ) {
+    setSelectedContractor(option)
+    setPanelError('')
+    setPanelSuccess('')
+  }
+
+  async function handleSaveContractor() {
+    setPanelError('')
+    setPanelSuccess('')
+
+    if (!selectedContractor) {
+      setPanelError('Please select a contractor company.')
       return
     }
 
-    setSaving(true)
+    if (selectedContractor.disabled) {
+      setPanelSuccess('Contractor is already authorized.')
+      return
+    }
+
+    setAuthorizing(true)
 
     try {
-      const response = await fetch('/api/contractors', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          company_name: companyName.trim(),
-        }),
-      })
+      const response = await fetch(
+        `/api/contractors/${selectedContractor.id}/authorize`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            is_active: true,
+          }),
+        }
+      )
 
       const body = await response.json()
 
       if (!response.ok) {
         throw new Error(
-          body.error ?? 'Unable to create contractor'
+          body.error ?? 'Unable to authorize contractor'
         )
       }
 
-      setCompanyName('')
-      setShowForm(false)
+      setPanelSuccess('Contractor authorized successfully.')
+      setSelectedContractor(null)
       await loadContractors()
-    } catch (createError) {
-      setError(
-        createError instanceof Error
-          ? createError.message
-          : 'Unable to create contractor'
+    } catch (saveError) {
+      setPanelError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Unable to authorize contractor'
       )
     } finally {
-      setSaving(false)
+      setAuthorizing(false)
     }
   }
 
@@ -165,13 +238,13 @@ export function ContractorsManager() {
           </p>
         </div>
 
-        {isAdmin && !showForm && (
+        {isAdmin && !showPanel && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={openPanel}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
-            Add Contractor
+            + Add Contractor Company
           </button>
         )}
       </div>
@@ -182,48 +255,59 @@ export function ContractorsManager() {
         </div>
       )}
 
-      {showForm && (
+      {showPanel && (
         <div className="rounded-xl border bg-background p-6">
           <h2 className="font-semibold">
             Add Contractor Company
           </h2>
 
-          <div className="mt-4 space-y-2">
-            <label className="text-sm font-medium">
-              Company Name *
-            </label>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Search for a registered contractor company to
+            authorize it to submit permits for your company.
+          </p>
 
-            <input
-              type="text"
-              value={companyName}
-              onChange={(event) =>
-                setCompanyName(event.target.value)
-              }
-              placeholder="e.g. ABC Engineering Sdn Bhd"
-              className="w-full max-w-md rounded-md border bg-background px-3 py-2 text-sm"
+          <div className="mt-4 max-w-md">
+            <SearchableCombobox
+              searchFn={searchContractors}
+              value={selectedContractor}
+              onChange={handleSelectContractor}
+              placeholder="Search contractor company..."
+              label="Contractor Company"
+              clearable
             />
           </div>
+
+          {panelError && (
+            <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              {panelError}
+            </div>
+          )}
+
+          {panelSuccess && (
+            <div className="mt-3 rounded-md border border-green-600/30 bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+              {panelSuccess}
+            </div>
+          )}
 
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              onClick={() => {
-                setShowForm(false)
-                setError('')
-              }}
+              onClick={closePanel}
               className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
             >
               Cancel
             </button>
 
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={saving}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Contractor'}
-            </button>
+            {selectedContractor && (
+              <button
+                type="button"
+                onClick={handleSaveContractor}
+                disabled={authorizing}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {authorizing ? 'Saving...' : 'Save Contractor'}
+              </button>
+            )}
           </div>
         </div>
       )}
