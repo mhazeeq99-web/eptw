@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
@@ -20,7 +21,11 @@ import {
   BarChart3,
   Settings,
   CreditCard,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
+  ChevronRight,
+  Plus,
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
@@ -30,174 +35,131 @@ type NavItem = {
   label: string
   href: string
   icon: React.ElementType
+  /** Rendered as a prominent primary action (e.g. Create Permit). */
+  primary?: boolean
 }
 
-const ALL_PERMITS: NavItem[] = [
-  { label: 'All Permits', href: '/permits', icon: FileText },
-  { label: 'My Permits', href: '/permits/mine', icon: ClipboardCheck },
-  { label: 'Approval Queue', href: '/permits/approvals', icon: ShieldCheck },
-  { label: 'Active Permits', href: '/permits/active', icon: PlayCircle },
-  { label: 'Suspended', href: '/permits/suspended', icon: PauseCircle },
-  { label: 'History', href: '/permits/history', icon: History },
-]
+type Section = { title: string; items: NavItem[] }
 
-const SAFETY_ITEMS: NavItem[] = [
-  { label: 'JSA / JHA', href: '/safety/jha', icon: ClipboardList },
-  { label: 'LOTO', href: '/safety/loto', icon: LockKeyhole },
-  { label: 'Gas Testing', href: '/safety/gas-testing', icon: Gauge },
-]
-
-const MANAGEMENT_ITEMS: NavItem[] = [
-  { label: 'Contractors', href: '/contractors', icon: Users },
-  { label: 'Users', href: '/company/users', icon: UserCog },
-  { label: 'Equipment', href: '/equipment', icon: Wrench },
-  { label: 'Areas', href: '/areas', icon: MapPin },
-]
-
-function buildSections(
-  role: string | null
-): Array<{ title: string; items: NavItem[] }> {
+/** Sections per role — navigation visibility only. API/RLS remains authoritative. */
+function buildSections(role: string | null): Section[] {
   const dashboard: NavItem = {
     label: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
   }
-
-  const createPermit: NavItem = {
-    label:
-      role === 'contractor_admin'
-        ? 'Create Contractor PTW'
-        : 'Create Permit',
-    href: '/permits/new',
-    icon: FileText,
-  }
-
   const reports: NavItem = {
     label: 'Reports',
     href: '/reports',
     icon: BarChart3,
   }
 
+  const operations = [
+    dashboard,
+    { label: 'All Permits', href: '/permits', icon: FileText },
+    { label: 'My Permits', href: '/permits/mine', icon: ClipboardCheck },
+    { label: 'Approval Queue', href: '/permits/approvals', icon: ShieldCheck },
+    { label: 'Active Permits', href: '/permits/active', icon: PlayCircle },
+    { label: 'Suspended', href: '/permits/suspended', icon: PauseCircle },
+    { label: 'History', href: '/permits/history', icon: History },
+  ]
+  const safety = [
+    { label: 'JSA / JHA', href: '/safety/jha', icon: ClipboardList },
+    { label: 'LOTO', href: '/safety/loto', icon: LockKeyhole },
+    { label: 'Gas Testing', href: '/safety/gas-testing', icon: Gauge },
+  ]
+  const settingsSection: Section = {
+    title: 'Settings',
+    items: [
+      { label: 'Settings', href: '/settings', icon: Settings },
+      { label: 'Subscription', href: '/settings/subscription', icon: CreditCard },
+    ],
+  }
+
   switch (role) {
     case 'platform_admin':
       return [
-        { title: 'Main', items: [dashboard] },
+        { title: 'Workspace', items: [dashboard] },
         {
           title: 'Permits',
           items: [
             { label: 'All Permits', href: '/permits', icon: FileText },
-            {
-              label: 'Active Permits',
-              href: '/permits/active',
-              icon: PlayCircle,
-            },
-            {
-              label: 'Suspended',
-              href: '/permits/suspended',
-              icon: PauseCircle,
-            },
+            { label: 'Active Permits', href: '/permits/active', icon: PlayCircle },
+            { label: 'Suspended', href: '/permits/suspended', icon: PauseCircle },
           ],
         },
         { title: 'Reports', items: [reports] },
-        {
-          title: 'Settings',
-          items: [
-            { label: 'Settings', href: '/settings', icon: Settings },
-            {
-              label: 'Subscription',
-              href: '/settings/subscription',
-              icon: CreditCard,
-            },
-          ],
-        },
+        settingsSection,
       ]
 
     case 'safety_manager':
       return [
-        { title: 'Main', items: [dashboard] },
-        { title: 'Permits', items: [createPermit, ...ALL_PERMITS] },
-        { title: 'Management', items: MANAGEMENT_ITEMS },
-        { title: 'Safety', items: SAFETY_ITEMS },
-        { title: 'Reports', items: [reports] },
         {
-          title: 'Settings',
+          title: 'Operations',
           items: [
-            { label: 'Settings', href: '/settings', icon: Settings },
-            {
-              label: 'Subscription',
-              href: '/settings/subscription',
-              icon: CreditCard,
-            },
+            { label: 'Create Permit', href: '/permits/new', icon: Plus, primary: true },
+            ...operations,
+            reports,
           ],
         },
+        {
+          title: 'Management',
+          items: [
+            { label: 'Contractors', href: '/contractors', icon: Users },
+            { label: 'Users', href: '/company/users', icon: UserCog },
+            { label: 'Equipment', href: '/equipment', icon: Wrench },
+            { label: 'Areas', href: '/areas', icon: MapPin },
+          ],
+        },
+        { title: 'Safety', items: safety },
+        settingsSection,
       ]
 
     case 'safety_coordinator':
       return [
-        { title: 'Main', items: [dashboard] },
-        { title: 'Permits', items: [createPermit, ...ALL_PERMITS] },
-        { title: 'Safety', items: SAFETY_ITEMS },
-        { title: 'Reports', items: [reports] },
+        {
+          title: 'Operations',
+          items: [
+            { label: 'Create Permit', href: '/permits/new', icon: Plus, primary: true },
+            ...operations,
+            reports,
+          ],
+        },
+        { title: 'Safety', items: safety },
       ]
 
     case 'internal_staff':
       return [
-        { title: 'Main', items: [dashboard] },
         {
-          title: 'Permits',
+          title: 'Operations',
           items: [
-            {
-              label: 'My Permits',
-              href: '/permits/mine',
-              icon: ClipboardCheck,
-            },
-            createPermit,
-            {
-              label: 'Permit History',
-              href: '/permits/history',
-              icon: History,
-            },
+            { label: 'New Permit', href: '/permits/new', icon: Plus, primary: true },
+            { label: 'My Permits', href: '/permits/mine', icon: ClipboardCheck },
+            { label: 'Permit History', href: '/permits/history', icon: History },
           ],
         },
       ]
 
     case 'contractor_admin':
       return [
-        { title: 'Main', items: [dashboard] },
         {
-          title: 'Permits',
+          title: 'Operations',
           items: [
             {
-              label: 'My Permits',
-              href: '/permits/mine',
-              icon: ClipboardCheck,
+              label: 'Create Contractor PTW',
+              href: '/permits/new',
+              icon: Plus,
+              primary: true,
             },
-            createPermit,
-            { label: 'Permits', href: '/permits', icon: FileText },
-            {
-              label: 'Permit History',
-              href: '/permits/history',
-              icon: History,
-            },
+            { label: 'My Permits', href: '/permits/mine', icon: ClipboardCheck },
+            { label: 'All Permits', href: '/permits', icon: FileText },
+            { label: 'Permit History', href: '/permits/history', icon: History },
           ],
         },
       ]
 
     default:
-      return [
-        { title: 'Main', items: [dashboard] },
-        {
-          title: 'Permits',
-          items: [
-            {
-              label: 'My Permits',
-              href: '/permits/mine',
-              icon: ClipboardCheck,
-            },
-            createPermit,
-          ],
-        },
-      ]
+      return [{ title: 'Operations', items: [dashboard] }]
   }
 }
 
@@ -208,7 +170,9 @@ export function Sidebar({
   open: boolean
   onClose: () => void
 }) {
+  const pathname = usePathname()
   const [role, setRole] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -234,30 +198,23 @@ export function Sidebar({
     loadRole()
   }, [])
 
-  // Close the drawer with the Escape key.
+  // Close the drawer with Escape.
   useEffect(() => {
     if (!open) return
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose()
-      }
+      if (event.key === 'Escape') onClose()
     }
 
     document.addEventListener('keydown', handleKeyDown)
-
-    return () =>
-      document.removeEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose])
 
-  // Prevent background scrolling while the drawer is open.
+  // Lock body scroll while the mobile drawer is open.
   useEffect(() => {
     if (!open) return
-
     const previousOverflow = document.body.style.overflow
-
     document.body.style.overflow = 'hidden'
-
     return () => {
       document.body.style.overflow = previousOverflow
     }
@@ -267,104 +224,151 @@ export function Sidebar({
 
   return (
     <>
-      {/* Overlay */}
+      {/* Mobile overlay */}
       <div
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 ${
-          open
-            ? 'opacity-100'
-            : 'pointer-events-none opacity-0'
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 lg:hidden ${
+          open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-background shadow-xl transition-transform duration-200 ${
-          open ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-background shadow-xl transition-[width,transform] duration-200 lg:static lg:z-auto lg:shadow-none lg:transition-[width] ${
+          collapsed ? 'lg:w-20' : 'lg:w-72'
+        } w-72 ${
+          open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
-        aria-hidden={!open}
+        aria-label="Sidebar navigation"
       >
-        <div className="flex h-16 items-center justify-between border-b px-6">
-          <div>
-            <div className="text-xl font-bold tracking-tight">
-              ePTW
+        {/* Brand + controls */}
+        <div className="flex h-16 items-center justify-between border-b px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
+              P
             </div>
-
-            <div className="text-xs text-muted-foreground">
-              Permit to Work
-            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <div className="truncate text-base font-bold leading-tight tracking-tight">
+                  ePTW
+                </div>
+                <div className="truncate text-[11px] leading-tight text-muted-foreground">
+                  Permit to Work
+                </div>
+              </div>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-2 hover:bg-muted"
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:inline-flex"
+              aria-label={
+                collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+              }
+              title={collapsed ? 'Expand' : 'Collapse'}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto p-4">
+        {/* Navigation */}
+        <nav
+          className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden p-3"
+          aria-label="Primary"
+        >
           {sections.map((section) => (
             <div key={section.title}>
-              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {section.title}
-              </p>
-
-              <NavigationSection
-                items={section.items}
-                onNavigate={onClose}
-              />
+              {!collapsed && (
+                <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {section.title}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.href + item.label}
+                    item={item}
+                    pathname={pathname}
+                    collapsed={collapsed}
+                    onNavigate={onClose}
+                  />
+                ))}
+              </div>
             </div>
           ))}
         </nav>
 
-        <div className="border-t p-4">
-          {(role === 'safety_manager' ||
-            role === 'platform_admin') && (
-            <Link
-              href="/settings"
-              onClick={onClose}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
+        {/* Footer */}
+        <div className="border-t p-3">
+          {!collapsed && (
+            <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Account
+            </p>
           )}
-
-          <SignOutButton />
+          <SignOutButton collapsed={collapsed} />
         </div>
       </aside>
     </>
   )
 }
 
-function NavigationSection({
-  items,
+function NavLink({
+  item,
+  pathname,
+  collapsed,
   onNavigate,
 }: {
-  items: NavItem[]
+  item: NavItem
+  pathname: string
+  collapsed: boolean
   onNavigate: () => void
 }) {
-  return (
-    <div className="space-y-1">
-      {items.map((item) => {
-        const Icon = item.icon
+  const Icon = item.icon
+  const primary = item.primary
+  const isActive =
+    pathname === item.href || pathname.startsWith(item.href + '/')
 
-        return (
-          <Link
-            key={item.label}
-            href={item.href}
-            onClick={onNavigate}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Icon className="h-4 w-4" />
-            {item.label}
-          </Link>
-        )
-      })}
-    </div>
+  const classes = [
+    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+    collapsed ? 'justify-center px-2' : 'justify-start',
+    primary
+      ? 'bg-primary font-medium text-primary-foreground hover:bg-primary/90'
+      : isActive
+        ? 'bg-muted font-medium text-foreground'
+        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  ].join(' ')
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={classes}
+      aria-current={isActive ? 'page' : undefined}
+      title={collapsed ? item.label : undefined}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {!collapsed && (
+        <>
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {primary && <ChevronRight className="h-4 w-4 shrink-0" />}
+        </>
+      )}
+    </Link>
   )
 }

@@ -4,7 +4,11 @@ import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-export function SignOutButton() {
+export function SignOutButton({
+  collapsed = false,
+}: {
+  collapsed?: boolean
+}) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -19,10 +23,13 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={handleSignOut}
-      className="mt-1 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+      className={`mt-1 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground ${
+        collapsed ? 'justify-center px-2' : ''
+      }`}
+      title={collapsed ? 'Sign out' : undefined}
     >
-      <LogOut className="h-4 w-4" />
-      Sign out
+      <LogOut className="h-4 w-4 shrink-0" />
+      {!collapsed && 'Sign out'}
     </button>
   )
 }

@@ -188,7 +188,9 @@ export default async function DashboardPage() {
 
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Dashboard
+            {profile?.full_name
+              ? `Welcome, ${profile.full_name.split(' ')[0]}`
+              : 'Dashboard'}
           </h1>
 
           <p className="mt-2 text-muted-foreground">
@@ -308,7 +310,9 @@ export default async function DashboardPage() {
                 href="/permits/new"
                 className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                Create Permit
+                {profile?.role === 'contractor_admin'
+                  ? 'Create Contractor PTW'
+                  : 'Create Permit'}
               </Link>
             </div>
           ) : (

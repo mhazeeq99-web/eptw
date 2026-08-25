@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, FileText } from 'lucide-react'
+import { Plus, FileText, SearchX, TriangleAlert, X } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { PermitFilters } from '@/components/permits/permit-filters'
@@ -7,6 +7,7 @@ import {
   StatusBadge,
   getExpiryState,
 } from '@/components/permits/status-badge'
+import { formatDateTimeMY } from '@/lib/dates'
 
 type Permit = {
   id: number
@@ -262,25 +263,65 @@ export default async function PermitsPage({
         {/* Table */}
         <div className="overflow-hidden rounded-xl border bg-background">
 
-          {filteredPermits.length === 0 ? (
+          {error ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
-              <FileText className="h-10 w-10 text-muted-foreground" />
+              <TriangleAlert className="h-10 w-10 text-destructive" />
 
               <h2 className="mt-4 font-semibold">
-                {hasActiveFilters
-                  ? 'No permits match your filters'
-                  : 'No permits found'}
+                Couldn&apos;t load permits
               </h2>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                {hasActiveFilters
-                  ? 'Try adjusting or clearing the filters above.'
-                  : 'Create your first permit-to-work application.'}
+                Something went wrong while loading your permits. Please try
+                again.
               </p>
             </div>
+          ) : filteredPermits.length === 0 ? (
+            hasActiveFilters ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <SearchX className="h-10 w-10 text-muted-foreground" />
+
+                <h2 className="mt-4 font-semibold">
+                  No permits match your filters
+                </h2>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Try adjusting or clearing the filters above to see more
+                  permits.
+                </p>
+
+                <Link
+                  href="/permits"
+                  className="mt-4 inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                  Clear filters
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <FileText className="h-10 w-10 text-muted-foreground" />
+
+                <h2 className="mt-4 font-semibold">
+                  No permits yet
+                </h2>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create your first permit-to-work application to get started.
+                </p>
+
+                <Link
+                  href="/permits/new"
+                  className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Permit
+                </Link>
+              </div>
+            )
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[680px] text-sm">
 
                 <thead className="border-b bg-muted/40">
                   <tr>
@@ -307,6 +348,10 @@ export default async function PermitsPage({
                     <th className="px-6 py-3 text-left font-medium">
                       Status
                     </th>
+
+                    <th className="px-6 py-3 text-right font-medium">
+                      Action
+                    </th>
                   </tr>
                 </thead>
 
@@ -314,7 +359,7 @@ export default async function PermitsPage({
                   {filteredPermits.map((permit) => (
                     <tr
                       key={permit.id}
-                      className="hover:bg-muted/40"
+                      className="transition-colors hover:bg-muted/40"
                     >
                       <td className="px-6 py-4">
                         <Link
@@ -336,7 +381,7 @@ export default async function PermitsPage({
 
                         {permit.planned_start && (
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {formatDate(permit.planned_start)}
+                            {formatDateTimeMY(permit.planned_start)}
                           </p>
                         )}
                       </td>
@@ -363,6 +408,16 @@ export default async function PermitsPage({
                           )}
                         />
                       </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <Link
+                          href={`/permits/${permit.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          View
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -378,11 +433,4 @@ export default async function PermitsPage({
 
 function escapeLike(value: string) {
   return value.replace(/[%_\\]/g, (char) => `\\${char}`)
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en-MY', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
 }

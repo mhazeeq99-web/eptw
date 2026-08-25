@@ -830,11 +830,12 @@ export default function NewPermitPage() {
 
           <section className="rounded-xl border bg-background p-6">
 
-            <h2 className="text-lg font-semibold">
-              Permit Information
-            </h2>
+            <SectionHeader
+              title="Permit Information"
+              description="Select the customer company and permit type for this work."
+            />
 
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
 
               {/* Customer Company */}
 
@@ -1009,9 +1010,10 @@ export default function NewPermitPage() {
           {isContractor && (
             <>
               <section className="rounded-xl border bg-background p-6">
-                <h2 className="text-lg font-semibold">
-                  Workers / Authorised Personnel
-                </h2>
+                <SectionHeader
+                  title="Workers / Authorised Personnel"
+                  description="List every worker performing this work. At least one worker with a full name and NRIC/passport is required for contractor permits."
+                />
 
                 <div className="mt-6">
                   <WorkerListEditor
@@ -1023,14 +1025,10 @@ export default function NewPermitPage() {
               </section>
 
               <section className="rounded-xl border bg-background p-6">
-                <h2 className="text-lg font-semibold">
-                  {`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
-                </h2>
-
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Name of the company staff you are
-                  liaising with for this work.
-                </p>
+                <SectionHeader
+                  title={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                  description="Name of the company staff you are liaising with for this work. Required for contractor permits."
+                />
 
                 <div className="mt-6">
                   <Field
@@ -1061,11 +1059,12 @@ export default function NewPermitPage() {
 
           <section className="rounded-xl border bg-background p-6">
 
-            <h2 className="text-lg font-semibold">
-              Work Details
-            </h2>
+            <SectionHeader
+              title="Work Details"
+              description="Describe the scope, location and method of the work to be performed."
+            />
 
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
 
               <Field
                 label="Work Title"
@@ -1084,6 +1083,24 @@ export default function NewPermitPage() {
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </Field>
+
+              <Field label="Work Location">
+                <input
+                  type="text"
+                  value={workLocation}
+                  onChange={(event) =>
+                    setWorkLocation(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Specific work location"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+            </div>
+
+            <div className="mt-6 space-y-6">
 
               <Field label="Work Description">
                 <textarea
@@ -1113,20 +1130,6 @@ export default function NewPermitPage() {
                 />
               </Field>
 
-              <Field label="Work Location">
-                <input
-                  type="text"
-                  value={workLocation}
-                  onChange={(event) =>
-                    setWorkLocation(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Specific work location"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
             </div>
 
           </section>
@@ -1137,9 +1140,10 @@ export default function NewPermitPage() {
 
           {!isContractor && (
             <section className="rounded-xl border bg-background p-6">
-              <h2 className="text-lg font-semibold">
-                Workers / Authorised Personnel
-              </h2>
+              <SectionHeader
+                title="Workers / Authorised Personnel"
+                description="List the authorised personnel who will perform this work."
+              />
 
               <div className="mt-6">
                 <WorkerListEditor
@@ -1158,15 +1162,10 @@ export default function NewPermitPage() {
           {selectedPermitType && (
             <section className="rounded-xl border bg-background p-6">
 
-              <h2 className="text-lg font-semibold">
-                Safety Requirements
-              </h2>
-
-              <p className="mt-2 text-sm text-muted-foreground">
-                Required controls are enforced before approval.
-                Recommended controls are pre-selected and can be
-                adjusted.
-              </p>
+              <SectionHeader
+                title="Safety Requirements"
+                description="Required controls are enforced before approval. Recommended controls are pre-selected and can be adjusted."
+              />
 
               <div className="mt-6 grid gap-2 sm:grid-cols-2">
 
@@ -1241,14 +1240,10 @@ export default function NewPermitPage() {
           {selectedPermitType && (
             <section className="rounded-xl border bg-background p-6">
 
-              <h2 className="text-lg font-semibold">
-                PPE Requirements
-              </h2>
-
-              <p className="mt-2 text-sm text-muted-foreground">
-                Recommended PPE is based on the permit type. Adjust
-                the selection for the specific work and hazards.
-              </p>
+              <SectionHeader
+                title="PPE Requirements"
+                description="Recommended PPE is based on the permit type. Adjust the selection for the specific work and hazards."
+              />
 
               <div className="mt-6">
                 <PpeSelector
@@ -1280,6 +1275,8 @@ export default function NewPermitPage() {
           {/* Specialised Permit Details (Phase E) */}
           {/* ------------------------------------------------ */}
 
+          {/* Only specialised permit types (HOT/CSE/WAH/ELEC) render a
+              detail section; COLD permits have no specialised section. */}
           {selectedPermitType &&
             ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
               selectedPermitType.code
@@ -1297,14 +1294,10 @@ export default function NewPermitPage() {
 
           {selectedPermitType?.code === 'CSE' && (
             <section className="rounded-xl border bg-background p-6">
-              <h2 className="text-lg font-semibold">
-                Confined Space Personnel
-              </h2>
-
-              <p className="mt-2 text-sm text-muted-foreground">
-                Permit-level responsibilities assigned from the workers
-                listed on this permit. No new global roles.
-              </p>
+              <SectionHeader
+                title="Confined Space Personnel"
+                description="Permit-level responsibilities assigned from the workers listed on this permit. No new global roles."
+              />
 
               <div className="mt-6">
                 <CsePersonnelEditor
@@ -1325,11 +1318,12 @@ export default function NewPermitPage() {
 
           <section className="rounded-xl border bg-background p-6">
 
-            <h2 className="text-lg font-semibold">
-              Planned Work Period
-            </h2>
+            <SectionHeader
+              title="Planned Work Period"
+              description="Optional planned start and end for the work window."
+            />
 
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
 
               <Field label="Planned Start">
                 <input
@@ -1407,6 +1401,28 @@ export default function NewPermitPage() {
 
       </div>
     </DashboardShell>
+  )
+}
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string
+  description?: string
+}) {
+  return (
+    <header className="border-b pb-4">
+      <h2 className="text-lg font-semibold">
+        {title}
+      </h2>
+
+      {description && (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {description}
+        </p>
+      )}
+    </header>
   )
 }
 

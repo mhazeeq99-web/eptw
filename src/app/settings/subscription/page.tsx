@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { Building2, ReceiptText } from 'lucide-react'
+import { Building2, Gauge, ReceiptText } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { BillingActions, PaymentStatusNotice } from '@/components/billing/billing-actions'
 import { createClient } from '@/lib/supabase/server'
@@ -18,6 +18,10 @@ type UsageRow = {
   usage: number
   limit: number | null
   detail?: string
+  /** Noun used in limit notes, e.g. "2 permits remaining this month". */
+  noun: string
+  /** Optional qualifier appended to the noun in limit notes. */
+  scope?: string
 }
 
 function buildUsageRows(entitlements: Entitlements): UsageRow[] {
@@ -27,16 +31,20 @@ function buildUsageRows(entitlements: Entitlements): UsageRow[] {
       label: 'PTWs this month',
       usage: usage.monthlyPermits,
       limit: plan.max_monthly_permits,
+      noun: 'permits',
+      scope: 'this month',
     },
     {
       label: 'Active PTWs',
       usage: usage.activePermits,
       limit: plan.max_active_permits,
+      noun: 'active permits',
     },
     {
       label: 'Users',
       usage: usage.users.total,
       limit: plan.max_total_users,
+      noun: 'user seats',
       detail: [
         `${usage.users.safety_manager} / ${plan.max_safety_managers} Safety Managers`,
         `${usage.users.safety_coordinator} / ${plan.max_safety_coordinators} Safety Coordinators`,
@@ -48,11 +56,13 @@ function buildUsageRows(entitlements: Entitlements): UsageRow[] {
       label: 'Storage',
       usage: usage.storageBytes,
       limit: plan.max_storage_bytes,
+      noun: 'storage',
     },
     {
       label: 'Sites',
       usage: usage.sites,
       limit: plan.max_sites,
+      noun: 'sites',
       detail:
         'Multi-site management is a future feature.',
     },
@@ -212,34 +222,64 @@ export default async function SubscriptionPage() {
 
         <div className="rounded-xl border bg-background">
           <div className="border-b px-6 py-4">
-            <h2 className="text-lg font-semibold">Usage</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Gauge className="h-5 w-5 text-muted-foreground" />
+              Usage
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              How your company is using the {plan.name} plan.
+            </p>
           </div>
           <div className="divide-y">
-            {rows.map((row) => (
-              <div
-                key={row.label}
-                className="flex items-center justify-between px-6 py-4"
-              >
-                <div>
-                  <p className="font-medium">{row.label}</p>
-                  {row.detail && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {row.detail}
+            {rows.map((row) => {
+              const percent = barPercent(row)
+              const note = limitNote(row)
+
+              return (
+                <div key={row.label} className="px-6 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                    <div className="min-w-0">
+                      <p className="font-medium">{row.label}</p>
+                      {row.detail && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {row.detail}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        {formatUsage(row)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {remainingText(row)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {percent != null && (
+                    <div
+                      className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={row.limit ?? 0}
+                      aria-valuenow={row.usage}
+                      aria-label={row.label}
+                    >
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  )}
+
+                  {note && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {note}
                     </p>
                   )}
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">
-                    {formatUsage(row.usage, row.limit)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {row.limit == null
-                      ? 'Unlimited'
-                      : `${formatBytesIfStorage(row.label, row.limit)} available`}
-                  </p>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -318,9 +358,44 @@ export default async function SubscriptionPage() {
   )
 }
 
-function formatUsage(usage: number, limit: number | null): string {
-  if (limit == null) return String(usage)
-  return `${usage} / ${limit}`
+function formatUsage(row: UsageRow): string {
+  if (row.limit == null) {
+    return formatBytesIfStorage(row.label, row.usage)
+  }
+  return `${formatBytesIfStorage(row.label, row.usage)} / ${formatBytesIfStorage(row.label, row.limit)}`
+}
+
+function remainingText(row: UsageRow): string {
+  if (row.limit == null) return 'Unlimited'
+  const remaining = Math.max(row.limit - row.usage, 0)
+  return `${formatBytesIfStorage(row.label, remaining)} remaining`
+}
+
+/** Fill percentage for the progress bar, or null when there is no limit. */
+function barPercent(row: UsageRow): number | null {
+  if (row.limit == null || row.limit <= 0) return null
+  return Math.min(100, Math.round((row.usage / row.limit) * 100))
+}
+
+/**
+ * Subtle note shown only when a limit is near (>= 80% used) or reached.
+ * Wording is derived entirely from the row's own usage/limit numbers.
+ */
+function limitNote(row: UsageRow): string | null {
+  const { label, usage, limit, noun, scope } = row
+  if (limit == null || limit <= 0) return null
+
+  const pct = usage / limit
+  if (pct < 0.8) return null
+
+  const scopeText = scope ? ` ${scope}` : ''
+
+  if (usage >= limit) {
+    return `${formatBytesIfStorage(label, usage)} of ${formatBytesIfStorage(label, limit)} ${noun} used${scopeText}`
+  }
+
+  const remaining = limit - usage
+  return `${formatBytesIfStorage(label, remaining)} ${noun} remaining${scopeText}`
 }
 
 function formatBytesIfStorage(

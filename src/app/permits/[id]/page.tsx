@@ -627,121 +627,154 @@ export default async function PermitDetailsPage({
       })
   }
 
+  // ---------------------------------------------------------
+  // Overview summary labels (presentation only)
+  // ---------------------------------------------------------
+
+  const validityLabel =
+    permit.planned_start || permit.planned_end
+      ? `${formatDate(permit.planned_start)} → ${formatDate(permit.planned_end)}`
+      : null
+
   return (
     <DashboardShell>
       <div className="max-w-5xl">
 
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">
-                {permit.permit_no}
-              </h1>
+        {/* Permit Overview */}
+        <section className="rounded-xl border bg-background">
+          <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {permit.permit_no}
+                </h1>
 
-              <StatusBadge status={permit.status} />
+                <StatusBadge status={permit.status} />
+              </div>
+
+              <p className="mt-2 text-muted-foreground">
+                {permit.permit_type?.name ?? 'Permit'}
+              </p>
             </div>
 
-            <p className="mt-2 text-muted-foreground">
-              {permit.permit_type?.name ?? 'Permit'}
-            </p>
-          </div>
+            {permit.status === 'draft' &&
+              permit.initiation_mode === 'internal' && (
+                <SubmitPermitButton
+                  permitId={permit.id}
+                />
+              )}
 
-          {permit.status === 'draft' &&
-            permit.initiation_mode === 'internal' && (
-              <SubmitPermitButton
-                permitId={permit.id}
-              />
-            )}
+            {permit.status === 'draft' &&
+              permit.initiation_mode ===
+                'contractor_direct' && (
+                <SubmitPermitButton
+                  permitId={permit.id}
+                />
+              )}
 
-          {permit.status === 'draft' &&
-            permit.initiation_mode ===
-              'contractor_direct' && (
-              <SubmitPermitButton
-                permitId={permit.id}
-              />
-            )}
+            {permit.status === 'draft' &&
+              permit.initiation_mode ===
+                'contractor_work_supervisor' &&
+              permit.workflow_stage ===
+                'contractor_completion' && (
+                <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                  Awaiting contractor completion.
+                </div>
+              )}
 
-          {permit.status === 'draft' &&
-            permit.initiation_mode ===
-              'contractor_work_supervisor' &&
-            permit.workflow_stage ===
-              'contractor_completion' && (
-              <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                Awaiting contractor completion.
-              </div>
-            )}
-
-          {permit.status === 'draft' &&
-            user?.id === permit.requester?.id && (
-              <Link
-                href={`/permits/${permit.id}/edit`}
-                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-              >
-                Edit Permit
-              </Link>
-            )}
-
-          {permit.status === 'rejected' &&
-            user?.id === permit.requester?.id && (
-              <div className="flex gap-2">
+            {permit.status === 'draft' &&
+              user?.id === permit.requester?.id && (
                 <Link
                   href={`/permits/${permit.id}/edit`}
                   className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
                 >
-                  Revise Permit
+                  Edit Permit
                 </Link>
+              )}
 
-                <ResubmitPermitButton
+            {permit.status === 'rejected' &&
+              user?.id === permit.requester?.id && (
+                <div className="flex gap-2">
+                  <Link
+                    href={`/permits/${permit.id}/edit`}
+                    className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                  >
+                    Revise Permit
+                  </Link>
+
+                  <ResubmitPermitButton
+                    permitId={permit.id}
+                  />
+                </div>
+              )}
+
+            {/* Safety approval happens from the Safety Verification panel
+                (readiness-gated). Reject stays here. */}
+            {permit.status === 'pending_approval' &&
+              permit.workflow_stage === 'safety_approval' &&
+              (currentUserRole === 'safety_coordinator' ||
+                currentUserRole === 'safety_manager') && (
+                <RejectPermitButton
                   permitId={permit.id}
                 />
-              </div>
-            )}
+              )}
 
-          {/* Safety approval happens from the Safety Verification panel
-              (readiness-gated). Reject stays here. */}
-          {permit.status === 'pending_approval' &&
-            permit.workflow_stage === 'safety_approval' &&
-            (currentUserRole === 'safety_coordinator' ||
-              currentUserRole === 'safety_manager') && (
-              <RejectPermitButton
-                permitId={permit.id}
-              />
-            )}
+            {/* Suspend stays in the header; resume/complete/close are driven
+                from the Permit Lifecycle panel (checklist-gated). */}
+            {permit.status === 'active' &&
+              (currentUserRole === 'safety_manager' ||
+                currentUserRole === 'safety_coordinator') && (
+                <SuspendPermitButton
+                  permitId={permit.id}
+                />
+              )}
 
-          {/* Suspend stays in the header; resume/complete/close are driven
-              from the Permit Lifecycle panel (checklist-gated). */}
-          {permit.status === 'active' &&
-            (currentUserRole === 'safety_manager' ||
-              currentUserRole === 'safety_coordinator') && (
-              <SuspendPermitButton
-                permitId={permit.id}
-              />
-            )}
+            <Link
+              href={`/permits/${permit.id}/print`}
+              target="_blank"
+              className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+            >
+              <Printer className="h-4 w-4" />
+              Print / PDF
+            </Link>
 
-          <Link
-            href={`/permits/${permit.id}/print`}
-            target="_blank"
-            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-          >
-            <Printer className="h-4 w-4" />
-            Print / PDF
-          </Link>
+            {(permit.status === 'draft' ||
+              permit.status === 'pending_approval' ||
+              permit.status === 'rejected' ||
+              permit.status === 'approved' ||
+              permit.status === 'issued' ||
+              permit.status === 'suspended') &&
+              (user?.id === permit.requester?.id ||
+                currentUserRole === 'safety_manager' ||
+                currentUserRole === 'safety_coordinator') && (
+                <CancelPermitButton
+                  permitId={permit.id}
+                />
+              )}
+          </div>
 
-          {(permit.status === 'draft' ||
-            permit.status === 'pending_approval' ||
-            permit.status === 'rejected' ||
-            permit.status === 'approved' ||
-            permit.status === 'issued' ||
-            permit.status === 'suspended') &&
-            (user?.id === permit.requester?.id ||
-              currentUserRole === 'safety_manager' ||
-              currentUserRole === 'safety_coordinator') && (
-              <CancelPermitButton
-                permitId={permit.id}
-              />
-            )}
-        </div>
+          <div className="grid gap-6 border-t p-6 sm:grid-cols-2 lg:grid-cols-4">
+            <InfoItem
+              label="Company"
+              value={permit.company?.name}
+            />
+
+            <InfoItem
+              label="Area"
+              value={permit.area?.name}
+            />
+
+            <InfoItem
+              label="Validity"
+              value={validityLabel}
+            />
+
+            <InfoItem
+              label="Requester"
+              value={permit.requester?.full_name}
+            />
+          </div>
+        </section>
 
         {/* Workflow Information */}
         {(permit.initiation_mode ||
@@ -753,7 +786,10 @@ export default async function PermitDetailsPage({
           permit.approved_by ||
           permit.approved_at) && (
           <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader title="Workflow Information" />
+            <SectionHeader
+              title="Workflow Information"
+              subtitle="Initiation, verification and approval trail for this permit"
+            />
 
             <div className="grid gap-6 p-6 md:grid-cols-2">
               {permit.initiation_mode && (
@@ -876,8 +912,11 @@ export default async function PermitDetailsPage({
         )}
 
         {/* Work Details */}
-        <section className="mt-8 rounded-xl border bg-background">
-          <SectionHeader title="Work Details" />
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader
+            title="Work Details"
+            subtitle="Scope, location and conditions of the work"
+          />
 
           <div className="grid gap-6 p-6 md:grid-cols-2">
 
@@ -940,7 +979,10 @@ export default async function PermitDetailsPage({
 
         {/* Planned Work Period */}
         <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader title="Planned Work Period" />
+          <SectionHeader
+            title="Planned Work Period"
+            subtitle="Scheduled start and end of the work"
+          />
 
           <div className="grid gap-6 p-6 md:grid-cols-2">
 
@@ -960,7 +1002,10 @@ export default async function PermitDetailsPage({
         {/* Contractor Details (contractor PTW) */}
         {permit.contractor && (
           <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader title="Contractor Details" />
+            <SectionHeader
+              title="Contractor Details"
+              subtitle="Contractor responsible for carrying out this permit"
+            />
 
             <div className="grid gap-6 p-6 md:grid-cols-2">
               <InfoItem
@@ -981,6 +1026,7 @@ export default async function PermitDetailsPage({
           <section className="mt-6 rounded-xl border bg-background">
             <SectionHeader
               title={`${permit.company?.name ?? 'Customer Company'}'s Staff Reference`}
+              subtitle="Customer company's staff contact for this permit"
             />
 
             <div className="grid gap-6 p-6 md:grid-cols-2">
@@ -995,7 +1041,10 @@ export default async function PermitDetailsPage({
         {/* Workers / Authorised Personnel */}
         {permit.workers && permit.workers.length > 0 && (
           <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader title="Workers / Authorised Personnel" />
+            <SectionHeader
+              title="Workers / Authorised Personnel"
+              subtitle="Personnel authorised to perform the work under this permit"
+            />
 
             <div className="p-6">
               <div className="overflow-x-auto">
@@ -1054,7 +1103,10 @@ export default async function PermitDetailsPage({
         {(permit.permit_ppe && permit.permit_ppe.length > 0) ||
         permit.ppe_other ? (
           <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader title="PPE Requirements" />
+            <SectionHeader
+              title="PPE Requirements"
+              subtitle="Personal protective equipment required for this work"
+            />
 
             <div className="p-6">
               {(() => {
@@ -1116,7 +1168,10 @@ export default async function PermitDetailsPage({
             (item) => item.is_selected && item.safety_control
           ).length > 0 && (
             <section className="mt-6 rounded-xl border bg-background">
-              <SectionHeader title="Recommended Controls" />
+              <SectionHeader
+                title="Recommended Controls"
+                subtitle="Additional controls selected for this permit"
+              />
 
               <div className="flex flex-wrap gap-2 p-6">
                 {permit.recommended_controls
@@ -1137,7 +1192,10 @@ export default async function PermitDetailsPage({
 
         {/* Requester */}
         <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader title="Requester" />
+          <SectionHeader
+            title="Requester"
+            subtitle="Details of the person who requested this permit"
+          />
 
           <div className="grid gap-6 p-6 md:grid-cols-2">
 
@@ -1166,7 +1224,10 @@ export default async function PermitDetailsPage({
 
         {/* Safety Requirements */}
         <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader title="Safety Requirements" />
+          <SectionHeader
+            title="Safety Requirements"
+            subtitle="Safety controls required or selected for this permit"
+          />
 
           <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
             {permit.safety_controls?.length ? (
@@ -1337,7 +1398,10 @@ export default async function PermitDetailsPage({
         {/* Remarks */}
         {permit.remarks && (
           <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader title="Remarks" />
+            <SectionHeader
+              title="Remarks"
+              subtitle="Additional notes recorded on this permit"
+            />
 
             <div className="p-6">
               <p className="whitespace-pre-wrap text-sm">
@@ -1349,7 +1413,10 @@ export default async function PermitDetailsPage({
 
         {/* Permit History */}
         <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader title="Permit History" />
+          <SectionHeader
+            title="Permit History"
+            subtitle="Chronological record of actions taken on this permit"
+          />
 
           <div className="divide-y">
             {permit.approvals?.length ? (
@@ -1401,7 +1468,10 @@ export default async function PermitDetailsPage({
 
         {/* Record Information */}
         <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader title="Record Information" />
+          <SectionHeader
+            title="Record Information"
+            subtitle="System metadata for this permit record"
+          />
 
           <div className="grid gap-6 p-6 md:grid-cols-2">
 
@@ -1429,14 +1499,22 @@ export default async function PermitDetailsPage({
 
 function SectionHeader({
   title,
+  subtitle,
 }: {
   title: string
+  subtitle?: string
 }) {
   return (
     <div className="border-b px-6 py-4">
       <h2 className="font-semibold">
         {title}
       </h2>
+
+      {subtitle && (
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {subtitle}
+        </p>
+      )}
     </div>
   )
 }

@@ -3,6 +3,8 @@ import { CheckCircle, FileText } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { resolvePermitScope } from '@/lib/permit-scope'
+import { formatDateTimeMY } from '@/lib/dates'
+import { ReadinessBadge } from './readiness-badge'
 
 type Permit = {
   id: number
@@ -169,6 +171,10 @@ export default async function ApprovalQueuePage() {
                     </th>
 
                     <th className="px-6 py-3 text-left font-medium">
+                      Readiness
+                    </th>
+
+                    <th className="px-6 py-3 text-left font-medium">
                       Action
                     </th>
 
@@ -190,6 +196,11 @@ export default async function ApprovalQueuePage() {
                         >
                           {permit.permit_no}
                         </Link>
+
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Planned:{' '}
+                          {formatDateTimeMY(permit.planned_start)}
+                        </p>
                       </td>
 
                       <td className="px-6 py-4">
@@ -225,48 +236,52 @@ export default async function ApprovalQueuePage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        {permit.contractor ? (
-                          <div className="space-y-1">
-                            <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-                              Contractor PTW
-                            </span>
-
-                            <p className="text-xs font-medium">
-                              {permit.contractor.company_name}
-                            </p>
-
-                            {permit.worker_name && (
-                              <p className="text-xs text-muted-foreground">
-                                Worker:{' '}
-                                {permit.worker_name}
-                                {permit.worker_id
-                                  ? ` (${permit.worker_id})`
-                                  : ''}
-                              </p>
-                            )}
-
-                            {permit.staff_reference_name && (
-                              <p className="text-xs text-muted-foreground">
-                                Staff Ref:{' '}
-                                {permit.staff_reference_name}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                            Internal PTW
-                          </span>
-                        )}
+                        <ReadinessBadge permitId={permit.id} />
                       </td>
 
                       <td className="px-6 py-4">
-                        <Link
-                          href={`/permits/${permit.id}`}
-                          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                        >
-                          <FileText className="h-4 w-4" />
-                          Review
-                        </Link>
+                        <div className="space-y-3">
+                          {permit.contractor ? (
+                            <div className="space-y-1">
+                              <span className="inline-flex rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                                Contractor PTW
+                              </span>
+
+                              <p className="text-xs font-medium">
+                                {permit.contractor.company_name}
+                              </p>
+
+                              {permit.worker_name && (
+                                <p className="text-xs text-muted-foreground">
+                                  Worker:{' '}
+                                  {permit.worker_name}
+                                  {permit.worker_id
+                                    ? ` (${permit.worker_id})`
+                                    : ''}
+                                </p>
+                              )}
+
+                              {permit.staff_reference_name && (
+                                <p className="text-xs text-muted-foreground">
+                                  Staff Ref:{' '}
+                                  {permit.staff_reference_name}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                              Internal PTW
+                            </span>
+                          )}
+
+                          <Link
+                            href={`/permits/${permit.id}`}
+                            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Review
+                          </Link>
+                        </div>
                       </td>
 
                     </tr>

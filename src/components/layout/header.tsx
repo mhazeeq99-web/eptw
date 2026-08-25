@@ -46,8 +46,9 @@ export function Header({
         <button
           type="button"
           onClick={onMenuClick}
-          className="rounded-md p-2 hover:bg-muted"
+          className="rounded-md p-2 hover:bg-muted lg:hidden"
           aria-label="Open menu"
+          aria-haspopup="dialog"
           aria-expanded={false}
         >
           <Menu className="h-5 w-5" />
