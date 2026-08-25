@@ -19,6 +19,7 @@ import {
   Gauge,
   BarChart3,
   Settings,
+  CreditCard,
   X,
 } from 'lucide-react'
 
@@ -102,6 +103,11 @@ function buildSections(
           title: 'Settings',
           items: [
             { label: 'Settings', href: '/settings', icon: Settings },
+            {
+              label: 'Subscription',
+              href: '/settings/subscription',
+              icon: CreditCard,
+            },
           ],
         },
       ]
@@ -117,6 +123,11 @@ function buildSections(
           title: 'Settings',
           items: [
             { label: 'Settings', href: '/settings', icon: Settings },
+            {
+              label: 'Subscription',
+              href: '/settings/subscription',
+              icon: CreditCard,
+            },
           ],
         },
       ]

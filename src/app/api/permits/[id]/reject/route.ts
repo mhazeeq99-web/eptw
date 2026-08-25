@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { notifyPermitEvent } from '@/lib/notifications'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -169,43 +170,36 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 8. Reject the permit
+  // 8. Reject the permit (controlled DB transition)
   // ---------------------------------------------------------
 
-  const {
-    data: updatedPermit,
-    error: updateError,
-  } = await supabase
-    .from('permits')
-    .update({
-      status: 'rejected',
-      rejection_reason: remarks,
-    })
-    .eq('id', id)
-    .eq('status', 'pending_approval')
-    .eq('workflow_stage', 'safety_approval')
-    .select(`
-      id,
-      permit_no,
-      status,
-      rejection_reason
-    `)
-    .single()
+  const transition = await performPermitTransition(
+    supabase,
+    permit.id,
+    'pending_approval',
+    'rejected',
+    { rejection_reason: remarks }
+  )
 
-  if (updateError || !updatedPermit) {
+  if (!transition.ok) {
     console.error(
       'Failed to reject permit:',
-      updateError
+      transition.error
     )
-
     return NextResponse.json(
       {
         error:
-          updateError?.message ??
-          'Unable to reject permit',
+          transition.error ?? 'Unable to reject permit',
       },
       { status: 500 }
     )
+  }
+
+  const updatedPermit = {
+    id: permit.id,
+    permit_no: permit.permit_no,
+    status: 'rejected',
+    rejection_reason: remarks,
   }
 
   // ---------------------------------------------------------

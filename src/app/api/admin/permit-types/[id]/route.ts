@@ -51,6 +51,9 @@ export async function PATCH(
     requires_jha?: boolean
     requires_gas_test?: boolean
     requires_loto?: boolean
+    requires_site_verification?: boolean
+    requires_worker_briefing?: boolean
+    requires_emergency_arrangements?: boolean
   }
 
   try {
@@ -80,6 +83,23 @@ export async function PATCH(
     updatePayload.requires_loto = body.requires_loto
   }
 
+  if (typeof body.requires_site_verification === 'boolean') {
+    updatePayload.requires_site_verification =
+      body.requires_site_verification
+  }
+
+  if (typeof body.requires_worker_briefing === 'boolean') {
+    updatePayload.requires_worker_briefing =
+      body.requires_worker_briefing
+  }
+
+  if (
+    typeof body.requires_emergency_arrangements === 'boolean'
+  ) {
+    updatePayload.requires_emergency_arrangements =
+      body.requires_emergency_arrangements
+  }
+
   if (Object.keys(updatePayload).length === 0) {
     return NextResponse.json(
       { error: 'No valid fields to update' },
@@ -105,6 +125,9 @@ export async function PATCH(
       requires_jha,
       requires_gas_test,
       requires_loto,
+      requires_site_verification,
+      requires_worker_briefing,
+      requires_emergency_arrangements,
       is_active
     `)
     .single()

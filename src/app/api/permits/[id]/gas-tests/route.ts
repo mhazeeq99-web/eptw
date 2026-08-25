@@ -60,6 +60,17 @@ export async function POST(
     h2s?: number | null
     co?: number | null
     remarks?: string | null
+    instrument?: string | null
+    instrument_id?: string | null
+    calibration_status?: string | null
+    test_location?: string | null
+    result?: 'PASS' | 'CONDITIONAL' | 'FAIL' | null
+    readings?: Array<{
+      parameter?: string
+      reading?: number | null
+      unit?: string | null
+      result?: 'PASS' | 'CONDITIONAL' | 'FAIL' | null
+    }>
   }
 
   try {
@@ -78,6 +89,39 @@ export async function POST(
     const n = Number(value)
     return Number.isFinite(n) ? n : null
   }
+
+  const result =
+    body.result === 'PASS' ||
+    body.result === 'CONDITIONAL' ||
+    body.result === 'FAIL'
+      ? body.result
+      : null
+
+  const readings: Array<{
+    parameter: string
+    reading: number | null
+    unit: string | null
+    result: 'PASS' | 'CONDITIONAL' | 'FAIL' | null
+  }> = (Array.isArray(body.readings) ? body.readings : [])
+    .map((reading) => ({
+      parameter:
+        typeof reading.parameter === 'string'
+          ? reading.parameter.trim()
+          : '',
+      reading: toNumber(reading.reading),
+      unit:
+        typeof reading.unit === 'string' &&
+        reading.unit.trim()
+          ? reading.unit.trim()
+          : null,
+      result:
+        reading.result === 'PASS' ||
+        reading.result === 'CONDITIONAL' ||
+        reading.result === 'FAIL'
+          ? reading.result
+          : null,
+    }))
+    .filter((reading) => reading.parameter.length > 0)
 
   const { data: gasTest, error: insertError } =
     await supabase
@@ -98,6 +142,23 @@ export async function POST(
           typeof body.remarks === 'string'
             ? body.remarks.trim() || null
             : null,
+        instrument:
+          typeof body.instrument === 'string'
+            ? body.instrument.trim() || null
+            : null,
+        instrument_id:
+          typeof body.instrument_id === 'string'
+            ? body.instrument_id.trim() || null
+            : null,
+        calibration_status:
+          typeof body.calibration_status === 'string'
+            ? body.calibration_status.trim() || null
+            : null,
+        test_location:
+          typeof body.test_location === 'string'
+            ? body.test_location.trim() || null
+            : null,
+        result,
         status: 'pending',
       })
       .select(`
@@ -129,6 +190,36 @@ export async function POST(
       },
       { status: 500 }
     )
+  }
+
+  // Persist the flexible parameter readings.
+  if (readings.length > 0) {
+    const { error: readingsError } = await supabase
+      .from('gas_test_readings')
+      .insert(
+        readings.map((reading, index) => ({
+          gas_test_id: gasTest.id,
+          parameter: reading.parameter,
+          reading: reading.reading,
+          unit: reading.unit,
+          result: reading.result,
+          sort_order: index,
+        }))
+      )
+
+    if (readingsError) {
+      console.error(
+        'Failed to save gas test readings:',
+        readingsError
+      )
+      return NextResponse.json(
+        {
+          error:
+            'Gas test was recorded, but the parameter readings could not be saved. Please contact support.',
+        },
+        { status: 500 }
+      )
+    }
   }
 
   return NextResponse.json(

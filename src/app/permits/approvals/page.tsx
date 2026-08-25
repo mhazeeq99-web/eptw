@@ -114,8 +114,7 @@ export default async function ApprovalQueuePage() {
           <p className="mt-2 text-muted-foreground">
             Permits awaiting safety approval.
             {scope.profile.role === 'safety_coordinator' ||
-            scope.profile.role === 'safety_manager' ||
-            scope.profile.role === 'admin' ? (
+            scope.profile.role === 'safety_manager' ? (
               <span className="mt-1 block">
                 You can approve or reject these permits from their
                 detail page.

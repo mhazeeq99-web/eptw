@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { notifyPermitEvent } from '@/lib/notifications'
+import { ensureClosureChecklist } from '@/lib/permit-lifecycle'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -75,6 +77,10 @@ export async function POST(
 
   let body: {
     remarks?: string
+    checklist?: Array<{
+      item_key?: string
+      completed?: boolean
+    }>
   }
 
   try {
@@ -91,10 +97,6 @@ export async function POST(
       ? body.remarks.trim()
       : ''
 
-  // ---------------------------------------------------------
-  // 4. Closing remark is required
-  // ---------------------------------------------------------
-
   if (!remarks) {
     return NextResponse.json(
       {
@@ -106,7 +108,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 5. Get permit
+  // 4. Get permit
   // ---------------------------------------------------------
 
   const {
@@ -132,7 +134,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 6. Permit must be COMPLETED
+  // 5. Permit must be COMPLETED
   // ---------------------------------------------------------
 
   if (permit.status !== 'completed') {
@@ -146,41 +148,88 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 7. Change status to CLOSED
+  // 6. Closure checklist (Phase F): all items must be completed.
   // ---------------------------------------------------------
 
-  const {
-    data: updatedPermit,
-    error: updateError,
-  } = await supabase
-    .from('permits')
-    .update({
-      status: 'closed',
+  await ensureClosureChecklist(supabase, permit.id)
+
+  const submitted = Array.isArray(body.checklist)
+    ? body.checklist
+    : []
+
+  const submittedMap = new Map<string, boolean>()
+  for (const item of submitted) {
+    if (item.item_key) {
+      submittedMap.set(item.item_key, item.completed === true)
+    }
+  }
+
+  for (const [key, completed] of submittedMap) {
+    await supabase
+      .from('permit_closure_checklists')
+      .update({
+        completed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('permit_id', permit.id)
+      .eq('item_key', key)
+  }
+
+  const { data: checklistRows } = await supabase
+    .from('permit_closure_checklists')
+    .select('item_key, label, completed')
+    .eq('permit_id', permit.id)
+
+  const incomplete = (checklistRows ?? []).filter(
+    (item) => !item.completed
+  )
+
+  if (incomplete.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Closure blocked: ${incomplete[0].label} has not been completed.`,
+        incomplete: incomplete.map((item) => item.item_key),
+      },
+      { status: 400 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 7. Change status to CLOSED (controlled DB transition; records
+  //    Closed By/At)
+  // ---------------------------------------------------------
+
+  const transition = await performPermitTransition(
+    supabase,
+    permit.id,
+    'completed',
+    'closed',
+    {
       closed_by: user.id,
       closed_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .eq('status', 'completed')
-    .select(`
-      id,
-      permit_no,
-      status
-    `)
-    .single()
+    }
+  )
 
-  if (updateError || !updatedPermit) {
+  if (!transition.ok) {
     return NextResponse.json(
       {
         error:
-          updateError?.message ||
-          'Unable to close permit',
+          transition.error ?? 'Unable to close permit',
       },
       { status: 500 }
     )
   }
 
+  const updatedPermit = {
+    id: permit.id,
+    permit_no: permit.permit_no,
+    status: 'closed',
+    closed_by: user.id,
+    closed_at: new Date().toISOString(),
+  }
+
   // ---------------------------------------------------------
-  // 8. Record closing history
+  // 8. Record closing history (exactly one audit record)
   // ---------------------------------------------------------
 
   const { error: historyError } =

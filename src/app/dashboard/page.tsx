@@ -7,10 +7,15 @@ import {
   CheckCircle2,
   Archive,
   XCircle,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
-import { notifyExpiringPermits } from '@/lib/notifications'
+import {
+  notifyExpiringPermits,
+  notifyExpiredPermits,
+} from '@/lib/notifications'
 import {
   StatusBadge,
   getExpiryState,
@@ -23,6 +28,7 @@ type PermitRow = {
   status: string
   planned_start: string | null
   planned_end: string | null
+  valid_until: string | null
   permit_type: {
     name: string
   } | null
@@ -70,6 +76,7 @@ export default async function DashboardPage() {
       status,
       planned_start,
       planned_end,
+      valid_until,
 
       permit_type:permit_types!permits_permit_type_id_fkey (
         name
@@ -92,9 +99,11 @@ export default async function DashboardPage() {
     console.error('Failed to load dashboard permits:', error)
   }
 
-  // Best-effort: notify about permits expiring within the next 24h.
+  // Best-effort: notify about permits expiring within the next 24h and
+  // permits whose validity window has ended (each deduplicated per permit).
   if (profile?.company_id) {
     await notifyExpiringPermits(supabase, profile.company_id)
+    await notifyExpiredPermits(supabase, profile.company_id)
   }
 
   // ---------------------------------------------------------
@@ -123,6 +132,26 @@ export default async function DashboardPage() {
       (permit) => permit.status === status
     ).length
   }
+
+  // Derived validity states (Phase F): an ACTIVE permit is additionally
+  // EXPIRING SOON or EXPIRED based on the central validity window.
+  const activeRows = rows.filter((permit) => permit.status === 'active')
+  counts.expiring_soon = activeRows.filter(
+    (permit) =>
+      getExpiryState(
+        permit.status,
+        permit.valid_until,
+        permit.planned_end
+      ) === 'expiring_soon'
+  ).length
+  counts.expired = activeRows.filter(
+    (permit) =>
+      getExpiryState(
+        permit.status,
+        permit.valid_until,
+        permit.planned_end
+      ) === 'expired'
+  ).length
 
   const recentPermits = [...rows]
     .sort(
@@ -191,6 +220,22 @@ export default async function DashboardPage() {
             href="/permits?status=active"
             icon={<PlayCircle className="h-4 w-4" />}
             tone="green"
+          />
+
+          <DashboardCard
+            title="Expiring Soon"
+            value={counts.expiring_soon ?? 0}
+            href="/permits?status=active&expiry=expiring_soon"
+            icon={<Clock className="h-4 w-4" />}
+            tone="orange"
+          />
+
+          <DashboardCard
+            title="Expired"
+            value={counts.expired ?? 0}
+            href="/permits?status=active&expiry=expired"
+            icon={<AlertTriangle className="h-4 w-4" />}
+            tone="red"
           />
 
           <DashboardCard
@@ -321,6 +366,7 @@ export default async function DashboardPage() {
                           status={permit.status}
                           expiry={getExpiryState(
                             permit.status,
+                            permit.valid_until,
                             permit.planned_end
                           )}
                         />

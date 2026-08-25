@@ -15,6 +15,7 @@ type Permit = {
   status: string
   planned_start: string | null
   planned_end: string | null
+  valid_until: string | null
   permit_type: {
     name: string
     code: string
@@ -37,6 +38,7 @@ type SearchParams = {
   requester?: string
   date_from?: string
   date_to?: string
+  expiry?: string
 }
 
 export default async function PermitsPage({
@@ -75,6 +77,7 @@ export default async function PermitsPage({
       status,
       planned_start,
       planned_end,
+      valid_until,
 
       permit_type:permit_types!permits_permit_type_id_fkey (
         name,
@@ -94,7 +97,7 @@ export default async function PermitsPage({
   // Company / contractor scoping (defense in depth on top of RLS).
   if (profile?.company_id) {
     query = query.eq('company_id', profile.company_id)
-  } else if (profile?.role === 'requester') {
+  } else if (profile?.role === 'contractor_admin') {
     const { data: membership } = await supabase
       .from('contractor_users')
       .select('contractor_id')
@@ -164,10 +167,35 @@ export default async function PermitsPage({
 
   const permits = (data ?? []) as unknown as Permit[]
 
-  // ---------------------------------------------------------
-  // Filter options (scoped to the user's company)
-  // ---------------------------------------------------------
+  // Phase 2e hardening: unified expiry clock. The authoritative permit
+  // expiry is valid_until; the `expiry` search param (expiring_soon|expired)
+  // filters ACTIVE permits by that derived state so the dashboard/report
+  // drill-down links match the displayed results.
+  let filteredPermits = permits
+  if (params.expiry === 'expiring_soon' || params.expiry === 'expired') {
+    filteredPermits = permits.filter((permit) => {
+      const state = getExpiryState(
+        permit.status,
+        permit.valid_until,
+        permit.planned_end
+      )
+      return state === params.expiry
+    })
+  }
 
+  const hasActiveFilters = Boolean(
+    params.q ||
+      params.status ||
+      params.permit_type_id ||
+      params.area_id ||
+      params.contractor_id ||
+      params.requester ||
+      params.date_from ||
+      params.date_to ||
+      params.expiry
+  )
+
+  // Filter options (scoped to the user's company)
   const companyScope = profile?.company_id
     ? { company_id: profile.company_id }
     : {}
@@ -189,17 +217,6 @@ export default async function PermitsPage({
         .select('id, company_name')
         .order('company_name'),
     ])
-
-  const hasActiveFilters = Boolean(
-    params.q ||
-      params.status ||
-      params.permit_type_id ||
-      params.area_id ||
-      params.contractor_id ||
-      params.requester ||
-      params.date_from ||
-      params.date_to
-  )
 
   return (
     <DashboardShell>
@@ -237,15 +254,15 @@ export default async function PermitsPage({
 
         {/* Permit count */}
         <div className="text-sm text-muted-foreground">
-          {permits.length} permit
-          {permits.length === 1 ? '' : 's'}
+          {filteredPermits.length} permit
+          {filteredPermits.length === 1 ? '' : 's'}
           {hasActiveFilters ? ' (filtered)' : ''}
         </div>
 
         {/* Table */}
         <div className="overflow-hidden rounded-xl border bg-background">
 
-          {permits.length === 0 ? (
+          {filteredPermits.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <FileText className="h-10 w-10 text-muted-foreground" />
 
@@ -294,7 +311,7 @@ export default async function PermitsPage({
                 </thead>
 
                 <tbody className="divide-y">
-                  {permits.map((permit) => (
+                  {filteredPermits.map((permit) => (
                     <tr
                       key={permit.id}
                       className="hover:bg-muted/40"
@@ -341,6 +358,7 @@ export default async function PermitsPage({
                           status={permit.status}
                           expiry={getExpiryState(
                             permit.status,
+                            permit.valid_until,
                             permit.planned_end
                           )}
                         />

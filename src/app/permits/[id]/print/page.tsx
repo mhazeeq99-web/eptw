@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import QRCode from 'qrcode'
 import { createClient } from '@/lib/supabase/server'
+import { PrintPermitButton } from '@/components/permits/print-permit-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,8 +36,11 @@ export default async function PrintPermitPage({
       work_title,
       work_description,
       work_location,
+      work_method,
       planned_start,
       planned_end,
+      valid_from,
+      valid_until,
       status,
       workflow_stage,
       submitted_by,
@@ -50,8 +54,59 @@ export default async function PrintPermitPage({
       closed_at,
       cancelled_by,
       cancelled_at,
+      staff_reference_name,
+      special_details,
       remarks,
       created_at,
+
+      workers:permit_workers (
+        id,
+        full_name,
+        id_number,
+        nationality,
+        is_contractor,
+        induction_completed
+      ),
+
+      permit_ppe (
+        is_selected,
+        verified,
+        ppe_item:ppe_items (
+          category,
+          name
+        )
+      ),
+
+      cse_personnel:permit_cse_personnel (
+        worker_id,
+        responsibility,
+        worker:permit_workers!permit_cse_personnel_worker_id_fkey (
+          full_name
+        )
+      ),
+
+      site_verification:permit_site_verifications (
+        status,
+        verified_by,
+        verified_at
+      ),
+
+      worker_briefing:permit_worker_briefings (
+        status,
+        briefed_by,
+        briefed_at
+      ),
+
+      emergency_arrangements:permit_emergency_arrangements (
+        status,
+        emergency_contact,
+        muster_point,
+        emergency_procedure,
+        first_aid_available,
+        fire_response_available,
+        rescue_required,
+        rescue_available
+      ),
 
       company:companies!permits_company_id_fkey (
         id,
@@ -171,13 +226,7 @@ export default async function PrintPermitPage({
             ← Back to Permit
           </Link>
 
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Print / Save as PDF
-          </button>
+          <PrintPermitButton />
         </div>
 
         {/* Header */}
@@ -233,9 +282,29 @@ export default async function PrintPermitPage({
             <Item label="Contractor" value={permit.contractor?.company_name} />
             <Item label="Requester" value={permit.requester?.full_name} />
             <Item label="Department" value={permit.requester?.department} />
+            {permit.staff_reference_name && (
+              <Item
+                label="Customer Staff Reference"
+                value={permit.staff_reference_name}
+              />
+            )}
             <Item label="Planned Start" value={formatDate(permit.planned_start)} />
             <Item label="Planned End" value={formatDate(permit.planned_end)} />
+            {/* Authoritative validity window (Phase F/2e). */}
+            <Item label="Valid From" value={formatDate(permit.valid_from)} />
+            <Item label="Valid Until" value={formatDate(permit.valid_until)} />
           </Grid>
+
+          {permit.work_method && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase text-gray-600">
+                Work Method / Sequence
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm">
+                {permit.work_method}
+              </p>
+            </div>
+          )}
 
           {permit.work_description && (
             <div className="mt-4">
@@ -248,6 +317,114 @@ export default async function PrintPermitPage({
             </div>
           )}
         </Section>
+
+        {/* Workers / authorised personnel */}
+        <Section title="Workers / Authorised Personnel">
+          {permit.workers && permit.workers.length > 0 ? (
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
+                    Name
+                  </th>
+                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
+                    {permit.workers.some((w) => w.is_contractor)
+                      ? 'NRIC / Passport'
+                      : 'Employee ID'}
+                  </th>
+                  {permit.workers.some((w) => w.is_contractor) && (
+                    <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
+                      Nationality
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {permit.workers.map((worker) => (
+                  <tr key={worker.id}>
+                    <td className="border border-black px-3 py-1.5">
+                      {worker.full_name}
+                    </td>
+                    <td className="border border-black px-3 py-1.5">
+                      {worker.id_number ?? '—'}
+                    </td>
+                    {worker.is_contractor && (
+                      <td className="border border-black px-3 py-1.5">
+                        {worker.nationality ?? '—'}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm">No workers listed.</p>
+          )}
+        </Section>
+
+        {/* PPE selected */}
+        <Section title="PPE Requirements">
+          {permit.permit_ppe?.some((p) => p.is_selected) ? (
+            <div className="flex flex-wrap gap-2 text-sm">
+              {permit.permit_ppe
+                .filter((p) => p.is_selected && p.ppe_item)
+                .map((p) => (
+                  <span
+                    key={p.ppe_item?.name}
+                    className="rounded border border-black px-2 py-0.5"
+                  >
+                    {p.ppe_item?.name}
+                    {p.verified ? ' (Verified)' : ''}
+                  </span>
+                ))}
+            </div>
+          ) : (
+            <p className="text-sm">No PPE selected.</p>
+          )}
+        </Section>
+
+        {/* CSE personnel (permit-level responsibilities) */}
+        {permit.permit_type?.code === 'CSE' &&
+          permit.cse_personnel?.length ? (
+          <Section title="Confined Space Personnel">
+            <Grid>
+              {permit.cse_personnel
+                .filter((p) => p.responsibility === 'entry_supervisor')
+                .map((p) => (
+                  <Item
+                    key={`sup-${p.worker_id}`}
+                    label="Entry Supervisor"
+                    value={p.worker?.full_name}
+                  />
+                ))}
+              {permit.cse_personnel
+                .filter((p) => p.responsibility === 'standby_attendant')
+                .map((p) => (
+                  <Item
+                    key={`std-${p.worker_id}`}
+                    label="Standby / Attendant"
+                    value={p.worker?.full_name}
+                  />
+                ))}
+              {permit.cse_personnel
+                .filter((p) => p.responsibility === 'authorised_entrant')
+                .length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase text-gray-600">
+                    Authorised Entrants
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium">
+                    {permit.cse_personnel
+                      .filter((p) => p.responsibility === 'authorised_entrant')
+                      .map((p) => p.worker?.full_name ?? '')
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
+                </div>
+              )}
+            </Grid>
+          </Section>
+        ) : null}
 
         {/* Safety controls */}
         <Section title="Safety Controls">
@@ -367,6 +544,74 @@ export default async function PrintPermitPage({
           ) : (
             <p className="mt-4 text-sm">No gas tests recorded.</p>
           )}
+        </Section>
+
+        {/* Site verification / Worker briefing / Emergency arrangements */}
+        <Section title="Site Verification &amp; Readiness">
+          <Grid>
+            <Item
+              label="Site Verification"
+              value={
+                permit.site_verification
+                  ? permit.site_verification.status.replaceAll('_', ' ')
+                  : 'Not recorded'
+              }
+            />
+            <Item
+              label="Worker Briefing"
+              value={
+                permit.worker_briefing
+                  ? permit.worker_briefing.status.replaceAll('_', ' ')
+                  : 'Not recorded'
+              }
+            />
+            <Item
+              label="Emergency Arrangements"
+              value={
+                permit.emergency_arrangements
+                  ? permit.emergency_arrangements.status.replaceAll('_', ' ')
+                  : 'Not recorded'
+              }
+            />
+            {permit.emergency_arrangements && (
+              <>
+                <Item
+                  label="Emergency Contact"
+                  value={permit.emergency_arrangements.emergency_contact}
+                />
+                <Item
+                  label="Muster Point"
+                  value={permit.emergency_arrangements.muster_point}
+                />
+                <Item
+                  label="First Aid Available"
+                  value={
+                    permit.emergency_arrangements.first_aid_available
+                      ? 'Yes'
+                      : 'No'
+                  }
+                />
+                <Item
+                  label="Fire Response Available"
+                  value={
+                    permit.emergency_arrangements.fire_response_available
+                      ? 'Yes'
+                      : 'No'
+                  }
+                />
+                <Item
+                  label="Rescue"
+                  value={
+                    permit.emergency_arrangements.rescue_required
+                      ? permit.emergency_arrangements.rescue_available
+                        ? 'Required - Available'
+                        : 'Required - NOT available'
+                      : 'Not required'
+                  }
+                />
+              </>
+            )}
+          </Grid>
         </Section>
 
         {/* Approval */}
@@ -493,8 +738,11 @@ type PrintPermit = {
   work_title: string
   work_description: string | null
   work_location: string | null
+  work_method: string | null
   planned_start: string | null
   planned_end: string | null
+  valid_from: string | null
+  valid_until: string | null
   status: string
   workflow_stage: string | null
   submitted_by: string | null
@@ -508,8 +756,53 @@ type PrintPermit = {
   closed_at: string | null
   cancelled_by: string | null
   cancelled_at: string | null
+  staff_reference_name: string | null
+  special_details: Record<string, unknown> | null
   remarks: string | null
   created_at: string
+  workers: Array<{
+    id: number
+    full_name: string
+    id_number: string | null
+    nationality: string | null
+    is_contractor: boolean
+    induction_completed: boolean
+  }> | null
+  permit_ppe: Array<{
+    is_selected: boolean
+    verified: boolean
+    ppe_item: {
+      category: string
+      name: string
+    } | null
+  }> | null
+  cse_personnel: Array<{
+    worker_id: number
+    responsibility: string
+    worker: {
+      full_name: string
+    } | null
+  }> | null
+  site_verification: {
+    status: string
+    verified_by: string | null
+    verified_at: string | null
+  } | null
+  worker_briefing: {
+    status: string
+    briefed_by: string | null
+    briefed_at: string | null
+  } | null
+  emergency_arrangements: {
+    status: string
+    emergency_contact: string | null
+    muster_point: string | null
+    emergency_procedure: string | null
+    first_aid_available: boolean
+    fire_response_available: boolean
+    rescue_required: boolean
+    rescue_available: boolean
+  } | null
   company: {
     id: number
     name: string
@@ -636,5 +929,6 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat('en-MY', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'Asia/Kuala_Lumpur',
   }).format(new Date(value))
 }

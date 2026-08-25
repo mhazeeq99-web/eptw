@@ -13,6 +13,7 @@ type Permit = {
   status: string
   actual_start: string | null
   planned_end: string | null
+  valid_until: string | null
   permit_type: { name: string } | null
   area: { name: string } | null
   equipment: { name: string; equipment_no: string | null } | null
@@ -62,6 +63,7 @@ export default async function ActivePermitsPage({
       status,
       actual_start,
       planned_end,
+      valid_until,
 
       permit_type:permit_types!permits_permit_type_id_fkey (
         name
@@ -167,12 +169,19 @@ export default async function ActivePermitsPage({
   const activeCount = permits.length
   const expiringCount = permits.filter(
     (permit) =>
-      getExpiryState(permit.status, permit.planned_end) ===
-      'expiring_soon'
+      getExpiryState(
+        permit.status,
+        permit.valid_until,
+        permit.planned_end
+      ) === 'expiring_soon'
   ).length
   const expiredCount = permits.filter(
     (permit) =>
-      getExpiryState(permit.status, permit.planned_end) === 'expired'
+      getExpiryState(
+        permit.status,
+        permit.valid_until,
+        permit.planned_end
+      ) === 'expired'
   ).length
 
   return (
@@ -295,6 +304,7 @@ export default async function ActivePermitsPage({
                           status={permit.status}
                           expiry={getExpiryState(
                             permit.status,
+                            permit.valid_until,
                             permit.planned_end
                           )}
                         />

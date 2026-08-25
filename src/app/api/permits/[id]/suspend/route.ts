@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { notifyPermitEvent } from '@/lib/notifications'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -146,37 +147,38 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 7. Change status to SUSPENDED
+  // 7. Change status to SUSPENDED (controlled DB transition)
   // ---------------------------------------------------------
 
-  const {
-    data: updatedPermit,
-    error: updateError,
-  } = await supabase
-    .from('permits')
-    .update({
-      status: 'suspended',
+  const transition = await performPermitTransition(
+    supabase,
+    permit.id,
+    'active',
+    'suspended',
+    {
       suspension_reason: remarks,
-    })
-    .eq('id', id)
-    .eq('status', 'active')
-    .select(`
-      id,
-      permit_no,
-      status,
-      suspension_reason
-    `)
-    .single()
+      suspended_by: user.id,
+      suspended_at: new Date().toISOString(),
+    }
+  )
 
-  if (updateError || !updatedPermit) {
+  if (!transition.ok) {
     return NextResponse.json(
       {
         error:
-          updateError?.message ||
-          'Unable to suspend permit',
+          transition.error ?? 'Unable to suspend permit',
       },
       { status: 500 }
     )
+  }
+
+  const updatedPermit = {
+    id: permit.id,
+    permit_no: permit.permit_no,
+    status: 'suspended',
+    suspension_reason: remarks,
+    suspended_by: user.id,
+    suspended_at: new Date().toISOString(),
   }
 
   // ---------------------------------------------------------

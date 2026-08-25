@@ -90,7 +90,10 @@ export async function POST(
     )
   }
 
-  if (jha.status !== 'pending') {
+  if (
+    jha.status !== 'pending' &&
+    jha.status !== 'completed'
+  ) {
     return NextResponse.json(
       {
         error:
@@ -110,7 +113,7 @@ export async function POST(
       })
       .eq('id', jha.id)
       .eq('permit_id', permit.id)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'completed'])
       .select(`
         id,
         permit_id,

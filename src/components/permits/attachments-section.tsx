@@ -59,6 +59,7 @@ export function AttachmentsSection({
           body: JSON.stringify({
             filename: file.name,
             content_type: file.type || null,
+            size_bytes: file.size,
           }),
         }
       )

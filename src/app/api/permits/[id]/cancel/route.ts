@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { notifyPermitEvent } from '@/lib/notifications'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -173,40 +174,38 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 8. Change status to CANCELLED
+  // 8. Change status to CANCELLED (controlled DB transition)
   // ---------------------------------------------------------
 
-  const { data: updatedPermit, error: updateError } =
-    await supabase
-      .from('permits')
-      .update({
-        status: 'cancelled',
-        cancelled_by: user.id,
-        cancelled_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .in('status', cancellableStatuses)
-      .select(`
-        id,
-        permit_no,
-        status
-      `)
-      .single()
+  const transition = await performPermitTransition(
+    supabase,
+    permit.id,
+    permit.status,
+    'cancelled',
+    {
+      cancelled_by: user.id,
+      cancelled_at: new Date().toISOString(),
+    }
+  )
 
-  if (updateError || !updatedPermit) {
+  if (!transition.ok) {
     console.error(
       'Failed to cancel permit:',
-      updateError
+      transition.error
     )
-
     return NextResponse.json(
       {
         error:
-          updateError?.message ||
-          'Unable to cancel permit',
+          transition.error ?? 'Unable to cancel permit',
       },
       { status: 500 }
     )
+  }
+
+  const updatedPermit = {
+    id: permit.id,
+    permit_no: permit.permit_no,
+    status: 'cancelled',
   }
 
   // ---------------------------------------------------------

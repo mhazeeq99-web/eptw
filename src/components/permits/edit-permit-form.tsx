@@ -3,13 +3,28 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import {
+  WorkerListEditor,
+  type WorkerDraft,
+} from '@/components/permits/worker-list-editor'
+import {
+  PpeSelector,
+  type PpeItem,
+} from '@/components/permits/ppe-selector'
+import {
+  SpecialisedDetailsFields,
+  type SpecialDetailsState,
+} from '@/components/permits/specialised/specialised-details-fields'
+import {
+  CsePersonnelEditor,
+  type CsePersonnelDraft,
+} from '@/components/permits/specialised/cse-personnel-editor'
 
 type PermitType = {
   id: number
   name: string
   code: string
 }
-
 type Area = {
   id: number
   name: string
@@ -28,6 +43,15 @@ type Contractor = {
   company_name: string
 }
 
+type PermitWorkerRow = {
+  id: number
+  full_name: string
+  id_number: string | null
+  nationality: string | null
+  is_contractor: boolean
+  induction_completed: boolean
+}
+
 type Permit = {
   id: number
   permit_no: string
@@ -36,15 +60,37 @@ type Permit = {
   work_title: string
   work_description: string | null
   work_location: string | null
+  work_method: string | null
   area_id: number | null
   equipment_id: number | null
   contractor_id: number | null
   planned_start: string | null
   planned_end: string | null
-  worker_name: string | null
-  worker_id: string | null
   staff_reference_name: string | null
+  ppe_other: string | null
   status: string
+  workers: PermitWorkerRow[] | null
+  permit_ppe: Array<{
+    ppe_item_id: number
+    is_selected: boolean
+  }> | null
+  recommended_controls: Array<{
+    safety_control_id: number
+    is_selected: boolean
+  }> | null
+  special_details: Record<string, unknown> | null
+  cse_personnel: Array<{
+    worker_id: number
+    responsibility: string
+  }> | null
+}
+
+type SafetyControlRow = {
+  id: number
+  code: string
+  name: string
+  is_required: boolean
+  is_recommended: boolean
 }
 
 export default function EditPermitForm({
@@ -66,14 +112,36 @@ export default function EditPermitForm({
   const [workTitle, setWorkTitle] = useState('')
   const [workDescription, setWorkDescription] = useState('')
   const [workLocation, setWorkLocation] = useState('')
+  const [workMethod, setWorkMethod] = useState('')
   const [areaId, setAreaId] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
   const [contractorId, setContractorId] = useState('')
   const [plannedStart, setPlannedStart] = useState('')
   const [plannedEnd, setPlannedEnd] = useState('')
-  const [workerName, setWorkerName] = useState('')
-  const [workerId, setWorkerId] = useState('')
+  const [workers, setWorkers] = useState<WorkerDraft[]>([])
   const [staffReferenceName, setStaffReferenceName] = useState('')
+
+  const [ppeItems, setPpeItems] = useState<PpeItem[]>([])
+  const [ppeRecommendations, setPpeRecommendations] = useState<
+    Map<number, 'recommended' | 'required'>
+  >(new Map())
+  const [selectedPpeIds, setSelectedPpeIds] = useState<Set<number>>(
+    new Set()
+  )
+  const [ppeOther, setPpeOther] = useState('')
+  const [safetyControls, setSafetyControls] = useState<
+    SafetyControlRow[]
+  >([])
+  const [recommendedControlIds, setRecommendedControlIds] = useState<
+    Set<number>
+  >(new Set())
+
+  const [specialDetails, setSpecialDetails] = useState<SpecialDetailsState>({})
+  const [csePersonnel, setCsePersonnel] = useState<CsePersonnelDraft[]>([])
+
+  const selectedPermitType = permitTypes.find(
+    (type) => type.id === Number(permitTypeId)
+  )
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -98,6 +166,46 @@ export default function EditPermitForm({
         return
       }
 
+      // Resolve the acting user's company so entity dropdowns are scoped to
+      // the permitted company (same as the create form).
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single()
+
+      const companyId = profileRow?.company_id ?? null
+
+      let entityQuery = supabase
+        .from('permit_types')
+        .select('id, name, code')
+        .eq('is_active', true)
+
+      let areasQuery = supabase
+        .from('areas')
+        .select('id, name, code')
+        .eq('is_active', true)
+
+      let equipmentQuery = supabase
+        .from('equipment')
+        .select('id, name, equipment_no, area_id')
+        .eq('is_active', true)
+
+      const contractorsQuery = supabase
+        .from('contractors')
+        .select('id, company_name')
+        .eq('is_active', true)
+
+      // Company users see only their own company's entities.
+      if (companyId !== null) {
+        entityQuery = entityQuery.eq('company_id', companyId)
+        areasQuery = areasQuery.eq('company_id', companyId)
+        equipmentQuery = equipmentQuery.eq(
+          'company_id',
+          companyId
+        )
+      }
+
       const [
         permitResult,
         permitTypesResult,
@@ -111,46 +219,52 @@ export default function EditPermitForm({
             id,
             permit_no,
             requester_id,
+            company_id,
             permit_type_id,
             work_title,
             work_description,
             work_location,
+            work_method,
             area_id,
             equipment_id,
             contractor_id,
             planned_start,
             planned_end,
-            worker_name,
-            worker_id,
             staff_reference_name,
-            status
+            ppe_other,
+            status,
+            special_details,
+            workers:permit_workers (
+              id,
+              full_name,
+              id_number,
+              nationality,
+              is_contractor,
+              induction_completed
+            ),
+            cse_personnel:permit_cse_personnel (
+              worker_id,
+              responsibility
+            ),
+            permit_ppe (
+              ppe_item_id,
+              is_selected
+            ),
+            recommended_controls:permit_recommended_controls (
+              safety_control_id,
+              is_selected
+            )
           `)
           .eq('id', permitId)
           .single(),
 
-        supabase
-          .from('permit_types')
-          .select('id, name, code')
-          .eq('is_active', true)
-          .order('name'),
+        entityQuery.order('name'),
 
-        supabase
-          .from('areas')
-          .select('id, name, code')
-          .eq('is_active', true)
-          .order('name'),
+        areasQuery.order('name'),
 
-        supabase
-          .from('equipment')
-          .select('id, name, equipment_no, area_id')
-          .eq('is_active', true)
-          .order('name'),
+        equipmentQuery.order('name'),
 
-        supabase
-          .from('contractors')
-          .select('id, company_name')
-          .eq('is_active', true)
-          .order('company_name'),
+        contractorsQuery.order('company_name'),
       ])
 
       if (permitResult.error || !permitResult.data) {
@@ -207,6 +321,10 @@ export default function EditPermitForm({
         existingPermit.work_location ?? ''
       )
 
+      setWorkMethod(
+        existingPermit.work_method ?? ''
+      )
+
       setAreaId(
         existingPermit.area_id
           ? String(existingPermit.area_id)
@@ -237,16 +355,60 @@ export default function EditPermitForm({
         )
       )
 
-      setWorkerName(
-        existingPermit.worker_name ?? ''
-      )
-
-      setWorkerId(
-        existingPermit.worker_id ?? ''
+      setWorkers(
+        (existingPermit.workers ?? []).map(
+          (worker) => ({
+            full_name: worker.full_name,
+            id_number: worker.id_number ?? '',
+            nationality: worker.nationality,
+            induction_completed:
+              worker.induction_completed,
+          })
+        )
       )
 
       setStaffReferenceName(
         existingPermit.staff_reference_name ?? ''
+      )
+
+      setPpeOther(
+        existingPermit.ppe_other ?? ''
+      )
+
+      setSelectedPpeIds(
+        new Set(
+          (existingPermit.permit_ppe ?? [])
+            .filter((item) => item.is_selected)
+            .map((item) => item.ppe_item_id)
+        )
+      )
+
+      setRecommendedControlIds(
+        new Set(
+          (existingPermit.recommended_controls ?? [])
+            .filter((item) => item.is_selected)
+            .map((item) => item.safety_control_id)
+        )
+      )
+
+      // Phase E: specialised details + CSE personnel (by worker index).
+      setSpecialDetails(
+        (existingPermit.special_details ?? {}) as SpecialDetailsState
+      )
+
+      const workerIds = (existingPermit.workers ?? []).map(
+        (worker) => worker.id
+      )
+      setCsePersonnel(
+        (existingPermit.cse_personnel ?? [])
+          .map((assignment) => ({
+            worker_index: workerIds.indexOf(assignment.worker_id),
+            responsibility: assignment.responsibility as
+              | 'entry_supervisor'
+              | 'standby_attendant'
+              | 'authorised_entrant',
+          }))
+          .filter((item) => item.worker_index >= 0)
       )
 
       setPermitTypes(
@@ -270,6 +432,112 @@ export default function EditPermitForm({
 
     loadData()
   }, [permitId, router, supabase])
+
+  // ---------------------------------------------------------
+  // Load PPE catalogue + type recommendations + safety controls
+  // for the currently selected permit type.
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    if (!permitTypeId) return
+
+    let cancelled = false
+
+    async function loadTypeConfig() {
+      const [itemsResult, mappingResult, controlsResult] =
+        await Promise.all([
+          supabase
+            .from('ppe_items')
+            .select('id, category, name')
+            .eq('is_active', true)
+            .order('sort_order'),
+          supabase
+            .from('permit_type_ppe')
+            .select('ppe_item_id, requirement')
+            .eq('permit_type_id', Number(permitTypeId)),
+          supabase
+            .from('permit_type_safety_controls')
+            .select(`
+              is_required,
+              is_recommended,
+              safety_control:safety_controls (
+                id,
+                code,
+                name
+              )
+            `)
+            .eq('permit_type_id', Number(permitTypeId)),
+        ])
+
+      if (cancelled) return
+      if (itemsResult.error) return
+
+      setPpeItems(
+        (itemsResult.data ?? []).map((item) => ({
+          id: item.id,
+          category: item.category,
+          name: item.name,
+        }))
+      )
+
+      const recommendations = new Map<
+        number,
+        'recommended' | 'required'
+      >()
+      for (const mapping of mappingResult.data ?? []) {
+        if (
+          mapping.requirement === 'recommended' ||
+          mapping.requirement === 'required'
+        ) {
+          recommendations.set(
+            mapping.ppe_item_id,
+            mapping.requirement
+          )
+        }
+      }
+      setPpeRecommendations(recommendations)
+
+      // Preserve existing valid selections and automatically add required
+      // (and recommended) PPE for the selected type so a required item is
+      // never left unchecked + disabled after a permit-type change.
+      setSelectedPpeIds((current) => {
+        const next = new Set(current)
+        for (const [ppeItemId, requirement] of recommendations) {
+          if (requirement === 'required' || requirement === 'recommended') {
+            next.add(ppeItemId)
+          }
+        }
+        return next
+      })
+
+      const controls: SafetyControlRow[] = (
+        controlsResult.data ?? []
+      )
+        .filter((item) => item.safety_control)
+        .map((item) => {
+          const control = item.safety_control as unknown as {
+            id: number
+            code: string
+            name: string
+          }
+          return {
+            id: control.id,
+            code: control.code,
+            name: control.name,
+            is_required: Boolean(item.is_required),
+            is_recommended: Boolean(
+              item.is_recommended
+            ),
+          }
+        })
+      setSafetyControls(controls)
+    }
+
+    loadTypeConfig()
+    return () => {
+      cancelled = true
+    }
+  }, [permitTypeId, supabase])
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -307,12 +575,38 @@ export default function EditPermitForm({
               plannedStart || null,
             planned_end:
               plannedEnd || null,
-            worker_name:
-              workerName.trim() || null,
-            worker_id:
-              workerId.trim() || null,
+            work_method:
+              workMethod.trim() || null,
+            workers: workers.map((worker) => ({
+              full_name: worker.full_name.trim(),
+              id_number: worker.id_number.trim(),
+              nationality: worker.nationality ?? null,
+              induction_completed: Boolean(
+                worker.induction_completed
+              ),
+            })),
             staff_reference_name:
               staffReferenceName.trim() || null,
+            ppe_other:
+              ppeOther.trim() || null,
+            ppe_item_ids: Array.from(
+              selectedPpeIds
+            ),
+            recommended_control_ids: Array.from(
+              recommendedControlIds
+            ),
+            // Phase E: specialised details + CSE personnel.
+            special_details:
+              selectedPermitType &&
+              ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
+                selectedPermitType.code
+              )
+                ? specialDetails
+                : null,
+            cse_personnel:
+              selectedPermitType?.code === 'CSE'
+                ? csePersonnel
+                : null,
           }),
         }
       )
@@ -514,42 +808,18 @@ export default function EditPermitForm({
             </Field>
 
             {contractorId && (
-              <>
-                <Field label="Worker Name">
-                  <input
-                    type="text"
-                    value={workerName}
-                    onChange={(event) =>
-                      setWorkerName(event.target.value)
-                    }
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  />
-                </Field>
-
-                <Field label="Worker ID">
-                  <input
-                    type="text"
-                    value={workerId}
-                    onChange={(event) =>
-                      setWorkerId(event.target.value)
-                    }
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  />
-                </Field>
-
-                <Field label="Staff Reference Name">
-                  <input
-                    type="text"
-                    value={staffReferenceName}
-                    onChange={(event) =>
-                      setStaffReferenceName(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  />
-                </Field>
-              </>
+              <Field label="Staff Reference Name">
+                <input
+                  type="text"
+                  value={staffReferenceName}
+                  onChange={(event) =>
+                    setStaffReferenceName(
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
             )}
 
             <div className="md:col-span-2">
@@ -595,7 +865,23 @@ export default function EditPermitForm({
                       event.target.value
                     )
                   }
-                  rows={5}
+                  rows={4}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+
+            <div className="md:col-span-2">
+              <Field label="Work Method / Sequence">
+                <textarea
+                  value={workMethod}
+                  onChange={(event) =>
+                    setWorkMethod(
+                      event.target.value
+                    )
+                  }
+                  rows={3}
+                  placeholder="Step-by-step method / sequence of work (optional)..."
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </Field>
@@ -603,6 +889,147 @@ export default function EditPermitForm({
 
           </div>
         </section>
+
+        {/* Workers / Authorised Personnel */}
+        <section className="rounded-xl border bg-background p-6">
+          <h2 className="text-lg font-semibold">
+            Workers / Authorised Personnel
+          </h2>
+
+          <div className="mt-6">
+            <WorkerListEditor
+              mode={contractorId ? 'contractor' : 'internal'}
+              initial={workers}
+              onChange={setWorkers}
+            />
+          </div>
+        </section>
+
+        {/* Safety Requirements */}
+        <section className="rounded-xl border bg-background p-6">
+          <h2 className="text-lg font-semibold">
+            Safety Requirements
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Required controls are enforced before approval. Recommended
+            controls are pre-selected and can be adjusted.
+          </p>
+
+          <div className="mt-6 grid gap-2 sm:grid-cols-2">
+            {safetyControls.map((control) => {
+              const isRequired = control.is_required
+              const isRecommended =
+                control.is_recommended && !isRequired
+              const isChecked =
+                isRequired ||
+                recommendedControlIds.has(control.id)
+              return (
+                <label
+                  key={control.id}
+                  className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    disabled={isRequired}
+                    onChange={() => {
+                      const next = new Set(
+                        recommendedControlIds
+                      )
+                      if (next.has(control.id)) {
+                        next.delete(control.id)
+                      } else {
+                        next.add(control.id)
+                      }
+                      setRecommendedControlIds(next)
+                    }}
+                    className="h-4 w-4 rounded border"
+                  />
+                  <span>{control.name}</span>
+                  {isRequired && (
+                    <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                      REQUIRED
+                    </span>
+                  )}
+                  {isRecommended && (
+                    <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      Recommended
+                    </span>
+                  )}
+                </label>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* PPE Requirements */}
+        <section className="rounded-xl border bg-background p-6">
+          <h2 className="text-lg font-semibold">
+            PPE Requirements
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Recommended PPE is based on the permit type. Adjust the
+            selection for the specific work and hazards.
+          </p>
+
+          <div className="mt-6">
+            <PpeSelector
+              items={ppeItems}
+              recommendationByItemId={ppeRecommendations}
+              selectedIds={selectedPpeIds}
+              onToggle={(id) => {
+                const next = new Set(selectedPpeIds)
+                if (next.has(id)) {
+                  next.delete(id)
+                } else {
+                  next.add(id)
+                }
+                setSelectedPpeIds(next)
+              }}
+              ppeOther={ppeOther}
+              onPpeOtherChange={setPpeOther}
+            />
+          </div>
+        </section>
+
+        {/* Specialised Permit Details (Phase E) */}
+        {selectedPermitType &&
+          ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
+            selectedPermitType.code
+          ) && (
+            <SpecialisedDetailsFields
+              code={selectedPermitType.code}
+              value={specialDetails}
+              onChange={setSpecialDetails}
+            />
+          )}
+
+        {/* CSE Personnel Responsibilities (Phase E) */}
+        {selectedPermitType?.code === 'CSE' && (
+          <section className="rounded-xl border bg-background p-6">
+            <h2 className="text-lg font-semibold">
+              Confined Space Personnel
+            </h2>
+
+            <p className="mt-2 text-sm text-muted-foreground">
+              Permit-level responsibilities assigned from the workers
+              listed on this permit.
+            </p>
+
+            <div className="mt-6">
+              <CsePersonnelEditor
+                workers={workers.map((worker, index) => ({
+                  index,
+                  full_name: worker.full_name,
+                }))}
+                value={csePersonnel}
+                onChange={setCsePersonnel}
+              />
+            </div>
+          </section>
+        )}
 
         {/* Planned Work Period */}
         <section className="rounded-xl border bg-background p-6">

@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyPermitEvent } from '@/lib/notifications'
+import { canActivatePermit } from '@/lib/entitlements'
+import { getPermitSafetyReadiness } from '@/lib/safety-readiness'
+import { computeValidityWindow } from '@/lib/permit-lifecycle'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -137,207 +142,123 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 7. Enforce verified mandatory safety controls
+  // 7. Central safety-readiness gate (Phase D).
+  //     Single source of truth shared with the permit detail page:
+  //     required safety controls, JHA, LOTO, gas testing, required PPE
+  //     selection + verification, site verification, worker briefing and
+  //     emergency arrangements. This replaces the previously inline checks
+  //     with the exact same blocking messages.
   // ---------------------------------------------------------
 
-  const {
-    data: safetyControls,
-    error: safetyControlsError,
-  } = await supabase
-    .from('permit_safety_controls')
-    .select(`
-      id,
-      is_required,
-      status,
-      safety_control:safety_controls (
-        code,
-        name
-      )
-    `)
-    .eq('permit_id', permit.id)
-    .eq('is_required', true)
+  const readiness = await getPermitSafetyReadiness(
+    supabase,
+    permit.id
+  )
 
-  if (safetyControlsError) {
+  if (!readiness.ready) {
     return NextResponse.json(
       {
         error:
-          'Unable to verify permit safety controls',
-      },
-      { status: 500 }
-    )
-  }
-
-  if (!safetyControls || safetyControls.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          'Permit cannot be approved because no safety controls are configured for this permit.',
-      },
-      { status: 400 }
-    )
-  }
-
-  const incompleteControls = (
-    safetyControls as unknown as Array<{
-      status: string
-      safety_control: {
-        code: string
-        name: string
-      } | null
-    }>
-  ).filter((control) => control.status !== 'verified')
-
-  if (incompleteControls.length > 0) {
-    return NextResponse.json(
-      {
-        error:
-          'Permit cannot be approved because required safety controls are not verified.',
-        incomplete_controls: incompleteControls.map(
-          (control) => ({
-            code: control.safety_control?.code ?? null,
-            name:
-              control.safety_control?.name ??
-              'Safety Control',
-            status: control.status,
-          })
-        ),
+          readiness.blocking_reasons[0] ??
+          'Permit is not ready for safety approval',
+        blocking_reasons: readiness.blocking_reasons,
+        readiness: readiness.items,
       },
       { status: 400 }
     )
   }
 
   // ---------------------------------------------------------
-  // 7b. Enforce JHA / LOTO / gas-test requirements when the
-  //     permit type requires them.
+  // 7b. Entitlement check: active-permit limit for this company
+  //     (server-side; the plan is resolved from the database).
   // ---------------------------------------------------------
 
-  const {
-    data: permitType,
-    error: permitTypeError,
-  } = await supabase
+  const activeCheck = await canActivatePermit(
+    createAdminClient(),
+    permit.company_id,
+    permit.id
+  )
+
+  if (!activeCheck.ok) {
+    return NextResponse.json(
+      {
+        error: activeCheck.error,
+        usage: activeCheck.usage,
+        limit: activeCheck.limit,
+        plan: activeCheck.planCode,
+      },
+      { status: 403 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 8. Approve and issue in one transaction-like update.
+  //     Sets the authoritative validity window (Phase F): valid_from =
+  //     actual start; valid_until = min(planned_end, valid_from +
+  //     max_validity_hours) when the permit type caps validity.
+  // ---------------------------------------------------------
+
+  const { data: permitTypeForValidity } = await supabase
     .from('permit_types')
-    .select(`
-      id,
-      requires_jha,
-      requires_loto,
-      requires_gas_test
-    `)
+    .select('max_validity_hours')
     .eq('id', permit.permit_type_id ?? -1)
-    .single()
+    .maybeSingle()
 
-  if (permitTypeError || !permitType) {
-    return NextResponse.json(
-      {
-        error:
-          'Permit type could not be resolved for approval checks',
-      },
-      { status: 500 }
-    )
-  }
-
-  if (permitType.requires_jha) {
-    const { data: jha } = await supabase
-      .from('jhas')
-      .select('id')
-      .eq('permit_id', permit.id)
-      .eq('status', 'verified')
-      .maybeSingle()
-
-    if (!jha) {
-      return NextResponse.json(
-        {
-          error:
-            'This permit type requires a verified JHA/JSA before approval.',
-        },
-        { status: 400 }
-      )
-    }
-  }
-
-  if (permitType.requires_loto) {
-    const { data: loto } = await supabase
-      .from('loto_isolation_points')
-      .select('id')
-      .eq('permit_id', permit.id)
-      .eq('status', 'verified')
-      .limit(1)
-      .maybeSingle()
-
-    if (!loto) {
-      return NextResponse.json(
-        {
-          error:
-            'This permit type requires verified LOTO isolation before approval.',
-        },
-        { status: 400 }
-      )
-    }
-  }
-
-  if (permitType.requires_gas_test) {
-    const { data: gasTest } = await supabase
-      .from('gas_tests')
-      .select('id')
-      .eq('permit_id', permit.id)
-      .eq('status', 'verified')
-      .limit(1)
-      .maybeSingle()
-
-    if (!gasTest) {
-      return NextResponse.json(
-        {
-          error:
-            'This permit type requires a verified gas test before approval.',
-        },
-        { status: 400 }
-      )
-    }
-  }
-
-  // ---------------------------------------------------------
-  // 8. Approve and issue in one transaction-like update
-  // ---------------------------------------------------------
-
-  const {
-    data: updatedPermit,
-    error: updateError,
-  } = await supabase
+  const { data: permitForDates } = await supabase
     .from('permits')
-    .update({
-      status: 'active',
+    .select('planned_end')
+    .eq('id', permit.id)
+    .maybeSingle()
+
+  const now = new Date()
+  const validity = computeValidityWindow(
+    now,
+    permitForDates?.planned_end ?? null,
+    permitTypeForValidity?.max_validity_hours ?? null
+  )
+
+  // Controlled DB transition (Phase 1d): status changes go through the
+  // SECURITY DEFINER RPC; raw REST cannot jump to ACTIVE.
+  const transition = await performPermitTransition(
+    supabase,
+    permit.id,
+    'pending_approval',
+    'active',
+    {
       workflow_stage: 'active',
       approved_by: user.id,
-      approved_at: new Date().toISOString(),
-      actual_start: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .eq('status', 'pending_approval')
-    .eq('workflow_stage', 'safety_approval')
-    .select(`
-      id,
-      permit_no,
-      status,
-      workflow_stage,
-      approved_by,
-      approved_at,
-      actual_start
-    `)
-    .single()
+      approved_at: now.toISOString(),
+      actual_start: now.toISOString(),
+      valid_from: validity.valid_from,
+      valid_until: validity.valid_until,
+    }
+  )
 
-  if (updateError || !updatedPermit) {
+  if (!transition.ok) {
     console.error(
       'Failed to approve and issue permit:',
-      updateError
+      transition.error
     )
-
     return NextResponse.json(
       {
         error:
-          updateError?.message ??
+          transition.error ??
           'Failed to approve and issue permit',
       },
       { status: 500 }
     )
+  }
+
+  const updatedPermit = {
+    id: permit.id,
+    permit_no: permit.permit_no,
+    status: 'active',
+    workflow_stage: 'active',
+    approved_by: user.id,
+    approved_at: now.toISOString(),
+    actual_start: now.toISOString(),
+    valid_from: validity.valid_from,
+    valid_until: validity.valid_until,
   }
 
   // ---------------------------------------------------------

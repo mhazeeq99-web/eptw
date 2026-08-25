@@ -286,7 +286,10 @@ BEGIN
   VALUES (btrim(p_company_name))
   RETURNING id INTO v_contractor_id;
 
-  -- Ensure the caller has a requester profile linked to the contractor.
+  -- Ensure the caller has a contractor-admin profile linked to the contractor.
+  -- (This legacy definition is replaced by the final register_contractor in
+  -- section 11.4; kept aligned with the 5-role model so this file stays
+  -- runnable after the legacy user_role labels are dropped.)
   INSERT INTO public.profiles (id, full_name, email, phone, position, role, is_active, company_id)
   VALUES (
     v_user_id,
@@ -294,7 +297,7 @@ BEGIN
     btrim(p_email),
     NULLIF(btrim(COALESCE(p_phone, '')), ''),
     NULLIF(btrim(COALESCE(p_position, '')), ''),
-    'requester',
+    'contractor_admin',
     true,
     NULL
   )
@@ -303,7 +306,7 @@ BEGIN
     email = EXCLUDED.email,
     phone = EXCLUDED.phone,
     position = EXCLUDED.position,
-    role = 'requester',
+    role = 'contractor_admin',
     is_active = true;
 
   INSERT INTO public.contractor_users (user_id, contractor_id, is_active)
@@ -350,7 +353,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.profiles
     WHERE id = v_user_id
-      AND role IN ('safety_manager', 'admin', 'platform_admin')
+      AND role IN ('safety_manager', 'platform_admin')
   ) THEN
     RAISE EXCEPTION 'Only company administrators can manage contractor authorization';
   END IF;
@@ -669,7 +672,7 @@ BEGIN
       FOR INSERT WITH CHECK (
         company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
         AND (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin')
+          = 'safety_manager'
         OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'platform_admin'
       );
 
@@ -677,7 +680,7 @@ BEGIN
       FOR UPDATE USING (
         company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
         AND (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin')
+          = 'safety_manager'
         OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'platform_admin'
       );
   END IF;
@@ -702,13 +705,13 @@ BEGIN
     CREATE POLICY "safety_controls_admin_write" ON public.safety_controls
       FOR INSERT WITH CHECK (
         (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin', 'platform_admin')
+          IN ('safety_manager', 'platform_admin')
       );
 
     CREATE POLICY "safety_controls_admin_update" ON public.safety_controls
       FOR UPDATE USING (
         (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin', 'platform_admin')
+          IN ('safety_manager', 'platform_admin')
       );
   END IF;
 END;
@@ -736,13 +739,13 @@ BEGIN
     CREATE POLICY "permit_type_safety_controls_admin_write" ON public.permit_type_safety_controls
       FOR INSERT WITH CHECK (
         (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin', 'platform_admin')
+          IN ('safety_manager', 'platform_admin')
       );
 
     CREATE POLICY "permit_type_safety_controls_admin_update" ON public.permit_type_safety_controls
       FOR UPDATE USING (
         (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin', 'platform_admin')
+          IN ('safety_manager', 'platform_admin')
       );
   END IF;
 END;
@@ -786,7 +789,7 @@ BEGIN
       FOR INSERT WITH CHECK (
         company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
         AND (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin')
+          = 'safety_manager'
         OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'platform_admin'
       );
 
@@ -794,7 +797,7 @@ BEGIN
       FOR UPDATE USING (
         company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
         AND (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin')
+          = 'safety_manager'
         OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'platform_admin'
       );
   END IF;
@@ -820,7 +823,7 @@ BEGIN
       FOR INSERT WITH CHECK (
         company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
         AND (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin')
+          = 'safety_manager'
         OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'platform_admin'
       );
 
@@ -828,7 +831,7 @@ BEGIN
       FOR UPDATE USING (
         company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
         AND (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin')
+          = 'safety_manager'
         OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'platform_admin'
       );
   END IF;
@@ -857,13 +860,13 @@ BEGIN
     CREATE POLICY "contractors_admin_insert" ON public.contractors
       FOR INSERT WITH CHECK (
         (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin', 'platform_admin')
+          IN ('safety_manager', 'platform_admin')
       );
 
     CREATE POLICY "contractors_admin_update" ON public.contractors
       FOR UPDATE USING (
         (SELECT role FROM public.profiles WHERE id = auth.uid())
-          IN ('safety_manager', 'admin', 'platform_admin')
+          IN ('safety_manager', 'platform_admin')
       );
   END IF;
 END;
@@ -1000,6 +1003,11 @@ CREATE POLICY "Safety coordinators and managers can review safety permits"
     )
   );
 
+-- 10.1b The final 5-role enum values must exist before any policy below
+--       casts them (idempotent; safe to run in any position).
+ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'internal_staff';
+ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'contractor_admin';
+
 -- 10.2 permit_safety_controls: the original policies only allowed
 --      admin/permit_issuer/safety/supervisor. Safety Coordinators and Safety
 --      Managers must be able to view and verify controls to perform their
@@ -1025,13 +1033,9 @@ CREATE POLICY "Users can view company permit safety controls"
             OR p.permit_issuer_id = auth.uid()
             OR p.safety_reviewer_id = auth.uid()
             OR get_my_role() = ANY (ARRAY[
-              'admin'::user_role,
-              'permit_issuer'::user_role,
-              'safety'::user_role,
-              'supervisor'::user_role,
               'safety_manager'::user_role,
               'safety_coordinator'::user_role,
-              'work_supervisor'::user_role
+              'internal_staff'::user_role
             ])
           )
       )
@@ -1050,13 +1054,8 @@ CREATE POLICY "Authorized users can verify company permit safety controls"
           AND p.company_id = get_my_company_id()
       )
       AND get_my_role() = ANY (ARRAY[
-        'admin'::user_role,
-        'permit_issuer'::user_role,
-        'safety'::user_role,
-        'supervisor'::user_role,
         'safety_manager'::user_role,
-        'safety_coordinator'::user_role,
-        'work_supervisor'::user_role
+        'safety_coordinator'::user_role
       ])
     )
   )
@@ -1069,13 +1068,8 @@ CREATE POLICY "Authorized users can verify company permit safety controls"
           AND p.company_id = get_my_company_id()
       )
       AND get_my_role() = ANY (ARRAY[
-        'admin'::user_role,
-        'permit_issuer'::user_role,
-        'safety'::user_role,
-        'supervisor'::user_role,
         'safety_manager'::user_role,
-        'safety_coordinator'::user_role,
-        'work_supervisor'::user_role
+        'safety_coordinator'::user_role
       ])
     )
   );
@@ -1083,11 +1077,8 @@ CREATE POLICY "Authorized users can verify company permit safety controls"
 -- ----------------------------------------------------------------------------
 -- 11. FINAL 5-ROLE BUSINESS MODEL (platform_admin, safety_manager,
 --     safety_coordinator, internal_staff, contractor_admin)
--- ----------------------------------------------------------------------------
-
--- 11.1 New enum values (idempotent)
-ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'internal_staff';
-ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'contractor_admin';
+--     (The new enum values themselves are added idempotently in section 10.1b
+--     so that section 10.2 policies can reference them on a clean database.)
 
 -- 11.2 Contractor PTW columns
 ALTER TABLE public.permits
@@ -1095,15 +1086,17 @@ ALTER TABLE public.permits
   ADD COLUMN IF NOT EXISTS worker_id text,
   ADD COLUMN IF NOT EXISTS staff_reference_name text;
 
--- 11.3 Migrate existing profiles to the 5-role model (idempotent)
-UPDATE public.profiles SET role = 'safety_manager'::user_role WHERE role = 'admin'::user_role;
-UPDATE public.profiles SET role = 'safety_coordinator'::user_role WHERE role = 'safety'::user_role;
+-- 11.3 Migrate existing profiles to the 5-role model (idempotent).
+--      Legacy labels are compared as text so this section keeps working even
+--      after 20260102 drops them from the user_role enum.
+UPDATE public.profiles SET role = 'safety_manager'::user_role WHERE role::text = 'admin';
+UPDATE public.profiles SET role = 'safety_coordinator'::user_role WHERE role::text = 'safety';
 UPDATE public.profiles SET role = 'internal_staff'::user_role
-  WHERE role IN ('permit_issuer'::user_role, 'supervisor'::user_role, 'work_supervisor'::user_role);
+  WHERE role::text IN ('permit_issuer', 'supervisor', 'work_supervisor');
 UPDATE public.profiles SET role = 'internal_staff'::user_role
-  WHERE role = 'requester'::user_role AND company_id IS NOT NULL;
+  WHERE role::text = 'requester' AND company_id IS NOT NULL;
 UPDATE public.profiles SET role = 'contractor_admin'::user_role
-  WHERE role = 'requester'::user_role
+  WHERE role::text = 'requester'
     AND company_id IS NULL
     AND EXISTS (
       SELECT 1 FROM public.contractor_users cu WHERE cu.user_id = profiles.id

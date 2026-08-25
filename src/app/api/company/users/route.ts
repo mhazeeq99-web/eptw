@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { canCreateUser } from '@/lib/entitlements'
 
 type CreateUserBody = {
   full_name?: string
@@ -189,6 +190,26 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Invalid user role' },
         { status: 400 }
+      )
+    }
+
+    // Entitlement check: per-role + total user limits for the company
+    // (server-side; the plan is resolved from the database).
+    const userCheck = await canCreateUser(
+      createAdminClient(),
+      profile.company_id,
+      role
+    )
+
+    if (!userCheck.ok) {
+      return NextResponse.json(
+        {
+          error: userCheck.error,
+          usage: userCheck.usage,
+          limit: userCheck.limit,
+          plan: userCheck.planCode,
+        },
+        { status: 403 }
       )
     }
 

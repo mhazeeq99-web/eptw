@@ -11,6 +11,9 @@ type PermitType = {
   requires_jha: boolean
   requires_gas_test: boolean
   requires_loto: boolean
+  requires_site_verification: boolean
+  requires_worker_briefing: boolean
+  requires_emergency_arrangements: boolean
   is_active: boolean
   created_at?: string
 }
@@ -62,6 +65,12 @@ export function SettingsManager() {
   const [typeRequiresJha, setTypeRequiresJha] = useState(false)
   const [typeRequiresGas, setTypeRequiresGas] = useState(false)
   const [typeRequiresLoto, setTypeRequiresLoto] = useState(false)
+  const [typeRequiresSiteVerification, setTypeRequiresSiteVerification] =
+    useState(true)
+  const [typeRequiresWorkerBriefing, setTypeRequiresWorkerBriefing] =
+    useState(false)
+  const [typeRequiresEmergencyArrangements, setTypeRequiresEmergencyArrangements] =
+    useState(false)
 
   // Safety control form
   const [showControlForm, setShowControlForm] = useState(false)
@@ -83,12 +92,11 @@ export function SettingsManager() {
         .eq('id', (await supabase.auth.getUser()).data.user?.id ?? '')
         .single()
 
-      if (
+      const isAdminRole =
         profile?.role === 'safety_manager' ||
         profile?.role === 'platform_admin'
-      ) {
-        setIsAdmin(true)
-      }
+
+      setIsAdmin(isAdminRole)
 
       if (profile?.company_id) {
         const { data: companyData } = await supabase
@@ -100,7 +108,7 @@ export function SettingsManager() {
         setCompany(companyData ?? null)
       }
 
-      if (!isAdmin) {
+      if (!isAdminRole) {
         setLoading(false)
         return
       }
@@ -192,6 +200,9 @@ export function SettingsManager() {
           requires_jha: typeRequiresJha,
           requires_gas_test: typeRequiresGas,
           requires_loto: typeRequiresLoto,
+          requires_site_verification: typeRequiresSiteVerification,
+          requires_worker_briefing: typeRequiresWorkerBriefing,
+          requires_emergency_arrangements: typeRequiresEmergencyArrangements,
         }),
       })
 
@@ -206,6 +217,9 @@ export function SettingsManager() {
       setTypeRequiresJha(false)
       setTypeRequiresGas(false)
       setTypeRequiresLoto(false)
+      setTypeRequiresSiteVerification(true)
+      setTypeRequiresWorkerBriefing(false)
+      setTypeRequiresEmergencyArrangements(false)
       setShowTypeForm(false)
       await loadAll()
     } catch (createError) {
@@ -273,6 +287,40 @@ export function SettingsManager() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             is_active: !permitType.is_active,
+          }),
+        }
+      )
+
+      const body = await response.json()
+
+      if (!response.ok) {
+        throw new Error(body.error ?? 'Unable to update permit type')
+      }
+
+      await loadAll()
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error
+          ? toggleError.message
+          : 'Unable to update permit type'
+      )
+    }
+  }
+
+  async function toggleTypeFlag(
+    permitType: PermitType,
+    flag: 'requires_site_verification' | 'requires_worker_briefing' | 'requires_emergency_arrangements'
+  ) {
+    setError('')
+
+    try {
+      const response = await fetch(
+        `/api/admin/permit-types/${permitType.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            [flag]: !permitType[flag],
           }),
         }
       )
@@ -537,6 +585,39 @@ export function SettingsManager() {
                 />
                 Requires LOTO
               </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={typeRequiresSiteVerification}
+                  onChange={(event) =>
+                    setTypeRequiresSiteVerification(event.target.checked)
+                  }
+                />
+                Site / Work-Area Verification
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={typeRequiresWorkerBriefing}
+                  onChange={(event) =>
+                    setTypeRequiresWorkerBriefing(event.target.checked)
+                  }
+                />
+                Worker Briefing Required
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={typeRequiresEmergencyArrangements}
+                  onChange={(event) =>
+                    setTypeRequiresEmergencyArrangements(event.target.checked)
+                  }
+                />
+                Emergency Arrangements Required
+              </label>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -577,6 +658,9 @@ export function SettingsManager() {
                   <th className="px-6 py-3 text-left font-medium">JHA</th>
                   <th className="px-6 py-3 text-left font-medium">Gas</th>
                   <th className="px-6 py-3 text-left font-medium">LOTO</th>
+                  <th className="px-6 py-3 text-left font-medium">Site</th>
+                  <th className="px-6 py-3 text-left font-medium">Briefing</th>
+                  <th className="px-6 py-3 text-left font-medium">Emergency</th>
                   <th className="px-6 py-3 text-left font-medium">Status</th>
                   <th className="px-6 py-3 text-right font-medium">Action</th>
                 </tr>
@@ -611,6 +695,57 @@ export function SettingsManager() {
                     </td>
                     <td className="px-6 py-4">
                       {permitType.requires_loto ? '✓' : '—'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        type="button"
+                        title="Toggle site verification"
+                        onClick={() =>
+                          toggleTypeFlag(
+                            permitType,
+                            'requires_site_verification'
+                          )
+                        }
+                        className="hover:text-primary"
+                      >
+                        {permitType.requires_site_verification
+                          ? '✓'
+                          : '—'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        type="button"
+                        title="Toggle worker briefing"
+                        onClick={() =>
+                          toggleTypeFlag(
+                            permitType,
+                            'requires_worker_briefing'
+                          )
+                        }
+                        className="hover:text-primary"
+                      >
+                        {permitType.requires_worker_briefing
+                          ? '✓'
+                          : '—'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        type="button"
+                        title="Toggle emergency arrangements"
+                        onClick={() =>
+                          toggleTypeFlag(
+                            permitType,
+                            'requires_emergency_arrangements'
+                          )
+                        }
+                        className="hover:text-primary"
+                      >
+                        {permitType.requires_emergency_arrangements
+                          ? '✓'
+                          : '—'}
+                      </button>
                     </td>
                     <td className="px-6 py-4">
                       <span

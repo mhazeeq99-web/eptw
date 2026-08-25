@@ -4,6 +4,22 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
+import {
+  WorkerListEditor,
+  type WorkerDraft,
+} from '@/components/permits/worker-list-editor'
+import {
+  PpeSelector,
+  type PpeItem,
+} from '@/components/permits/ppe-selector'
+import {
+  SpecialisedDetailsFields,
+  type SpecialDetailsState,
+} from '@/components/permits/specialised/specialised-details-fields'
+import {
+  CsePersonnelEditor,
+  type CsePersonnelDraft,
+} from '@/components/permits/specialised/cse-personnel-editor'
 
 type Profile = {
   id: string
@@ -25,7 +41,6 @@ type PermitType = {
   requires_gas_test: boolean
   requires_loto: boolean
 }
-
 type SafetyControl = {
   id: number
   code: string
@@ -33,6 +48,7 @@ type SafetyControl = {
   description: string | null
   category: string
   is_required: boolean
+  is_recommended: boolean
 }
 
 type Area = {
@@ -64,14 +80,29 @@ export default function NewPermitPage() {
   const [workTitle, setWorkTitle] = useState('')
   const [workDescription, setWorkDescription] = useState('')
   const [workLocation, setWorkLocation] = useState('')
+  const [workMethod, setWorkMethod] = useState('')
   const [areaId, setAreaId] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
   const [plannedStart, setPlannedStart] = useState('')
   const [plannedEnd, setPlannedEnd] = useState('')
 
-  const [workerName, setWorkerName] = useState('')
-  const [workerId, setWorkerId] = useState('')
+  const [workers, setWorkers] = useState<WorkerDraft[]>([])
   const [staffReferenceName, setStaffReferenceName] = useState('')
+
+  const [ppeItems, setPpeItems] = useState<PpeItem[]>([])
+  const [ppeRecommendations, setPpeRecommendations] = useState<
+    Map<number, 'recommended' | 'required'>
+  >(new Map())
+  const [selectedPpeIds, setSelectedPpeIds] = useState<Set<number>>(
+    new Set()
+  )
+  const [ppeOther, setPpeOther] = useState('')
+  const [recommendedControlIds, setRecommendedControlIds] = useState<
+    Set<number>
+  >(new Set())
+
+  const [specialDetails, setSpecialDetails] = useState<SpecialDetailsState>({})
+  const [csePersonnel, setCsePersonnel] = useState<CsePersonnelDraft[]>([])
 
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
@@ -197,7 +228,7 @@ export default function NewPermitPage() {
       // -------------------------------------------------------
 
       if (
-        profileData.role === 'requester'
+        profileData.role === 'contractor_admin'
       ) {
         const {
           data: membership,
@@ -419,6 +450,7 @@ export default function NewPermitPage() {
     async function loadSafetyControls() {
       if (!permitTypeId) {
         setSafetyControls([])
+        setRecommendedControlIds(new Set())
         return
       }
 
@@ -429,6 +461,7 @@ export default function NewPermitPage() {
         .from('permit_type_safety_controls')
         .select(`
           is_required,
+          is_recommended,
           safety_control:safety_controls (
             id,
             code,
@@ -441,7 +474,6 @@ export default function NewPermitPage() {
           'permit_type_id',
           Number(permitTypeId)
         )
-        .eq('is_required', true)
 
       if (error) {
         setError(error.message)
@@ -475,13 +507,96 @@ export default function NewPermitPage() {
                 control.category,
               is_required:
                 item.is_required,
+              is_recommended:
+                Boolean(item.is_recommended),
             }
           })
 
       setSafetyControls(controls)
+
+      // Recommended controls start pre-selected (toggleable); required
+      // controls are locked and verified on the detail page.
+      setRecommendedControlIds(
+        new Set(
+          controls
+            .filter((control) => control.is_recommended)
+            .map((control) => control.id)
+        )
+      )
     }
 
     loadSafetyControls()
+  }, [permitTypeId, supabase])
+
+  // ---------------------------------------------------------
+  // Load PPE catalogue + type recommendations
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    async function loadPpe() {
+      if (!permitTypeId) {
+        setPpeItems([])
+        setPpeRecommendations(new Map())
+        setSelectedPpeIds(new Set())
+        return
+      }
+
+      const [itemsResult, mappingResult] =
+        await Promise.all([
+          supabase
+            .from('ppe_items')
+            .select('id, category, name')
+            .eq('is_active', true)
+            .order('sort_order'),
+          supabase
+            .from('permit_type_ppe')
+            .select('ppe_item_id, requirement')
+            .eq(
+              'permit_type_id',
+              Number(permitTypeId)
+            ),
+        ])
+
+      if (itemsResult.error) {
+        setError(itemsResult.error.message)
+        return
+      }
+
+      const items: PpeItem[] = (
+        itemsResult.data ?? []
+      ).map((item) => ({
+        id: item.id,
+        category: item.category,
+        name: item.name,
+      }))
+
+      setPpeItems(items)
+
+      const recommendations = new Map<
+        number,
+        'recommended' | 'required'
+      >()
+      for (const mapping of mappingResult.data ?? []) {
+        if (
+          mapping.requirement === 'recommended' ||
+          mapping.requirement === 'required'
+        ) {
+          recommendations.set(
+            mapping.ppe_item_id,
+            mapping.requirement
+          )
+        }
+      }
+      setPpeRecommendations(recommendations)
+
+      // Recommended/required PPE starts selected; the user can toggle
+      // recommended items, required items stay locked on.
+      setSelectedPpeIds(
+        new Set(recommendations.keys())
+      )
+    }
+
+    loadPpe()
   }, [permitTypeId, supabase])
 
   // ---------------------------------------------------------
@@ -516,6 +631,25 @@ export default function NewPermitPage() {
       return
     }
 
+    // Contractor PTW: at least one worker (name + NRIC/passport) and the
+    // customer staff reference are required.
+    const validWorkers = workers.filter(
+      (worker) =>
+        worker.full_name.trim() &&
+        worker.id_number.trim()
+    )
+
+    if (
+      isContractor &&
+      (validWorkers.length === 0 ||
+        !staffReferenceName.trim())
+    ) {
+      setError(
+        'Worker name, worker NRIC/passport and the customer staff reference are required for contractor permits.'
+      )
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -545,6 +679,23 @@ export default function NewPermitPage() {
               workLocation.trim() ||
               null,
 
+            work_method:
+              workMethod.trim() || null,
+
+            workers: validWorkers.map(
+              (worker) => ({
+                full_name:
+                  worker.full_name.trim(),
+                id_number:
+                  worker.id_number.trim(),
+                nationality:
+                  worker.nationality ?? null,
+                induction_completed: Boolean(
+                  worker.induction_completed
+                ),
+              })
+            ),
+
             area_id: areaId
               ? Number(areaId)
               : null,
@@ -559,17 +710,37 @@ export default function NewPermitPage() {
             planned_end:
               plannedEnd || null,
 
-            worker_name: isContractor
-              ? workerName.trim() || null
-              : null,
-
-            worker_id: isContractor
-              ? workerId.trim() || null
-              : null,
-
             staff_reference_name: isContractor
               ? staffReferenceName.trim() || null
               : null,
+
+            ppe_other:
+              ppeOther.trim() || null,
+
+            ppe_item_ids: Array.from(
+              selectedPpeIds
+            ),
+
+            recommended_control_ids: Array.from(
+              recommendedControlIds
+            ),
+
+            // Phase E: specialised permit-type details + CSE personnel.
+            // Only included when the selected permit type has a
+            // specialised section (COLD sends an empty object / no
+            // assignments, so no irrelevant fields reach the API).
+            special_details:
+              selectedPermitType &&
+              ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
+                selectedPermitType.code
+              )
+                ? specialDetails
+                : null,
+
+            cse_personnel:
+              selectedPermitType?.code === 'CSE'
+                ? csePersonnel
+                : null,
           }),
         }
       )
@@ -839,35 +1010,15 @@ export default function NewPermitPage() {
             <>
               <section className="rounded-xl border bg-background p-6">
                 <h2 className="text-lg font-semibold">
-                  Worker Details
+                  Workers / Authorised Personnel
                 </h2>
 
-                <div className="mt-6 grid gap-6 md:grid-cols-2">
-                  <Field label="Worker Name" required>
-                    <input
-                      type="text"
-                      value={workerName}
-                      onChange={(event) =>
-                        setWorkerName(event.target.value)
-                      }
-                      placeholder="e.g. Mohd Ali"
-                      required
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    />
-                  </Field>
-
-                  <Field label="Worker ID" required>
-                    <input
-                      type="text"
-                      value={workerId}
-                      onChange={(event) =>
-                        setWorkerId(event.target.value)
-                      }
-                      placeholder="e.g. CT-2045"
-                      required
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    />
-                  </Field>
+                <div className="mt-6">
+                  <WorkerListEditor
+                    mode="contractor"
+                    initial={workers}
+                    onChange={setWorkers}
+                  />
                 </div>
               </section>
 
@@ -942,8 +1093,22 @@ export default function NewPermitPage() {
                       event.target.value
                     )
                   }
-                  rows={5}
+                  rows={4}
                   placeholder="Describe the work to be performed..."
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Work Method / Sequence">
+                <textarea
+                  value={workMethod}
+                  onChange={(event) =>
+                    setWorkMethod(
+                      event.target.value
+                    )
+                  }
+                  rows={3}
+                  placeholder="Step-by-step method / sequence of work (optional)..."
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </Field>
@@ -967,6 +1132,26 @@ export default function NewPermitPage() {
           </section>
 
           {/* ------------------------------------------------ */}
+          {/* Workers / Authorised Personnel (internal PTW) */}
+          {/* ------------------------------------------------ */}
+
+          {!isContractor && (
+            <section className="rounded-xl border bg-background p-6">
+              <h2 className="text-lg font-semibold">
+                Workers / Authorised Personnel
+              </h2>
+
+              <div className="mt-6">
+                <WorkerListEditor
+                  mode="internal"
+                  initial={workers}
+                  onChange={setWorkers}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* ------------------------------------------------ */}
           {/* Safety Requirements */}
           {/* ------------------------------------------------ */}
 
@@ -978,35 +1163,159 @@ export default function NewPermitPage() {
               </h2>
 
               <p className="mt-2 text-sm text-muted-foreground">
-                Safety requirements are determined
-                automatically based on the selected
-                permit type.
+                Required controls are enforced before approval.
+                Recommended controls are pre-selected and can be
+                adjusted.
               </p>
 
-              <div className="mt-6 space-y-3">
+              <div className="mt-6 grid gap-2 sm:grid-cols-2">
 
                 {safetyControls.length > 0 ? (
                   safetyControls.map(
-                    (control) => (
-                      <SafetyRequirement
-                        key={control.id}
-                        label={control.name}
-                        required={
-                          control.is_required
-                        }
-                      />
-                    )
+                    (control) => {
+                      const isRequired =
+                        control.is_required
+                      const isRecommended =
+                        control.is_recommended &&
+                        !isRequired
+                      const isChecked =
+                        isRequired ||
+                        recommendedControlIds.has(
+                          control.id
+                        )
+                      return (
+                        <label
+                          key={control.id}
+                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isRequired}
+                            onChange={() => {
+                              const next = new Set(
+                                recommendedControlIds
+                              )
+                              if (next.has(control.id)) {
+                                next.delete(control.id)
+                              } else {
+                                next.add(control.id)
+                              }
+                              setRecommendedControlIds(
+                                next
+                              )
+                            }}
+                            className="h-4 w-4 rounded border"
+                          />
+                          <span>{control.name}</span>
+                          {isRequired && (
+                            <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                              REQUIRED
+                            </span>
+                          )}
+                          {isRecommended && (
+                            <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                              Recommended
+                            </span>
+                          )}
+                        </label>
+                      )
+                    }
                   )
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No specific safety controls
-                    are configured for this
+                    No safety controls are configured for this
                     permit type.
                   </p>
                 )}
 
               </div>
 
+            </section>
+          )}
+
+          {/* ------------------------------------------------ */}
+          {/* PPE Requirements */}
+          {/* ------------------------------------------------ */}
+
+          {selectedPermitType && (
+            <section className="rounded-xl border bg-background p-6">
+
+              <h2 className="text-lg font-semibold">
+                PPE Requirements
+              </h2>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                Recommended PPE is based on the permit type. Adjust
+                the selection for the specific work and hazards.
+              </p>
+
+              <div className="mt-6">
+                <PpeSelector
+                  items={ppeItems}
+                  recommendationByItemId={
+                    ppeRecommendations
+                  }
+                  selectedIds={selectedPpeIds}
+                  onToggle={(id) => {
+                    const next = new Set(
+                      selectedPpeIds
+                    )
+                    if (next.has(id)) {
+                      next.delete(id)
+                    } else {
+                      next.add(id)
+                    }
+                    setSelectedPpeIds(next)
+                  }}
+                  ppeOther={ppeOther}
+                  onPpeOtherChange={setPpeOther}
+                />
+              </div>
+
+            </section>
+          )}
+
+          {/* ------------------------------------------------ */}
+          {/* Specialised Permit Details (Phase E) */}
+          {/* ------------------------------------------------ */}
+
+          {selectedPermitType &&
+            ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
+              selectedPermitType.code
+            ) && (
+              <SpecialisedDetailsFields
+                code={selectedPermitType.code}
+                value={specialDetails}
+                onChange={setSpecialDetails}
+              />
+            )}
+
+          {/* ------------------------------------------------ */}
+          {/* CSE Personnel Responsibilities (Phase E) */}
+          {/* ------------------------------------------------ */}
+
+          {selectedPermitType?.code === 'CSE' && (
+            <section className="rounded-xl border bg-background p-6">
+              <h2 className="text-lg font-semibold">
+                Confined Space Personnel
+              </h2>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                Permit-level responsibilities assigned from the workers
+                listed on this permit. No new global roles.
+              </p>
+
+              <div className="mt-6">
+                <CsePersonnelEditor
+                  workers={workers.map((worker, index) => ({
+                    index,
+                    full_name: worker.full_name,
+                  }))}
+                  value={csePersonnel}
+                  onChange={setCsePersonnel}
+                />
+              </div>
             </section>
           )}
 
@@ -1124,36 +1433,6 @@ function Field({
       </label>
 
       {children}
-
-    </div>
-  )
-}
-
-function SafetyRequirement({
-  label,
-  required,
-}: {
-  label: string
-  required: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border p-4">
-
-      <span className="text-sm font-medium">
-        {label}
-      </span>
-
-      <span
-        className={
-          required
-            ? 'text-sm font-medium text-destructive'
-            : 'text-sm text-muted-foreground'
-        }
-      >
-        {required
-          ? 'Required'
-          : 'Not required'}
-      </span>
 
     </div>
   )

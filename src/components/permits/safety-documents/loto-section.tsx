@@ -10,6 +10,9 @@ export type LotoPoint = {
   description: string
   isolation_point: string | null
   lock_number: string | null
+  energy_type: string | null
+  isolation_method: string | null
+  remarks: string | null
   status: string
   verified_by: string | null
   verified_at: string | null
@@ -21,6 +24,30 @@ export type LotoPoint = {
     full_name: string
   } | null
 }
+
+const ENERGY_TYPES = [
+  'Electrical',
+  'Mechanical',
+  'Hydraulic',
+  'Pneumatic',
+  'Chemical / Process',
+  'Pressure',
+  'Thermal',
+  'Gravity',
+  'Other',
+]
+
+const ISOLATION_METHODS = [
+  'Lock',
+  'Tag',
+  'Valve closed',
+  'Breaker isolated',
+  'Disconnected',
+  'Blinded / blanked',
+  'Drained',
+  'Depressurised',
+  'Other',
+]
 
 export function LotoSection({
   permitId,
@@ -40,6 +67,9 @@ export function LotoSection({
   const [tagNumber, setTagNumber] = useState('')
   const [isolationPoint, setIsolationPoint] = useState('')
   const [lockNumber, setLockNumber] = useState('')
+  const [energyType, setEnergyType] = useState('')
+  const [isolationMethod, setIsolationMethod] = useState('')
+  const [remarks, setRemarks] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -66,6 +96,9 @@ export function LotoSection({
             tag_number: tagNumber.trim() || null,
             isolation_point: isolationPoint.trim() || null,
             lock_number: lockNumber.trim() || null,
+            energy_type: energyType || null,
+            isolation_method: isolationMethod || null,
+            remarks: remarks.trim() || null,
           }),
         }
       )
@@ -83,6 +116,9 @@ export function LotoSection({
       setTagNumber('')
       setIsolationPoint('')
       setLockNumber('')
+      setEnergyType('')
+      setIsolationMethod('')
+      setRemarks('')
       setShowForm(false)
       router.refresh()
     } catch {
@@ -173,6 +209,57 @@ export function LotoSection({
             />
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Energy Type
+            </label>
+            <select
+              value={energyType}
+              onChange={(event) =>
+                setEnergyType(event.target.value)
+              }
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select energy type</option>
+              {ENERGY_TYPES.map((energy) => (
+                <option key={energy} value={energy}>
+                  {energy}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Isolation Method
+            </label>
+            <select
+              value={isolationMethod}
+              onChange={(event) =>
+                setIsolationMethod(event.target.value)
+              }
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select isolation method</option>
+              {ISOLATION_METHODS.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <label className="text-sm font-medium">Remarks</label>
+            <textarea
+              value={remarks}
+              onChange={(event) => setRemarks(event.target.value)}
+              rows={2}
+              placeholder="Any notes about this isolation point..."
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
           {error && (
             <p className="text-sm text-destructive sm:col-span-2">
               {error}
@@ -240,7 +327,23 @@ export function LotoSection({
                         At: {point.isolation_point}
                       </span>
                     )}
+                    {point.energy_type && (
+                      <span className="rounded-md bg-muted px-2 py-1">
+                        Energy: {point.energy_type}
+                      </span>
+                    )}
+                    {point.isolation_method && (
+                      <span className="rounded-md bg-muted px-2 py-1">
+                        Method: {point.isolation_method}
+                      </span>
+                    )}
                   </div>
+
+                  {point.remarks && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {point.remarks}
+                    </p>
+                  )}
                 </div>
 
                 <StatusBadge status={point.status} />

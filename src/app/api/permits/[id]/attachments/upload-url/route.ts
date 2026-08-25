@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermitAccess } from '@/lib/permit-access'
+import { canUploadAttachment } from '@/lib/entitlements'
 
 const BUCKET = 'permit-attachments'
 
@@ -56,6 +57,7 @@ export async function POST(
   let body: {
     filename?: string
     content_type?: string | null
+    size_bytes?: number
   }
 
   try {
@@ -76,6 +78,49 @@ export async function POST(
     return NextResponse.json(
       { error: 'Filename is required' },
       { status: 400 }
+    )
+  }
+
+  // The server needs the file size so the plan storage limit can be
+  // enforced BEFORE issuing a signed upload URL (never trust only the
+  // frontend file-size validation).
+  const sizeBytes = Number(body.size_bytes)
+
+  if (
+    !Number.isFinite(sizeBytes) ||
+    sizeBytes <= 0 ||
+    !Number.isInteger(sizeBytes)
+  ) {
+    return NextResponse.json(
+      { error: 'A valid file size (size_bytes) is required' },
+      { status: 400 }
+    )
+  }
+
+  // Entitlement check: current company storage usage + new file size must
+  // stay within the plan's storage allowance (server-side).
+  if (access.data.permit.company_id == null) {
+    return NextResponse.json(
+      { error: 'Permit has no company; storage limit cannot be resolved' },
+      { status: 400 }
+    )
+  }
+
+  const storageCheck = await canUploadAttachment(
+    createAdminClient(),
+    access.data.permit.company_id,
+    sizeBytes
+  )
+
+  if (!storageCheck.ok) {
+    return NextResponse.json(
+      {
+        error: storageCheck.error,
+        usage: storageCheck.usage,
+        limit: storageCheck.limit,
+        plan: storageCheck.planCode,
+      },
+      { status: 403 }
     )
   }
 

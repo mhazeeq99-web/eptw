@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { canCreateUser } from '@/lib/entitlements'
 
 const MANAGER_ROLES = ['safety_manager']
 
@@ -143,6 +144,29 @@ export async function PATCH(
       }
 
       nextRole = body.role
+    }
+
+    // Entitlement check: the target role's allowance must not be exceeded
+    // by this role change (server-side; plan resolved from the database).
+    if (nextRole) {
+      const userCheck = await canCreateUser(
+        createAdminClient(),
+        profile.company_id,
+        nextRole,
+        targetUserId
+      )
+
+      if (!userCheck.ok) {
+        return NextResponse.json(
+          {
+            error: userCheck.error,
+            usage: userCheck.usage,
+            limit: userCheck.limit,
+            plan: userCheck.planCode,
+          },
+          { status: 403 }
+        )
+      }
     }
 
     const admin = createAdminClient()

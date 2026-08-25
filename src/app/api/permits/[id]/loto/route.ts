@@ -58,6 +58,9 @@ export async function POST(
     tag_number?: string | null
     isolation_point?: string | null
     lock_number?: string | null
+    energy_type?: string | null
+    isolation_method?: string | null
+    remarks?: string | null
   }
 
   try {
@@ -101,6 +104,18 @@ export async function POST(
         lock_number:
           typeof body.lock_number === 'string'
             ? body.lock_number.trim() || null
+            : null,
+        energy_type:
+          typeof body.energy_type === 'string'
+            ? body.energy_type.trim() || null
+            : null,
+        isolation_method:
+          typeof body.isolation_method === 'string'
+            ? body.isolation_method.trim() || null
+            : null,
+        remarks:
+          typeof body.remarks === 'string'
+            ? body.remarks.trim() || null
             : null,
         status: 'pending',
         created_by: user.id,

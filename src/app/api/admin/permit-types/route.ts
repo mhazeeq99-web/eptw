@@ -43,6 +43,9 @@ export async function GET() {
       requires_jha,
       requires_gas_test,
       requires_loto,
+      requires_site_verification,
+      requires_worker_briefing,
+      requires_emergency_arrangements,
       is_active,
       created_at
     `)
@@ -97,6 +100,9 @@ export async function POST(request: Request) {
     requires_jha?: boolean
     requires_gas_test?: boolean
     requires_loto?: boolean
+    requires_site_verification?: boolean
+    requires_worker_briefing?: boolean
+    requires_emergency_arrangements?: boolean
   }
 
   try {
@@ -133,6 +139,12 @@ export async function POST(request: Request) {
         requires_jha: body.requires_jha === true,
         requires_gas_test: body.requires_gas_test === true,
         requires_loto: body.requires_loto === true,
+        requires_site_verification:
+          body.requires_site_verification !== false,
+        requires_worker_briefing:
+          body.requires_worker_briefing === true,
+        requires_emergency_arrangements:
+          body.requires_emergency_arrangements === true,
         is_active: true,
       })
       .select(`
@@ -143,6 +155,9 @@ export async function POST(request: Request) {
         requires_jha,
         requires_gas_test,
         requires_loto,
+        requires_site_verification,
+        requires_worker_briefing,
+        requires_emergency_arrangements,
         is_active
       `)
       .single()

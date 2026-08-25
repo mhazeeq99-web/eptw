@@ -3,6 +3,7 @@ import { BarChart3 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { resolvePermitScope } from '@/lib/permit-scope'
+import { getExpiryState } from '@/components/permits/status-badge'
 
 type PermitRow = {
   id: number
@@ -11,6 +12,8 @@ type PermitRow = {
   permit_type_id: number | null
   area_id: number | null
   contractor_id: number | null
+  planned_end: string | null
+  valid_until: string | null
 }
 
 const STATUS_ORDER = [
@@ -60,7 +63,9 @@ export default async function ReportsPage() {
       created_at,
       permit_type_id,
       area_id,
-      contractor_id
+      contractor_id,
+      planned_end,
+      valid_until
     `)
 
   if (!scope.isPlatformAdmin) {
@@ -78,6 +83,26 @@ export default async function ReportsPage() {
   }
 
   const rows = (permits ?? []) as unknown as PermitRow[]
+
+  // Phase F/2e: derived validity states for ACTIVE permits (Expiring Soon /
+  // Expired) using the unified valid_until clock.
+  const activeRows = rows.filter((permit) => permit.status === 'active')
+  const expiringSoon = activeRows.filter(
+    (permit) =>
+      getExpiryState(
+        permit.status,
+        permit.valid_until,
+        permit.planned_end
+      ) === 'expiring_soon'
+  ).length
+  const expired = activeRows.filter(
+    (permit) =>
+      getExpiryState(
+        permit.status,
+        permit.valid_until,
+        permit.planned_end
+      ) === 'expired'
+  ).length
 
   const companyMatch = scope.companyId
     ? { company_id: scope.companyId }
@@ -178,6 +203,22 @@ export default async function ReportsPage() {
               </p>
             </Link>
           ))}
+
+          <Link
+            href="/permits?status=active&expiry=expiring_soon"
+            className="rounded-xl border bg-background p-5 shadow-sm transition-colors hover:bg-muted/40"
+          >
+            <p className="text-sm text-muted-foreground">Expiring Soon</p>
+            <p className="mt-2 text-3xl font-bold">{expiringSoon}</p>
+          </Link>
+
+          <Link
+            href="/permits?status=active&expiry=expired"
+            className="rounded-xl border bg-background p-5 shadow-sm transition-colors hover:bg-muted/40"
+          >
+            <p className="text-sm text-muted-foreground">Expired</p>
+            <p className="mt-2 text-3xl font-bold">{expired}</p>
+          </Link>
         </div>
 
         {/* Breakdowns */}

@@ -3,22 +3,24 @@ import { notFound } from 'next/navigation'
 import { Printer } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
-import { StartWorkButton } from '@/components/permits/start-work-button'
 import { SubmitPermitButton } from '@/components/permits/submit-permit-button'
 import { ResubmitPermitButton } from '@/components/permits/resubmit-permit-button'
 import { SuspendPermitButton } from '@/components/permits/suspend-permit-button'
-import { ResumePermitButton } from '@/components/permits/resume-permit-button'
-import { CompletePermitButton } from '@/components/permits/complete-permit-button'
-import { ClosePermitButton } from '@/components/permits/close-permit-button'
 import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
-import { SendToContractorButton } from '@/components/permits/send-to-contractor-button'
-import { ApproveAndIssueButton } from '@/components/permits/approve-and-issue-button'
-import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
 import { RejectPermitButton } from '@/components/permits/reject-permit-button'
+import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
+import { LifecyclePanel } from '@/components/permits/lifecycle-panel'
 import { JhaSection, type Jha } from '@/components/permits/safety-documents/jha-section'
 import { LotoSection, type LotoPoint } from '@/components/permits/safety-documents/loto-section'
 import { GasTestSection, type GasTest } from '@/components/permits/safety-documents/gas-test-section'
 import { AttachmentsSection, type Attachment } from '@/components/permits/attachments-section'
+import { SiteVerificationSection, type SiteChecklistTemplateItem, type SiteVerificationRecord } from '@/components/permits/safety-verification/site-verification-section'
+import { WorkerBriefingSection, type WorkerBriefingRecord } from '@/components/permits/safety-verification/worker-briefing-section'
+import { PpeVerificationSection, type PpeVerificationItem } from '@/components/permits/safety-verification/ppe-verification-section'
+import { EmergencyArrangementsSection, type EmergencyArrangementsRecord } from '@/components/permits/safety-verification/emergency-arrangements-section'
+import { SafetyVerificationPanel } from '@/components/permits/safety-verification/safety-verification-panel'
+import { SpecialisedPermitSection } from '@/components/permits/specialised/specialised-permit-section'
+import { formatDateTimeMY } from '@/lib/dates'
 
 type PermitType = {
   id: number
@@ -27,6 +29,9 @@ type PermitType = {
   requires_gas_test: boolean
   requires_loto: boolean
   requires_jha: boolean
+  requires_site_verification: boolean
+  requires_worker_briefing: boolean
+  requires_emergency_arrangements: boolean
 }
 
 type Area = {
@@ -110,6 +115,87 @@ type Permit = {
   worker_name: string | null
   worker_id: string | null
   staff_reference_name: string | null
+  work_method: string | null
+  ppe_other: string | null
+  workers: Array<{
+    id: number
+    full_name: string
+    id_number: string | null
+    nationality: string | null
+    is_contractor: boolean
+    induction_completed: boolean
+    briefed: boolean
+    acknowledged: boolean
+    acknowledged_by: string | null
+    acknowledged_at: string | null
+  }> | null
+  permit_ppe: Array<{
+    ppe_item_id: number
+    is_selected: boolean
+    verified: boolean
+    verified_by: string | null
+    verified_at: string | null
+    ppe_item: {
+      id: number
+      category: string
+      name: string
+    } | null
+  }> | null
+  recommended_controls: Array<{
+    safety_control_id: number
+    is_selected: boolean
+    safety_control: { id: number; name: string } | null
+  }> | null
+  site_verification: {
+    id: number
+    permit_id: number
+    status: string
+    checklist: Array<{
+      key: string
+      status: string
+    }>
+    verified_by: string | null
+    verified_at: string | null
+    remarks: string | null
+  } | null
+  worker_briefing: {
+    id: number
+    permit_id: number
+    status: string
+    topics: Array<{
+      key: string
+      label: string
+      covered: boolean
+    }>
+    briefed_by: string | null
+    briefed_at: string | null
+    remarks: string | null
+  } | null
+  emergency_arrangements: {
+    id: number
+    permit_id: number
+    status: string
+    emergency_contact: string | null
+    muster_point: string | null
+    emergency_procedure: string | null
+    first_aid_available: boolean
+    fire_response_available: boolean
+    rescue_required: boolean
+    rescue_available: boolean
+    confirmed_by: string | null
+    confirmed_at: string | null
+    remarks: string | null
+  } | null
+  special_details: Record<string, unknown> | null
+  cse_personnel: Array<{
+    id: number
+    worker_id: number
+    responsibility: string
+    worker: {
+      id: number
+      full_name: string
+    } | null
+  }> | null
   remarks: string | null
   created_at: string
   permit_type: PermitType | null
@@ -194,6 +280,83 @@ export default async function PermitDetailsPage({
       worker_name,
       worker_id,
       staff_reference_name,
+      work_method,
+      ppe_other,
+      workers:permit_workers (
+        id,
+        full_name,
+        id_number,
+        nationality,
+        is_contractor,
+        induction_completed,
+        briefed,
+        acknowledged,
+        acknowledged_by,
+        acknowledged_at
+      ),
+      permit_ppe (
+        ppe_item_id,
+        is_selected,
+        verified,
+        verified_by,
+        verified_at,
+        ppe_item:ppe_items (
+          id,
+          category,
+          name
+        )
+      ),
+      recommended_controls:permit_recommended_controls (
+        safety_control_id,
+        is_selected,
+        safety_control:safety_controls (
+          id,
+          name
+        )
+      ),
+      site_verification:permit_site_verifications (
+        id,
+        permit_id,
+        status,
+        checklist,
+        verified_by,
+        verified_at,
+        remarks
+      ),
+      worker_briefing:permit_worker_briefings (
+        id,
+        permit_id,
+        status,
+        topics,
+        briefed_by,
+        briefed_at,
+        remarks
+      ),
+      emergency_arrangements:permit_emergency_arrangements (
+        id,
+        permit_id,
+        status,
+        emergency_contact,
+        muster_point,
+        emergency_procedure,
+        first_aid_available,
+        fire_response_available,
+        rescue_required,
+        rescue_available,
+        confirmed_by,
+        confirmed_at,
+        remarks
+      ),
+      special_details,
+      cse_personnel:permit_cse_personnel (
+        id,
+        worker_id,
+        responsibility,
+        worker:permit_workers!permit_cse_personnel_worker_id_fkey (
+          id,
+          full_name
+        )
+      ),
       remarks,
       created_at,
 
@@ -203,7 +366,10 @@ export default async function PermitDetailsPage({
         code,
         requires_gas_test,
         requires_loto,
-        requires_jha
+        requires_jha,
+        requires_site_verification,
+        requires_worker_briefing,
+        requires_emergency_arrangements
       ),
 
       area:areas!permits_area_id_fkey (
@@ -272,6 +438,22 @@ export default async function PermitDetailsPage({
         verified_by,
         verified_at,
         created_at,
+        hazards:jha_hazards (
+          id,
+          hazard,
+          hazard_category,
+          consequence,
+          existing_controls,
+          control_types,
+          likelihood,
+          severity,
+          risk_rating,
+          additional_controls,
+          residual_likelihood,
+          residual_severity,
+          residual_risk,
+          sort_order
+        ),
         creator:profiles!jhas_created_by_fkey (
           full_name
         ),
@@ -286,6 +468,9 @@ export default async function PermitDetailsPage({
         description,
         isolation_point,
         lock_number,
+        energy_type,
+        isolation_method,
+        remarks,
         status,
         verified_by,
         verified_at,
@@ -307,10 +492,22 @@ export default async function PermitDetailsPage({
         h2s,
         co,
         remarks,
+        instrument,
+        instrument_id,
+        calibration_status,
+        test_location,
+        result,
         status,
         verified_by,
         verified_at,
         created_at,
+        readings:gas_test_readings (
+          id,
+          parameter,
+          reading,
+          unit,
+          result
+        ),
         tester:profiles!gas_tests_tester_id_fkey (
           full_name
         ),
@@ -348,13 +545,6 @@ export default async function PermitDetailsPage({
   const permit = data as unknown as Permit
 
   // ---------------------------------------------------------
-  // Check whether current user is assigned supervisor
-  // ---------------------------------------------------------
-
-  const isAssignedSupervisor =
-    user?.id === permit.supervisor_id
-
-  // ---------------------------------------------------------
   // Safety-document permissions (JHA / LOTO / gas testing)
   // ---------------------------------------------------------
 
@@ -365,6 +555,77 @@ export default async function PermitDetailsPage({
   const canVerifySafetyDocs =
     currentUserRole === 'safety_manager' ||
     currentUserRole === 'safety_coordinator'
+
+  // ---------------------------------------------------------
+  // Site-verification checklist template for this permit type
+  // ---------------------------------------------------------
+
+  let siteChecklistTemplate: SiteChecklistTemplateItem[] = []
+
+  if (permit.permit_type?.id) {
+    const { data: checklistRows } = await supabase
+      .from('permit_type_site_checklist')
+      .select('item_key, label, is_required, sort_order')
+      .eq('permit_type_id', permit.permit_type.id)
+      .order('sort_order')
+
+    siteChecklistTemplate = (checklistRows ?? []).map(
+      (row) => ({
+        item_key: row.item_key,
+        label: row.label,
+        is_required: row.is_required,
+        sort_order: row.sort_order,
+      })
+    )
+  }
+
+  // ---------------------------------------------------------
+  // Permit-type PPE mappings (required vs recommended) for the
+  // PPE verification display.
+  // ---------------------------------------------------------
+
+  let ppeVerificationItems: PpeVerificationItem[] = []
+
+  if (permit.permit_type?.id) {
+    const { data: mappings } = await supabase
+      .from('permit_type_ppe')
+      .select(`
+        ppe_item_id,
+        requirement,
+        ppe_items ( id, category, name )
+      `)
+      .eq('permit_type_id', permit.permit_type.id)
+
+    const selectedMap = new Map(
+      (permit.permit_ppe ?? []).map((item) => [
+        item.ppe_item_id,
+        item,
+      ])
+    )
+
+    ppeVerificationItems = (mappings ?? [])
+      .map((mapping) => {
+        const ppe = mapping.ppe_items as unknown as
+          | { id: number; category: string; name: string }
+          | null
+        const selected = selectedMap.get(mapping.ppe_item_id)
+        return {
+          ppe_item_id: mapping.ppe_item_id,
+          name: ppe?.name ?? 'PPE item',
+          category: ppe?.category ?? 'Other',
+          requirement: mapping.requirement as
+            | 'required'
+            | 'recommended',
+          is_selected: selected?.is_selected === true,
+          verified: selected?.verified === true,
+        }
+      })
+      .sort((a, b) => {
+        const req = (r: string) =>
+          r === 'required' ? 0 : 1
+        return req(a.requirement) - req(b.requirement)
+      })
+  }
 
   return (
     <DashboardShell>
@@ -389,15 +650,6 @@ export default async function PermitDetailsPage({
           {permit.status === 'draft' &&
             permit.initiation_mode === 'internal' && (
               <SubmitPermitButton
-                permitId={permit.id}
-              />
-            )}
-
-          {permit.status === 'draft' &&
-            permit.initiation_mode ===
-              'contractor_work_supervisor' &&
-            permit.workflow_stage === 'draft' && (
-              <SendToContractorButton
                 permitId={permit.id}
               />
             )}
@@ -446,58 +698,23 @@ export default async function PermitDetailsPage({
               </div>
             )}
 
-          {/* REPLACED OLD APPROVED -> ISSUE WITH NEW APPROVE & ISSUE */}
+          {/* Safety approval happens from the Safety Verification panel
+              (readiness-gated). Reject stays here. */}
           {permit.status === 'pending_approval' &&
             permit.workflow_stage === 'safety_approval' &&
             (currentUserRole === 'safety_coordinator' ||
               currentUserRole === 'safety_manager') && (
-              <div className="flex flex-wrap items-start gap-2">
-                <ApproveAndIssueButton
-                  permitId={permit.id}
-                />
-
-                <RejectPermitButton
-                  permitId={permit.id}
-                />
-              </div>
-            )}
-
-          {permit.status === 'issued' &&
-            (currentUserRole === 'permit_issuer' ||
-              currentUserRole === 'admin') && (
-              <StartWorkButton
+              <RejectPermitButton
                 permitId={permit.id}
               />
             )}
 
+          {/* Suspend stays in the header; resume/complete/close are driven
+              from the Permit Lifecycle panel (checklist-gated). */}
           {permit.status === 'active' &&
             (currentUserRole === 'safety_manager' ||
               currentUserRole === 'safety_coordinator') && (
               <SuspendPermitButton
-                permitId={permit.id}
-              />
-            )}
-
-          {permit.status === 'suspended' &&
-            (currentUserRole === 'safety_manager' ||
-              currentUserRole === 'safety_coordinator') && (
-              <ResumePermitButton
-                permitId={permit.id}
-              />
-            )}
-
-          {permit.status === 'active' &&
-            (currentUserRole === 'safety_manager' ||
-              currentUserRole === 'safety_coordinator') && (
-              <CompletePermitButton
-                permitId={permit.id}
-              />
-            )}
-
-          {permit.status === 'completed' &&
-            (currentUserRole === 'safety_manager' ||
-              currentUserRole === 'safety_coordinator') && (
-              <ClosePermitButton
                 permitId={permit.id}
               />
             )}
@@ -709,6 +926,15 @@ export default async function PermitDetailsPage({
               />
             </div>
 
+            {permit.work_method && (
+              <div className="md:col-span-2">
+                <InfoItem
+                  label="Work Method / Sequence"
+                  value={permit.work_method}
+                />
+              </div>
+            )}
+
           </div>
         </section>
 
@@ -746,20 +972,6 @@ export default async function PermitDetailsPage({
                 label="Contractor Admin"
                 value={permit.requester?.full_name}
               />
-
-              {permit.worker_name && (
-                <InfoItem
-                  label="Worker Name"
-                  value={permit.worker_name}
-                />
-              )}
-
-              {permit.worker_id && (
-                <InfoItem
-                  label="Worker ID"
-                  value={permit.worker_id}
-                />
-              )}
             </div>
           </section>
         )}
@@ -779,6 +991,149 @@ export default async function PermitDetailsPage({
             </div>
           </section>
         )}
+
+        {/* Workers / Authorised Personnel */}
+        {permit.workers && permit.workers.length > 0 && (
+          <section className="mt-6 rounded-xl border bg-background">
+            <SectionHeader title="Workers / Authorised Personnel" />
+
+            <div className="p-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="px-3 py-2 font-medium">No.</th>
+                      <th className="px-3 py-2 font-medium">Name</th>
+                      <th className="px-3 py-2 font-medium">
+                        {permit.workers.some((w) => w.is_contractor)
+                          ? 'NRIC / Passport'
+                          : 'Employee ID'}
+                      </th>
+                      {permit.workers.some((w) => w.is_contractor) && (
+                        <>
+                          <th className="px-3 py-2 font-medium">Nationality</th>
+                          <th className="px-3 py-2 font-medium">Induction</th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permit.workers.map((worker, index) => (
+                      <tr key={worker.id} className="border-b last:border-0">
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {index + 1}
+                        </td>
+                        <td className="px-3 py-2">{worker.full_name}</td>
+                        <td className="px-3 py-2">{worker.id_number ?? '—'}</td>
+                        {worker.is_contractor && (
+                          <>
+                            <td className="px-3 py-2">
+                              {worker.nationality ?? '—'}
+                            </td>
+                            <td className="px-3 py-2">
+                              {worker.induction_completed
+                                ? 'Completed'
+                                : '—'}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Only workers listed and authorised under this permit may
+                perform the work / enter the designated work area.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* PPE Requirements */}
+        {(permit.permit_ppe && permit.permit_ppe.length > 0) ||
+        permit.ppe_other ? (
+          <section className="mt-6 rounded-xl border bg-background">
+            <SectionHeader title="PPE Requirements" />
+
+            <div className="p-6">
+              {(() => {
+                const categories: string[] = []
+                const selectedPpe = (permit.permit_ppe ?? [])
+                  .filter((item) => item.is_selected)
+                  .filter((item) => item.ppe_item)
+                for (const item of selectedPpe) {
+                  const category = item.ppe_item?.category ?? 'Other'
+                  if (!categories.includes(category)) {
+                    categories.push(category)
+                  }
+                }
+                return (
+                  <div className="space-y-4">
+                    {categories.map((category) => (
+                      <div key={category}>
+                        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          {category}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {selectedPpe
+                            .filter(
+                              (item) =>
+                                (item.ppe_item?.category ?? 'Other') ===
+                                category
+                            )
+                            .map((item) => (
+                              <span
+                                key={item.ppe_item_id}
+                                className="rounded-full border px-3 py-1 text-sm"
+                              >
+                                {item.ppe_item?.name}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                    {permit.ppe_other && (
+                      <div>
+                        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          Other
+                        </p>
+                        <p className="mt-1 text-sm">
+                          {permit.ppe_other}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Recommended Controls */}
+        {permit.recommended_controls &&
+          permit.recommended_controls.filter(
+            (item) => item.is_selected && item.safety_control
+          ).length > 0 && (
+            <section className="mt-6 rounded-xl border bg-background">
+              <SectionHeader title="Recommended Controls" />
+
+              <div className="flex flex-wrap gap-2 p-6">
+                {permit.recommended_controls
+                  .filter(
+                    (item) => item.is_selected && item.safety_control
+                  )
+                  .map((item) => (
+                    <span
+                      key={item.safety_control_id}
+                      className="rounded-full border px-3 py-1 text-sm"
+                    >
+                      {item.safety_control?.name}
+                    </span>
+                  ))}
+              </div>
+            </section>
+          )}
 
         {/* Requester */}
         <section className="mt-6 rounded-xl border bg-background">
@@ -858,6 +1213,111 @@ export default async function PermitDetailsPage({
           canAdd={canAddSafetyDocs}
           canVerify={canVerifySafetyDocs}
           initialTests={permit.gas_tests ?? []}
+        />
+
+        {/* Specialised Permit Details (Phase E) */}
+        <SpecialisedPermitSection
+          permitId={permit.id}
+          code={permit.permit_type?.code ?? null}
+          initialDetails={permit.special_details ?? null}
+          initialWorkers={(permit.workers ?? []).map((worker) => ({
+            id: worker.id,
+            full_name: worker.full_name,
+          }))}
+          initialPersonnel={(permit.cse_personnel ?? []).map(
+            (assignment) => ({
+              id: assignment.id,
+              worker_id: assignment.worker_id,
+              responsibility: assignment.responsibility,
+            })
+          )}
+          canEdit={canAddSafetyDocs}
+        />
+
+        {/* Site / Work-Area Verification (Phase D) */}
+        {permit.permit_type?.requires_site_verification !== false && (
+          <SiteVerificationSection
+            permitId={permit.id}
+            canEdit={canAddSafetyDocs}
+            template={siteChecklistTemplate}
+            initialRecord={
+              (permit.site_verification ?? null) as
+                | SiteVerificationRecord
+                | null
+            }
+          />
+        )}
+
+        {/* Worker Briefing / Toolbox Talk (Phase D) */}
+        {(permit.workers && permit.workers.length > 0) ||
+        permit.permit_type?.requires_worker_briefing ? (
+          <WorkerBriefingSection
+            permitId={permit.id}
+            canEdit={canAddSafetyDocs}
+            requiresLoto={
+              permit.permit_type?.requires_loto ?? false
+            }
+            requiresGas={
+              permit.permit_type?.requires_gas_test ?? false
+            }
+            initialRecord={
+              (permit.worker_briefing ?? null) as
+                | WorkerBriefingRecord
+                | null
+            }
+            initialWorkers={(permit.workers ?? []).map(
+              (worker) => ({
+                id: worker.id,
+                full_name: worker.full_name,
+                briefed: worker.briefed,
+                acknowledged: worker.acknowledged,
+              })
+            )}
+          />
+        ) : null}
+
+        {/* PPE Verification (Phase D) */}
+        <PpeVerificationSection
+          permitId={permit.id}
+          canEdit={canAddSafetyDocs}
+          initialItems={ppeVerificationItems}
+        />
+
+        {/* Emergency Arrangements (Phase D) */}
+        {permit.permit_type?.requires_emergency_arrangements && (
+          <EmergencyArrangementsSection
+            permitId={permit.id}
+            canEdit={canAddSafetyDocs}
+            initialRecord={
+              (permit.emergency_arrangements ?? null) as
+                | EmergencyArrangementsRecord
+                | null
+            }
+          />
+        )}
+
+        {/* Safety Verification readiness panel (Phase D) */}
+        {permit.status === 'pending_approval' ||
+        permit.status === 'draft' ? (
+          <SafetyVerificationPanel
+            permitId={permit.id}
+            canApprove={
+              permit.status === 'pending_approval' &&
+              permit.workflow_stage === 'safety_approval' &&
+              (currentUserRole === 'safety_coordinator' ||
+                currentUserRole === 'safety_manager')
+            }
+          />
+        ) : null}
+
+        {/* Permit Lifecycle panel (Phase F): validity + resume/complete/close */}
+        <LifecyclePanel
+          permitId={permit.id}
+          status={permit.status}
+          canAct={
+            currentUserRole === 'safety_manager' ||
+            currentUserRole === 'safety_coordinator'
+          }
         />
 
         {/* Attachments */}
@@ -1070,14 +1530,7 @@ function StatusBadge({
 }
 
 function formatDate(value?: string | null) {
-  if (!value) {
-    return '—'
-  }
-
-  return new Intl.DateTimeFormat('en-MY', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return formatDateTimeMY(value ?? null)
 }
 
 function formatAction(value: string) {

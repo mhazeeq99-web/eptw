@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { syncPermitSafetyControls } from '@/lib/safety-controls'
+import { canCreatePermit } from '@/lib/entitlements'
+import {
+  normalizeSpecialDetails,
+  validateCsePersonnel,
+  type CseResponsibility,
+} from '@/lib/specialised-permit'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -63,6 +70,7 @@ export async function POST(request: Request) {
     work_title?: string
     work_description?: string | null
     work_location?: string | null
+    work_method?: string | null
     area_id?: number | null
     equipment_id?: number | null
     planned_start?: string | null
@@ -70,6 +78,20 @@ export async function POST(request: Request) {
     worker_name?: string | null
     worker_id?: string | null
     staff_reference_name?: string | null
+    ppe_other?: string | null
+    ppe_item_ids?: number[]
+    recommended_control_ids?: number[]
+    workers?: Array<{
+      full_name?: string
+      id_number?: string | null
+      nationality?: string | null
+      induction_completed?: boolean
+    }>
+    special_details?: Record<string, unknown> | null
+    cse_personnel?: Array<{
+      worker_index?: number
+      responsibility?: string
+    }>
   }
 
   try {
@@ -232,17 +254,107 @@ export async function POST(request: Request) {
       ? body.staff_reference_name.trim()
       : ''
 
+  const workMethod =
+    typeof body.work_method === 'string'
+      ? body.work_method.trim()
+      : ''
+
+  // Normalize the worker list. The new UI sends `workers`; the legacy
+  // worker_name/worker_id fields are still accepted and mapped to the first
+  // worker for backwards compatibility.
+  let workers: Array<{
+    full_name: string
+    id_number: string
+    nationality: string | null
+    induction_completed: boolean
+  }> = []
+
+  if (Array.isArray(body.workers)) {
+    workers = body.workers
+      .map((worker) => ({
+        full_name:
+          typeof worker.full_name === 'string'
+            ? worker.full_name.trim()
+            : '',
+        id_number:
+          typeof worker.id_number === 'string'
+            ? worker.id_number.trim()
+            : '',
+        nationality:
+          typeof worker.nationality === 'string' &&
+          worker.nationality.trim()
+            ? worker.nationality.trim()
+            : null,
+        induction_completed: Boolean(
+          worker.induction_completed
+        ),
+      }))
+      .filter((worker) => worker.full_name.length > 0)
+  }
+
   if (contractorId !== null) {
-    if (!workerName || !workerId || !staffReferenceName) {
+    if (workers.length === 0 && workerName) {
+      // Legacy single-worker payload -> one worker row.
+      workers = [
+        {
+          full_name: workerName,
+          id_number: workerId,
+          nationality: null,
+          induction_completed: false,
+        },
+      ]
+    }
+
+    if (
+      !staffReferenceName ||
+      workers.length === 0 ||
+      workers.some(
+        (worker) =>
+          !worker.full_name || !worker.id_number
+      )
+    ) {
       return NextResponse.json(
         {
           error:
-            'Worker name, worker ID and the customer staff reference are required for contractor permits',
+            'Worker name, worker ID/NRIC and the customer staff reference are required for contractor permits',
         },
         { status: 400 }
       )
     }
   }
+
+  const firstWorker = workers[0] ?? null
+
+  const ppeItemIds = Array.isArray(body.ppe_item_ids)
+    ? body.ppe_item_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+    : []
+
+  const recommendedControlIds = Array.isArray(body.recommended_control_ids)
+    ? body.recommended_control_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+    : []
+
+  const ppeOther =
+    typeof body.ppe_other === 'string'
+      ? body.ppe_other.trim()
+      : ''
+
+  // Phase E: CSE personnel assignments reference workers by their index in
+  // the `workers` array (they do not have IDs yet at creation time).
+  const csePersonnelRequests = Array.isArray(body.cse_personnel)
+    ? body.cse_personnel
+        .map((item) => ({
+          worker_index: Number(item.worker_index),
+          responsibility: item.responsibility as
+            | CseResponsibility
+            | undefined,
+        }))
+        .filter(
+          (item) =>
+            Number.isInteger(item.worker_index) &&
+            item.worker_index >= 0 &&
+            item.responsibility !== undefined
+        )
+    : []
 
   // ---------------------------------------------------------
   // 5. Verify permit type belongs to selected company
@@ -253,7 +365,7 @@ export async function POST(request: Request) {
     error: permitTypeError,
   } = await supabase
     .from('permit_types')
-    .select('id, company_id, is_active')
+    .select('id, company_id, code, is_active')
     .eq('id', permitTypeId)
     .eq('company_id', companyId)
     .eq('is_active', true)
@@ -271,6 +383,12 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
+
+  // Phase E: specialised permit details (validated per permit-type code).
+  const specialDetails = normalizeSpecialDetails(
+    (permitType as { code?: string | null }).code ?? null,
+    body.special_details
+  )
 
   // ---------------------------------------------------------
   // 6. Validate optional area
@@ -359,6 +477,29 @@ export async function POST(request: Request) {
   }
 
   // ---------------------------------------------------------
+  // 7b. Entitlement check: monthly permit limit for this company
+  //     (server-side; the plan is resolved from the database, never
+  //     from client input).
+  // ---------------------------------------------------------
+
+  const permitCheck = await canCreatePermit(
+    createAdminClient(),
+    companyId
+  )
+
+  if (!permitCheck.ok) {
+    return NextResponse.json(
+      {
+        error: permitCheck.error,
+        usage: permitCheck.usage,
+        limit: permitCheck.limit,
+        plan: permitCheck.planCode,
+      },
+      { status: 403 }
+    )
+  }
+
+  // ---------------------------------------------------------
   // 8. Create permit
   // ---------------------------------------------------------
 
@@ -387,6 +528,7 @@ export async function POST(request: Request) {
         body.work_description?.trim() || null,
       work_location:
         body.work_location?.trim() || null,
+      work_method: workMethod || null,
       area_id: areaId,
       equipment_id: equipmentId,
       planned_start:
@@ -401,9 +543,11 @@ export async function POST(request: Request) {
         ? 'contractor_direct'
         : 'internal',
       // Contractor PTW details (null for internal permits).
-      worker_name: workerName || null,
-      worker_id: workerId || null,
+      worker_name: firstWorker?.full_name ?? null,
+      worker_id: firstWorker?.id_number ?? null,
       staff_reference_name: staffReferenceName || null,
+      ppe_other: ppeOther || null,
+      special_details: specialDetails,
     })
     .select(`
       id,
@@ -426,6 +570,184 @@ export async function POST(request: Request) {
       },
       { status: 500 }
     )
+  }
+
+  // ---------------------------------------------------------
+  // 8a. Persist the worker list (multi-worker support).
+  //      NRIC/passport stays inside the permit's RLS scope.
+  // ---------------------------------------------------------
+
+  if (workers.length > 0) {
+    const { data: insertedWorkers, error: workersError } =
+      await supabase
+        .from('permit_workers')
+        .insert(
+          workers.map((worker) => ({
+            permit_id: permit.id,
+            full_name: worker.full_name,
+            id_number: worker.id_number || null,
+            nationality: worker.nationality,
+            is_contractor: contractorId !== null,
+            contractor_id: contractorId,
+            induction_completed:
+              worker.induction_completed,
+            created_by: user.id,
+          }))
+        )
+        .select('id')
+
+    if (workersError) {
+      console.error(
+        'Failed to save permit workers:',
+        workersError
+      )
+
+      return NextResponse.json(
+        {
+          error:
+            'Permit was created, but the worker list could not be saved. Please contact support.',
+        },
+        { status: 500 }
+      )
+    }
+
+    // Phase E: CSE personnel responsibilities reference workers by index in
+    // the submitted workers array -> map to the newly created worker IDs.
+    if (csePersonnelRequests.length > 0) {
+      const insertedIds = (insertedWorkers ?? []).map(
+        (worker) => worker.id
+      )
+
+      const mapped = csePersonnelRequests
+        .map((item) => ({
+          worker_id: insertedIds[item.worker_index],
+          responsibility: item.responsibility,
+        }))
+        .filter(
+          (item): item is {
+            worker_id: number
+            responsibility: CseResponsibility
+          } =>
+            Number.isInteger(item.worker_id) &&
+            item.responsibility !== undefined
+        )
+
+      if (mapped.length !== csePersonnelRequests.length) {
+        return NextResponse.json(
+          {
+            error:
+              'CSE personnel references a worker index that does not exist on this permit',
+          },
+          { status: 400 }
+        )
+      }
+
+      const personnelCheck = await validateCsePersonnel(
+        supabase,
+        permit.id,
+        mapped
+      )
+
+      if (!personnelCheck.ok) {
+        return NextResponse.json(
+          { error: personnelCheck.error },
+          { status: 400 }
+        )
+      }
+
+      if (personnelCheck.assignments.length > 0) {
+        const { error: personnelError } =
+          await supabase
+            .from('permit_cse_personnel')
+            .insert(
+              personnelCheck.assignments.map(
+                (assignment) => ({
+                  permit_id: permit.id,
+                  worker_id: assignment.worker_id,
+                  responsibility:
+                    assignment.responsibility,
+                  created_by: user.id,
+                })
+              )
+            )
+
+        if (personnelError) {
+          console.error(
+            'Failed to save CSE personnel:',
+            personnelError
+          )
+          return NextResponse.json(
+            {
+              error:
+                'Permit was created, but the CSE personnel could not be saved. Please contact support.',
+            },
+            { status: 500 }
+          )
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 8b. Persist the permit-level PPE selection.
+  // ---------------------------------------------------------
+
+  if (ppeItemIds.length > 0) {
+    const { error: ppeError } = await supabase
+      .from('permit_ppe')
+      .insert(
+        ppeItemIds.map((ppeItemId) => ({
+          permit_id: permit.id,
+          ppe_item_id: ppeItemId,
+          is_selected: true,
+          created_by: user.id,
+        }))
+      )
+
+    if (ppeError) {
+      console.error(
+        'Failed to save permit PPE:',
+        ppeError
+      )
+      return NextResponse.json(
+        {
+          error:
+            'Permit was created, but the PPE selection could not be saved. Please contact support.',
+        },
+        { status: 500 }
+      )
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 8c. Persist the recommended-control confirmations.
+  // ---------------------------------------------------------
+
+  if (recommendedControlIds.length > 0) {
+    const { error: recError } = await supabase
+      .from('permit_recommended_controls')
+      .insert(
+        recommendedControlIds.map((controlId) => ({
+          permit_id: permit.id,
+          safety_control_id: controlId,
+          is_selected: true,
+          created_by: user.id,
+        }))
+      )
+
+    if (recError) {
+      console.error(
+        'Failed to save recommended controls:',
+        recError
+      )
+      return NextResponse.json(
+        {
+          error:
+            'Permit was created, but the recommended controls could not be saved. Please contact support.',
+        },
+        { status: 500 }
+      )
+    }
   }
 
   // ---------------------------------------------------------

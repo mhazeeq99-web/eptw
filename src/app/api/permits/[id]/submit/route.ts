@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { notifyPermitEvent } from '@/lib/notifications'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -231,44 +232,40 @@ export async function POST(
 
     // Contractor submission moves directly to
     // safety approval.
-    const {
-      data: updatedPermit,
-      error: updateError,
-    } = await supabase
-      .from('permits')
-      .update({
-        status: 'pending_approval',
+    const transition = await performPermitTransition(
+      supabase,
+      permit.id,
+      'draft',
+      'pending_approval',
+      {
         workflow_stage: 'safety_approval',
         submitted_by: user.id,
         submitted_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('status', 'draft')
-      .select(`
-        id,
-        permit_no,
-        status,
-        initiation_mode,
-        workflow_stage,
-        submitted_by,
-        submitted_at
-      `)
-      .single()
+      }
+    )
 
-    if (updateError || !updatedPermit) {
+    if (!transition.ok) {
       console.error(
         'Failed to submit contractor permit:',
-        updateError
+        transition.error
       )
-
       return NextResponse.json(
         {
           error:
-            updateError?.message ??
-            'Failed to submit permit',
+            transition.error ?? 'Failed to submit permit',
         },
         { status: 500 }
       )
+    }
+
+    const updatedPermit = {
+      id: permit.id,
+      permit_no: permit.permit_no,
+      status: 'pending_approval',
+      initiation_mode: permit.initiation_mode,
+      workflow_stage: 'safety_approval',
+      submitted_by: user.id,
+      submitted_at: new Date().toISOString(),
     }
 
     // Record contractor submission.
@@ -345,44 +342,40 @@ export async function POST(
       )
     }
 
-    const {
-      data: updatedPermit,
-      error: updateError,
-    } = await supabase
-      .from('permits')
-      .update({
-        status: 'pending_approval',
+    const transition = await performPermitTransition(
+      supabase,
+      permit.id,
+      'draft',
+      'pending_approval',
+      {
         workflow_stage: 'safety_approval',
         submitted_by: user.id,
         submitted_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('status', 'draft')
-      .select(`
-        id,
-        permit_no,
-        status,
-        initiation_mode,
-        workflow_stage,
-        submitted_by,
-        submitted_at
-      `)
-      .single()
+      }
+    )
 
-    if (updateError || !updatedPermit) {
+    if (!transition.ok) {
       console.error(
         'Failed to submit internal permit:',
-        updateError
+        transition.error
       )
-
       return NextResponse.json(
         {
           error:
-            updateError?.message ??
-            'Failed to submit permit',
+            transition.error ?? 'Failed to submit permit',
         },
         { status: 500 }
       )
+    }
+
+    const updatedPermit = {
+      id: permit.id,
+      permit_no: permit.permit_no,
+      status: 'pending_approval',
+      initiation_mode: permit.initiation_mode,
+      workflow_stage: 'safety_approval',
+      submitted_by: user.id,
+      submitted_at: new Date().toISOString(),
     }
 
     const { error: historyError } =

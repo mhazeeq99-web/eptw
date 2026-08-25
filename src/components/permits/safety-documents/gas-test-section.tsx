@@ -13,6 +13,11 @@ export type GasTest = {
   h2s: number | null
   co: number | null
   remarks: string | null
+  instrument: string | null
+  instrument_id: string | null
+  calibration_status: string | null
+  test_location: string | null
+  result: 'PASS' | 'CONDITIONAL' | 'FAIL' | null
   status: string
   verified_by: string | null
   verified_at: string | null
@@ -23,7 +28,28 @@ export type GasTest = {
   verifier: {
     full_name: string
   } | null
+  readings: Array<{
+    id: number
+    parameter: string
+    reading: number | null
+    unit: string | null
+    result: 'PASS' | 'CONDITIONAL' | 'FAIL' | null
+  }> | null
 }
+
+type ReadingDraft = {
+  parameter: string
+  reading: string
+  unit: string
+  result: 'PASS' | 'CONDITIONAL' | 'FAIL' | ''
+}
+
+const DEFAULT_READINGS: ReadingDraft[] = [
+  { parameter: 'O₂', reading: '', unit: '%', result: 'PASS' },
+  { parameter: 'LEL', reading: '', unit: '%LEL', result: 'PASS' },
+  { parameter: 'H₂S', reading: '', unit: 'ppm', result: 'PASS' },
+  { parameter: 'CO', reading: '', unit: 'ppm', result: 'PASS' },
+]
 
 export function GasTestSection({
   permitId,
@@ -40,18 +66,54 @@ export function GasTestSection({
 
   const [showForm, setShowForm] = useState(false)
   const [testedAt, setTestedAt] = useState('')
-  const [o2, setO2] = useState('')
-  const [lel, setLel] = useState('')
-  const [h2s, setH2s] = useState('')
-  const [co, setCo] = useState('')
+  const [instrument, setInstrument] = useState('')
+  const [instrumentId, setInstrumentId] = useState('')
+  const [calibrationStatus, setCalibrationStatus] = useState('')
+  const [testLocation, setTestLocation] = useState('')
+  const [result, setResult] = useState<
+    'PASS' | 'CONDITIONAL' | 'FAIL' | ''
+  >('PASS')
+  const [readings, setReadings] = useState<ReadingDraft[]>(
+    DEFAULT_READINGS
+  )
   const [remarks, setRemarks] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  function updateReading(
+    index: number,
+    patch: Partial<ReadingDraft>
+  ) {
+    setReadings((current) =>
+      current.map((reading, i) =>
+        i === index ? { ...reading, ...patch } : reading
+      )
+    )
+  }
+
+  function addReading() {
+    setReadings((current) => [
+      ...current,
+      { parameter: 'Other', reading: '', unit: '', result: '' },
+    ])
+  }
+
+  function removeReading(index: number) {
+    setReadings((current) =>
+      current.filter((_, i) => i !== index)
+    )
+  }
+
   async function handleCreate() {
     setError('')
 
-    if (!o2.trim() && !lel.trim() && !h2s.trim() && !co.trim()) {
+    const filledReadings = readings.filter(
+      (reading) =>
+        reading.parameter.trim() &&
+        reading.reading.trim() !== ''
+    )
+
+    if (filledReadings.length === 0) {
       setError('Record at least one gas reading.')
       return
     }
@@ -74,29 +136,38 @@ export function GasTestSection({
           },
           body: JSON.stringify({
             tested_at: testedAt || null,
-            o2: toNumberOrNull(o2),
-            lel: toNumberOrNull(lel),
-            h2s: toNumberOrNull(h2s),
-            co: toNumberOrNull(co),
+            instrument: instrument.trim() || null,
+            instrument_id: instrumentId.trim() || null,
+            calibration_status: calibrationStatus || null,
+            test_location: testLocation.trim() || null,
+            result: result || null,
+            readings: filledReadings.map((reading) => ({
+              parameter: reading.parameter.trim(),
+              reading: toNumberOrNull(reading.reading),
+              unit: reading.unit.trim() || null,
+              result: reading.result || null,
+            })),
             remarks: remarks.trim() || null,
           }),
         }
       )
 
-      const result = await response.json()
+      const res = await response.json()
 
       if (!response.ok) {
         setError(
-          result.error || 'Unable to record gas test.'
+          res.error || 'Unable to record gas test.'
         )
         return
       }
 
       setTestedAt('')
-      setO2('')
-      setLel('')
-      setH2s('')
-      setCo('')
+      setInstrument('')
+      setInstrumentId('')
+      setCalibrationStatus('')
+      setTestLocation('')
+      setResult('PASS')
+      setReadings(DEFAULT_READINGS)
       setRemarks('')
       setShowForm(false)
       router.refresh()
@@ -132,7 +203,7 @@ export function GasTestSection({
         <div className="grid gap-4 border-b p-6 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2 sm:col-span-2 lg:col-span-3">
             <label className="text-sm font-medium">
-              Tested At
+              Test Date / Time
             </label>
             <input
               type="datetime-local"
@@ -144,36 +215,186 @@ export function GasTestSection({
             />
           </div>
 
-          <ReadingField
-            label="O₂ (%)"
-            value={o2}
-            onChange={setO2}
-          />
-          <ReadingField
-            label="LEL (%)"
-            value={lel}
-            onChange={setLel}
-          />
-          <ReadingField
-            label="H₂S (ppm)"
-            value={h2s}
-            onChange={setH2s}
-          />
-          <ReadingField
-            label="CO (ppm)"
-            value={co}
-            onChange={setCo}
-          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Instrument</label>
+            <input
+              type="text"
+              value={instrument}
+              onChange={(event) => setInstrument(event.target.value)}
+              placeholder="e.g. Gas Detector GD-001"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Instrument ID / Serial
+            </label>
+            <input
+              type="text"
+              value={instrumentId}
+              onChange={(event) => setInstrumentId(event.target.value)}
+              placeholder="e.g. GD-001"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Calibration / Validity
+            </label>
+            <select
+              value={calibrationStatus}
+              onChange={(event) =>
+                setCalibrationStatus(event.target.value)
+              }
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select status</option>
+              <option value="Valid">Valid</option>
+              <option value="Expired">Expired</option>
+              <option value="Unknown">Unknown</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Test Location</label>
+            <input
+              type="text"
+              value={testLocation}
+              onChange={(event) => setTestLocation(event.target.value)}
+              placeholder="e.g. Manhole MH-3 entry point"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Result</label>
+            <select
+              value={result}
+              onChange={(event) =>
+                setResult(
+                  event.target.value as
+                    | 'PASS'
+                    | 'CONDITIONAL'
+                    | 'FAIL'
+                    | ''
+                )
+              }
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="PASS">PASS</option>
+              <option value="CONDITIONAL">CONDITIONAL</option>
+              <option value="FAIL">FAIL</option>
+            </select>
+          </div>
 
           <div className="space-y-2 sm:col-span-2 lg:col-span-3">
             <label className="text-sm font-medium">
-              Remarks
+              Parameter Readings
             </label>
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">Parameter</th>
+                    <th className="px-3 py-2 font-medium">Reading</th>
+                    <th className="px-3 py-2 font-medium">Unit</th>
+                    <th className="px-3 py-2 font-medium">Result</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {readings.map((reading, index) => (
+                    <tr key={index} className="border-b last:border-0">
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="text"
+                          value={reading.parameter}
+                          onChange={(event) =>
+                            updateReading(index, {
+                              parameter: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="number"
+                          step="any"
+                          value={reading.reading}
+                          onChange={(event) =>
+                            updateReading(index, {
+                              reading: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="text"
+                          value={reading.unit}
+                          onChange={(event) =>
+                            updateReading(index, {
+                              unit: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <select
+                          value={reading.result}
+                          onChange={(event) =>
+                            updateReading(index, {
+                              result: event.target.value as
+                                | 'PASS'
+                                | 'CONDITIONAL'
+                                | 'FAIL'
+                                | '',
+                            })
+                          }
+                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">—</option>
+                          <option value="PASS">PASS</option>
+                          <option value="CONDITIONAL">
+                            CONDITIONAL
+                          </option>
+                          <option value="FAIL">FAIL</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => removeReading(index)}
+                          aria-label="Remove parameter"
+                          className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button
+              type="button"
+              onClick={addReading}
+              className="mt-1 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+            >
+              + Add Parameter
+            </button>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2 lg:col-span-3">
+            <label className="text-sm font-medium">Remarks</label>
             <textarea
               value={remarks}
-              onChange={(event) =>
-                setRemarks(event.target.value)
-              }
+              onChange={(event) => setRemarks(event.target.value)}
               rows={2}
               placeholder="Any notes about the test..."
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
@@ -233,12 +454,91 @@ export function GasTestSection({
                 <StatusBadge status={test.status} />
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Reading label="O₂" value={test.o2} unit="%" />
-                <Reading label="LEL" value={test.lel} unit="%" />
-                <Reading label="H₂S" value={test.h2s} unit="ppm" />
-                <Reading label="CO" value={test.co} unit="ppm" />
-              </div>
+              {(test.instrument ||
+                test.instrument_id ||
+                test.calibration_status ||
+                test.test_location) && (
+                <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+                  {test.instrument && (
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        Instrument
+                      </dt>
+                      <dd className="text-sm font-medium">
+                        {test.instrument}
+                      </dd>
+                    </div>
+                  )}
+                  {test.instrument_id && (
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        Instrument ID
+                      </dt>
+                      <dd className="text-sm font-medium">
+                        {test.instrument_id}
+                      </dd>
+                    </div>
+                  )}
+                  {test.calibration_status && (
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        Calibration
+                      </dt>
+                      <dd className="text-sm font-medium">
+                        {test.calibration_status}
+                      </dd>
+                    </div>
+                  )}
+                  {test.test_location && (
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        Test location
+                      </dt>
+                      <dd className="text-sm font-medium">
+                        {test.test_location}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              )}
+
+              {test.readings && test.readings.length > 0 ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {test.readings.map((reading) => (
+                    <Reading
+                      key={reading.id}
+                      label={reading.parameter}
+                      value={reading.reading}
+                      unit={reading.unit ?? ''}
+                      result={reading.result}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Reading label="O₂" value={test.o2} unit="%" />
+                  <Reading label="LEL" value={test.lel} unit="%" />
+                  <Reading label="H₂S" value={test.h2s} unit="ppm" />
+                  <Reading label="CO" value={test.co} unit="ppm" />
+                </div>
+              )}
+
+              {test.result && (
+                <p className="mt-3 text-sm">
+                  <span className="font-medium">Result: </span>
+                  <span
+                    className={
+                      test.result === 'FAIL'
+                        ? 'font-medium text-red-600'
+                        : test.result === 'CONDITIONAL'
+                          ? 'font-medium text-yellow-600'
+                          : 'font-medium text-green-600'
+                    }
+                  >
+                    {test.result}
+                  </span>
+                </p>
+              )}
 
               {test.remarks && (
                 <p className="mt-3 text-sm text-muted-foreground">
@@ -272,50 +572,37 @@ export function GasTestSection({
   )
 }
 
-function ReadingField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">
-        {label}
-      </label>
-      <input
-        type="number"
-        step="any"
-        value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-      />
-    </div>
-  )
-}
-
 function Reading({
   label,
   value,
   unit,
+  result,
 }: {
   label: string
   value: number | null
   unit: string
+  result?: 'PASS' | 'CONDITIONAL' | 'FAIL' | null
 }) {
+  const valueClass =
+    result === 'FAIL'
+      ? 'text-red-600'
+      : result === 'CONDITIONAL'
+        ? 'text-yellow-600'
+        : ''
+
   return (
     <div className="rounded-lg border p-3">
       <p className="text-xs text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 text-sm font-medium">
+      <p className={`mt-1 text-sm font-medium ${valueClass}`}>
         {value === null ? '—' : `${value} ${unit}`}
       </p>
+      {result && (
+        <p className={`mt-0.5 text-xs font-medium uppercase ${valueClass}`}>
+          {result}
+        </p>
+      )}
     </div>
   )
 }

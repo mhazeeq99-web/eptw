@@ -1,19 +1,34 @@
+import { formatDateTimeMY } from '@/lib/dates'
+
 export type ExpiryState = 'none' | 'expiring_soon' | 'expired'
 
+/**
+ * Unified expiry-state calculation. The authoritative permit expiry is
+ * `valid_until` once a permit has been approved/issued; for pre-approval
+ * permits (no valid_until) planned_end is only a pre-approval reference and
+ * is not treated as the active expiry.
+ *
+ * This is the SAME clock used across dashboard, permit list, reports, detail
+ * page and status badges (mirrors src/lib/permit-lifecycle.getPermitValidity).
+ */
 export function getExpiryState(
   status: string,
-  plannedEnd: string | null
+  validUntil: string | null,
+  plannedEnd: string | null = null,
+  warningMinutes = 120
 ): ExpiryState {
-  if (status !== 'active' || !plannedEnd) return 'none'
+  // Only ACTIVE permits have a validity state, and only once a validity
+  // window (valid_until) has been established at approval.
+  if (status !== 'active') return 'none'
+  const end = validUntil ?? (status === 'active' ? plannedEnd : null)
+  if (!end) return 'none'
 
-  const end = new Date(plannedEnd).getTime()
+  const endMs = new Date(end).getTime()
+  if (Number.isNaN(endMs)) return 'none'
   const now = Date.now()
 
-  if (end < now) return 'expired'
-
-  // Within 24 hours of planned end.
-  if (end - now < 24 * 60 * 60 * 1000) return 'expiring_soon'
-
+  if (endMs <= now) return 'expired'
+  if (endMs - now < warningMinutes * 60 * 1000) return 'expiring_soon'
   return 'none'
 }
 
@@ -67,9 +82,5 @@ export function StatusBadge({
 }
 
 export function formatDate(value?: string | null) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('en-MY', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return formatDateTimeMY(value ?? null)
 }

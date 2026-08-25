@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export type PermitEventType =
   | 'permit_submitted'
@@ -12,6 +13,7 @@ export type PermitEventType =
   | 'permit_cancelled'
   | 'permit_started'
   | 'permit_expiring_soon'
+  | 'permit_expired'
 
 type Recipient = {
   id: string
@@ -33,14 +35,21 @@ export async function resolvePermitRecipients(
   },
   event: PermitEventType
 ): Promise<Recipient[]> {
+  // Resolve recipients with the service-role (admin) client. This is needed
+  // so that a contractor-originated event still resolves the CUSTOMER's
+  // safety team even though the acting contractor's RLS scope (company_id
+  // NULL) would otherwise hide those profiles. Tenant isolation is preserved:
+  // we only ever resolve the permit's OWN company and requester.
+  const admin = createAdminClient()
   const recipients = new Map<string, Recipient>()
 
   if (
     event === 'permit_submitted' ||
-    event === 'permit_expiring_soon'
+    event === 'permit_expiring_soon' ||
+    event === 'permit_expired'
   ) {
-    // Notify company safety staff.
-    const { data: safetyStaff } = await supabase
+    // Notify company safety staff (SM/SC) of the permit's company.
+    const { data: safetyStaff } = await admin
       .from('profiles')
       .select('id, email, full_name')
       .eq('company_id', permit.company_id ?? -1)
@@ -59,7 +68,7 @@ export async function resolvePermitRecipients(
 
   // The requester always gets notified of lifecycle events.
   if (permit.requester_id) {
-    const { data: requester } = await supabase
+    const { data: requester } = await admin
       .from('profiles')
       .select('id, email, full_name')
       .eq('id', permit.requester_id)
@@ -104,6 +113,7 @@ export async function notifyPermitEvent(
     permit_cancelled: 'Permit cancelled',
     permit_started: 'Permit started',
     permit_expiring_soon: 'Permit expiring soon',
+    permit_expired: 'Permit expired',
   }
 
   const title = `${labels[event]} — ${permit.permit_no}`
@@ -111,9 +121,11 @@ export async function notifyPermitEvent(
   const message =
     event === 'permit_expiring_soon'
       ? `Permit ${permit.permit_no} is nearing its planned end time.`
-      : `Permit ${permit.permit_no} has been ${event
-          .replace('permit_', '')
-          .replaceAll('_', ' ')}.`
+      : event === 'permit_expired'
+        ? `Permit ${permit.permit_no} has expired.`
+        : `Permit ${permit.permit_no} has been ${event
+            .replace('permit_', '')
+            .replaceAll('_', ' ')}.`
 
   let recipients: Recipient[]
 
@@ -284,6 +296,69 @@ export async function notifyExpiringPermits(
         requester_id: permit.requester_id,
       },
       event: 'permit_expiring_soon',
+      actorId: '',
+    })
+  }
+}
+
+/**
+ * Finds ACTIVE permits in a company whose validity window has ended and
+ * creates a single "permit_expired" notification for their requesters and
+ * the company's safety staff — once per permit (guarded by an existing
+ * notification of the same type). Best-effort and idempotent; call on page
+ * loads (e.g. dashboard). Expired permits are never deleted or auto-closed.
+ */
+export async function notifyExpiredPermits(
+  supabase: SupabaseClient,
+  companyId: number | null
+): Promise<void> {
+  if (!companyId) return
+
+  const now = new Date().toISOString()
+
+  const { data: permits, error } = await supabase
+    .from('permits')
+    .select(`
+      id,
+      permit_no,
+      company_id,
+      requester_id,
+      valid_until,
+      planned_end
+    `)
+    .eq('company_id', companyId)
+    .eq('status', 'active')
+    .or(`valid_until.lte.${now},planned_end.lte.${now}`)
+    .not('planned_end', 'is', null)
+
+  if (error) {
+    console.error('Failed to load expired permits:', error)
+    return
+  }
+
+  for (const permit of permits ?? []) {
+    const until =
+      permit.valid_until ?? permit.planned_end
+    if (!until || new Date(until).getTime() > Date.now()) continue
+
+    // Guard against duplicate notifications per permit.
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('permit_id', permit.id)
+      .eq('type', 'permit_expired')
+      .limit(1)
+
+    if (existing && existing.length > 0) continue
+
+    await notifyPermitEvent(supabase, {
+      permit: {
+        id: permit.id,
+        permit_no: permit.permit_no,
+        company_id: permit.company_id,
+        requester_id: permit.requester_id,
+      },
+      event: 'permit_expired',
       actorId: '',
     })
   }

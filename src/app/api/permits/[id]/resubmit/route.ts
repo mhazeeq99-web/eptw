@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -136,38 +137,32 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 9. Move rejected permit back to approval
+  // 9. Move rejected permit back to approval (controlled transition)
   // ---------------------------------------------------------
 
-  const {
-    data: updatedPermit,
-    error: updateError,
-  } = await supabase
-    .from('permits')
-    .update({
-      status: 'pending_approval',
-      workflow_stage: 'safety_approval',
-    })
-    .eq('id', id)
-    .eq('requester_id', user.id)
-    .eq('status', 'rejected')
-    .select(`
-      id,
-      permit_no,
-      status,
-      workflow_stage
-    `)
-    .single()
+  const transition = await performPermitTransition(
+    supabase,
+    permit.id,
+    'rejected',
+    'pending_approval',
+    { workflow_stage: 'safety_approval' }
+  )
 
-  if (updateError || !updatedPermit) {
+  if (!transition.ok) {
     return NextResponse.json(
       {
         error:
-          updateError?.message ||
-          'Unable to resubmit permit.',
+          transition.error ?? 'Unable to resubmit permit.',
       },
       { status: 500 }
     )
+  }
+
+  const updatedPermit = {
+    id: permit.id,
+    permit_no: permit.permit_no,
+    status: 'pending_approval',
+    workflow_stage: 'safety_approval',
   }
 
   // ---------------------------------------------------------

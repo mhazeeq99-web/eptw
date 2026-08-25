@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { notifyPermitEvent } from '@/lib/notifications'
+import { ensureCompletionChecklist } from '@/lib/permit-lifecycle'
+import { performPermitTransition } from '@/lib/permit-transition'
 
 export async function POST(
   request: Request,
@@ -75,6 +77,10 @@ export async function POST(
 
   let body: {
     remarks?: string
+    checklist?: Array<{
+      item_key?: string
+      completed?: boolean
+    }>
   }
 
   try {
@@ -91,10 +97,6 @@ export async function POST(
       ? body.remarks.trim()
       : ''
 
-  // ---------------------------------------------------------
-  // 4. Completion remark is required
-  // ---------------------------------------------------------
-
   if (!remarks) {
     return NextResponse.json(
       {
@@ -106,7 +108,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 5. Get permit
+  // 4. Get permit
   // ---------------------------------------------------------
 
   const {
@@ -132,7 +134,7 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 6. Permit must be ACTIVE
+  // 5. Permit must be ACTIVE
   // ---------------------------------------------------------
 
   if (permit.status !== 'active') {
@@ -146,41 +148,89 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 7. Change status to COMPLETED
+  // 6. Completion checklist (Phase F): required items must be
+  //    completed before the work can be marked finished.
   // ---------------------------------------------------------
 
-  const {
-    data: updatedPermit,
-    error: updateError,
-  } = await supabase
-    .from('permits')
-    .update({
-      status: 'completed',
+  await ensureCompletionChecklist(supabase, permit.id)
+
+  const submitted = Array.isArray(body.checklist)
+    ? body.checklist
+    : []
+
+  const submittedMap = new Map<string, boolean>()
+  for (const item of submitted) {
+    if (item.item_key) {
+      submittedMap.set(item.item_key, item.completed === true)
+    }
+  }
+
+  for (const [key, completed] of submittedMap) {
+    await supabase
+      .from('permit_completion_checklists')
+      .update({
+        completed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('permit_id', permit.id)
+      .eq('item_key', key)
+  }
+
+  const { data: checklistRows } = await supabase
+    .from('permit_completion_checklists')
+    .select('item_key, label, is_required, completed')
+    .eq('permit_id', permit.id)
+
+  const missingRequired = (checklistRows ?? []).filter(
+    (item) => item.is_required && !item.completed
+  )
+
+  if (missingRequired.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Completion blocked: ${missingRequired[0].label} has not been completed.`,
+        incomplete: missingRequired.map((item) => item.item_key),
+      },
+      { status: 400 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 7. Change status to COMPLETED (controlled DB transition; records
+  //    Completed By/At)
+  // ---------------------------------------------------------
+
+  const transition = await performPermitTransition(
+    supabase,
+    permit.id,
+    'active',
+    'completed',
+    {
       completed_by: user.id,
       completed_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .eq('status', 'active')
-    .select(`
-      id,
-      permit_no,
-      status
-    `)
-    .single()
+    }
+  )
 
-  if (updateError || !updatedPermit) {
+  if (!transition.ok) {
     return NextResponse.json(
       {
         error:
-          updateError?.message ||
-          'Unable to complete permit',
+          transition.error ?? 'Unable to complete permit',
       },
       { status: 500 }
     )
   }
 
+  const updatedPermit = {
+    id: permit.id,
+    permit_no: permit.permit_no,
+    status: 'completed',
+    completed_by: user.id,
+    completed_at: new Date().toISOString(),
+  }
+
   // ---------------------------------------------------------
-  // 8. Record completion history
+  // 8. Record completion history (exactly one audit record)
   // ---------------------------------------------------------
 
   const { error: historyError } =
