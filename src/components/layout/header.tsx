@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationsBell } from './notifications-bell'
+import { ThemeToggle } from './theme-toggle'
 
 export function Header({
   onMenuClick,
@@ -60,6 +61,8 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-4">
+        <ThemeToggle />
+
         <NotificationsBell />
 
         <div className="flex items-center gap-3">
