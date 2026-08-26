@@ -737,14 +737,14 @@ export function SettingsManager() {
               <thead className="border-b bg-muted/40">
                 <tr>
                   <th className="px-6 py-3 text-left font-medium">Name</th>
-                  <th className="px-6 py-3 text-left font-medium">Code</th>
-                  <th className="px-6 py-3 text-left font-medium">JHA</th>
-                  <th className="px-6 py-3 text-left font-medium">Gas</th>
-                  <th className="px-6 py-3 text-left font-medium">LOTO</th>
-                  <th className="px-6 py-3 text-left font-medium">Site</th>
-                  <th className="px-6 py-3 text-left font-medium">Briefing</th>
-                  <th className="px-6 py-3 text-left font-medium">Emergency</th>
-                  <th className="px-6 py-3 text-left font-medium">Status</th>
+                  <th className="px-6 py-3 text-center font-medium">Code</th>
+                  <th className="px-6 py-3 text-center font-medium">JHA</th>
+                  <th className="px-6 py-3 text-center font-medium">Gas</th>
+                  <th className="px-6 py-3 text-center font-medium">LOTO</th>
+                  <th className="px-6 py-3 text-center font-medium">Site</th>
+                  <th className="px-6 py-3 text-center font-medium">Briefing</th>
+                  <th className="px-6 py-3 text-center font-medium">Emergency</th>
+                  <th className="px-6 py-3 text-center font-medium">Status</th>
                   <th className="px-6 py-3 text-right font-medium">Action</th>
                 </tr>
               </thead>
@@ -769,17 +769,17 @@ export function SettingsManager() {
                         {permitType.name}
                       </button>
                     </td>
-                    <td className="px-6 py-4">{permitType.code ?? '—'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">{permitType.code ?? '—'}</td>
+                    <td className="px-6 py-4 text-center">
                       {permitType.requires_jha ? '✓' : '—'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       {permitType.requires_gas_test ? '✓' : '—'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       {permitType.requires_loto ? '✓' : '—'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <button
                         type="button"
                         title="Toggle site verification"
@@ -796,7 +796,7 @@ export function SettingsManager() {
                           : '—'}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <button
                         type="button"
                         title="Toggle worker briefing"
@@ -813,7 +813,7 @@ export function SettingsManager() {
                           : '—'}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <button
                         type="button"
                         title="Toggle emergency arrangements"
@@ -830,7 +830,7 @@ export function SettingsManager() {
                           : '—'}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
                           permitType.is_active
