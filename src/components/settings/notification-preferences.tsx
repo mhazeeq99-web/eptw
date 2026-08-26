@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 
 type Preference = {
   event_type: string
@@ -139,16 +140,13 @@ export function NotificationPreferences() {
               </p>
 
               <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={preference.email_enabled}
                   disabled={saving === preference.event_type}
-                  onChange={(event) =>
-                    toggle(
-                      preference,
-                      event.target.checked
-                    )
+                  onCheckedChange={(value) =>
+                    toggle(preference, value)
                   }
+                  label={`Email notifications for ${preference.label}`}
                 />
                 Email
               </label>
