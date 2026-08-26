@@ -26,6 +26,13 @@ import {
   X,
   ChevronRight,
   Plus,
+  Building2,
+  SlidersHorizontal,
+  Receipt,
+  ScrollText,
+  ShieldAlert,
+  Search,
+  HeartPulse,
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
@@ -79,17 +86,72 @@ function buildSections(role: string | null): Section[] {
   switch (role) {
     case 'platform_admin':
       return [
-        { title: 'Workspace', items: [dashboard] },
         {
-          title: 'Permits',
+          title: 'Platform',
           items: [
-            { label: 'All Permits', href: '/permits', icon: FileText },
-            { label: 'Active Permits', href: '/permits/active', icon: PlayCircle },
-            { label: 'Suspended', href: '/permits/suspended', icon: PauseCircle },
+            dashboard,
+            { label: 'Companies', href: '/companies', icon: Building2 },
+            { label: 'Users', href: '/platform/users', icon: Users },
           ],
         },
-        { title: 'Reports', items: [reports] },
-        settingsSection,
+        {
+          title: 'Configuration',
+          items: [
+            {
+              label: 'Permit Types',
+              href: '/platform/configuration?tab=permit_types',
+              icon: SlidersHorizontal,
+            },
+            {
+              label: 'Safety Controls',
+              href: '/platform/configuration?tab=safety_controls',
+              icon: ShieldCheck,
+            },
+            {
+              label: 'PPE Catalogue',
+              href: '/platform/configuration?tab=ppe',
+              icon: ClipboardList,
+            },
+            {
+              label: 'Checklist Templates',
+              href: '/platform/configuration?tab=checklists',
+              icon: ScrollText,
+            },
+          ],
+        },
+        {
+          title: 'Billing',
+          items: [
+            { label: 'Plans', href: '/platform/billing?tab=plans', icon: CreditCard },
+            {
+              label: 'Subscriptions',
+              href: '/platform/billing?tab=subscriptions',
+              icon: Receipt,
+            },
+            {
+              label: 'Payments',
+              href: '/platform/billing?tab=payments',
+              icon: BarChart3,
+            },
+          ],
+        },
+        {
+          title: 'Security',
+          items: [
+            { label: 'Audit Log', href: '/platform/audit', icon: ScrollText },
+            { label: 'Security Events', href: '/platform/security', icon: ShieldAlert },
+          ],
+        },
+        {
+          title: 'Support',
+          items: [
+            { label: 'Company Lookup', href: '/platform/support?tab=company', icon: Search },
+            { label: 'User Lookup', href: '/platform/support?tab=user', icon: Users },
+            { label: 'Permit Lookup', href: '/platform/support?tab=permit', icon: FileText },
+            { label: 'System Health', href: '/platform/system-health', icon: HeartPulse },
+          ],
+        },
+        { title: 'Account', items: [{ label: 'Settings', href: '/settings', icon: Settings }] },
       ]
 
     case 'safety_manager':
