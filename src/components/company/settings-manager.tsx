@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Building2, FileText, ShieldCheck } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 
 type PermitType = {
   id: number
@@ -380,6 +381,28 @@ export function SettingsManager() {
 
     setError('')
 
+    // Optimistic update so the toggle feels instant.
+    setMappings((current) => {
+      const idx = current.findIndex(
+        (m) => m.safety_control_id === control.id
+      )
+      if (idx === -1) {
+        return [
+          ...current,
+          {
+            id: null,
+            permit_type_id: selectedTypeId,
+            safety_control_id: control.id,
+            is_required: isRequired,
+            safety_control: control,
+          } as unknown as Mapping,
+        ]
+      }
+      const next = [...current]
+      next[idx] = { ...next[idx], is_required: isRequired }
+      return next
+    })
+
     try {
       const response = await fetch(
         `/api/admin/permit-types/${selectedTypeId}/safety-controls`,
@@ -399,6 +422,7 @@ export function SettingsManager() {
         throw new Error(body.error ?? 'Unable to update mapping')
       }
 
+      // Reconcile with the server result.
       await loadMappings(selectedTypeId)
     } catch (mappingError) {
       setError(
@@ -406,12 +430,9 @@ export function SettingsManager() {
           ? mappingError.message
           : 'Unable to update mapping'
       )
+      await loadMappings(selectedTypeId)
     }
   }
-
-  const mappedControlIds = new Set(
-    mappings.map((mapping) => mapping.safety_control_id)
-  )
 
   const requiredControlIds = new Set(
     mappings
@@ -800,7 +821,6 @@ export function SettingsManager() {
               </p>
             ) : (
               controls.map((control) => {
-                const isMapped = mappedControlIds.has(control.id)
                 const isRequired = requiredControlIds.has(control.id)
 
                 return (
@@ -822,31 +842,16 @@ export function SettingsManager() {
 
                     <div className="flex items-center gap-3">
                       <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
+                        <Switch
                           checked={isRequired}
                           disabled={!control.is_active}
-                          onChange={(event) =>
-                            toggleRequired(
-                              control,
-                              event.target.checked
-                            )
+                          onCheckedChange={(value) =>
+                            toggleRequired(control, value)
                           }
+                          label={`${control.name} required`}
                         />
                         Required
                       </label>
-
-                      {isMapped && !isRequired && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleRequired(control, false)
-                          }
-                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                        >
-                          Remove
-                        </button>
-                      )}
                     </div>
                   </div>
                 )
