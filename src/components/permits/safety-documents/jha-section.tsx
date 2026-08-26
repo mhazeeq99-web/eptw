@@ -174,6 +174,14 @@ export function JhaSection({
     initialJhas.some((jha) => jha.status === 'verified') ||
     hirarc.length > 0
 
+  const methodLabels: string[] = []
+  if (initialJhas.some((jha) => jha.status === 'verified')) {
+    methodLabels.push('Manual JHA')
+  }
+  if (hirarc.length > 0) {
+    methodLabels.push('Uploaded HIRARC')
+  }
+
   async function handleHirarcSelected(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
@@ -484,21 +492,25 @@ export function JhaSection({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {canAdd && (
-            <span
-              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
-                satisfied
-                  ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
-              }`}
-            >
-              {satisfied ? 'Complete' : 'Incomplete'}
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
+              satisfied
+                ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
+            }`}
+          >
+            {satisfied ? 'Complete' : 'Incomplete'}
+          </span>
+
+          {satisfied && (
+            <span className="text-xs text-muted-foreground">
+              Method: {methodLabels.join(' + ')}
             </span>
           )}
 
           {canAdd && !showForm && !satisfied && (
-            <>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -520,7 +532,7 @@ export function JhaSection({
                   ? 'Uploading...'
                   : 'Upload Existing HIRARC'}
               </button>
-            </>
+            </div>
           )}
 
           <input
