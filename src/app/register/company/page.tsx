@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -22,6 +23,7 @@ export default function CompanyRegistrationPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [companyCode, setCompanyCode] = useState('')
+  const [isDuplicateSsm, setIsDuplicateSsm] = useState(false)
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -29,6 +31,7 @@ export default function CompanyRegistrationPage() {
     event.preventDefault()
 
     setError('')
+    setIsDuplicateSsm(false)
     setLoading(true)
 
     // 1. Create Supabase Auth account
@@ -73,10 +76,19 @@ export default function CompanyRegistrationPage() {
         registrationError
       )
 
-      setError(
+      const message =
         registrationError.message ||
-          'Unable to complete company registration.'
-      )
+        'Unable to complete company registration.'
+
+      // The RPC rejects duplicate SSM registrations with
+      // "SSM Registration No. is already registered". Show a
+      // friendly panel instead of the raw error, and never
+      // reveal any registered user's email address.
+      if (/already registered/i.test(message)) {
+        setIsDuplicateSsm(true)
+      } else {
+        setError(message)
+      }
 
       setLoading(false)
       return
@@ -107,6 +119,56 @@ export default function CompanyRegistrationPage() {
 
     setCompanyCode(code)
     setLoading(false)
+  }
+
+  if (isDuplicateSsm) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
+        <div className="w-full max-w-2xl rounded-xl border bg-background p-8 shadow-sm">
+          <div className="space-y-6 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-2xl font-bold text-amber-700">
+              !
+            </div>
+
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                This company is already registered with ePTW.
+              </h1>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                This company is already registered with ePTW.
+              </p>
+            </div>
+
+            <div className="mx-auto w-full max-w-sm space-y-3">
+              <Link
+                href="/login"
+                className="block w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Sign In
+              </Link>
+
+              <Link
+                href="/forgot-password"
+                className="block w-full rounded-md border bg-background px-4 py-3 text-sm font-medium text-primary hover:bg-muted/40"
+              >
+                Forgot Password
+              </Link>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Need help? Contact{' '}
+              <a
+                href="mailto:moviqueservices@gmail.com"
+                className="font-medium text-primary hover:underline"
+              >
+                moviqueservices@gmail.com
+              </a>
+            </p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   if (companyCode) {

@@ -24,6 +24,7 @@ import {
   SearchableCombobox,
   type ComboboxOption,
 } from '@/components/company/searchable-combobox'
+import { BackButton } from '@/components/ui/back-button'
 
 type Profile = {
   id: string
@@ -832,6 +833,9 @@ export default function NewPermitPage() {
   if (loadingData) {
     return (
       <DashboardShell>
+        <div className="mb-6">
+          <BackButton href="/permits" label="Back to Permits" />
+        </div>
         <p className="text-muted-foreground">
           Loading permit form...
         </p>
@@ -843,6 +847,10 @@ export default function NewPermitPage() {
     return (
       <DashboardShell>
         <div className="max-w-4xl">
+          <div className="mb-6">
+            <BackButton href="/permits" label="Back to Permits" />
+          </div>
+
           <h1 className="text-3xl font-bold tracking-tight">
             Create Permit
           </h1>
@@ -869,6 +877,10 @@ export default function NewPermitPage() {
   return (
     <DashboardShell>
       <div className="max-w-4xl">
+
+        <div className="mb-6">
+          <BackButton href="/permits" label="Back to Permits" />
+        </div>
 
         <h1 className="text-3xl font-bold tracking-tight">
           Create Permit

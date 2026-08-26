@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { UserManagement } from '@/components/company/user-management'
+import { BackButton } from '@/components/ui/back-button'
 
 export default async function CompanyUsersPage() {
   const supabase = await createClient()
@@ -23,5 +24,12 @@ export default async function CompanyUsersPage() {
     redirect('/dashboard')
   }
 
-  return <UserManagement />
+  return (
+    <>
+      <div className="mb-6">
+        <BackButton href="/settings" label="Back to Management" />
+      </div>
+      <UserManagement />
+    </>
+  )
 }

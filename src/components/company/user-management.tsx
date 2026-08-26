@@ -17,6 +17,7 @@ type CompanyUser = {
   position: string | null
   role: string
   is_active: boolean
+  invitation_sent_at: string | null
   created_at: string
 }
 
@@ -32,10 +33,28 @@ const ASSIGNABLE_ROLES: UserRole[] = [
   'internal_staff',
 ]
 
+type AccountStatus = 'INVITED' | 'ACTIVE' | 'DISABLED'
+
+const STATUS_STYLES: Record<AccountStatus, string> = {
+  INVITED:
+    'inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700',
+  ACTIVE:
+    'inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700',
+  DISABLED:
+    'inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
+}
+
+function getAccountStatus(user: CompanyUser): AccountStatus {
+  if (!user.is_active) return 'DISABLED'
+  return user.invitation_sent_at ? 'INVITED' : 'ACTIVE'
+}
+
 export function UserManagement() {
   const [users, setUsers] = useState<CompanyUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [resendingId, setResendingId] = useState<string | null>(null)
 
   const [showForm, setShowForm] = useState(false)
   const [selectedRole, setSelectedRole] =
@@ -79,9 +98,9 @@ export function UserManagement() {
     loadUsers()
   }, [])
 
-  // ADD THIS FUNCTION
   async function toggleUserStatus(user: CompanyUser) {
     setError('')
+    setSuccessMessage('')
 
     try {
       const response = await fetch(
@@ -112,6 +131,48 @@ export function UserManagement() {
           ? error.message
           : 'Failed to update user status'
       )
+    }
+  }
+
+  async function resendInvitation(user: CompanyUser) {
+    setError('')
+    setSuccessMessage('')
+    setResendingId(user.id)
+
+    try {
+      const response = await fetch(
+        `/api/company/users/${user.id}/resend-invitation`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      const body = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          response.status === 429
+            ? 'Too many requests. Please try again later.'
+            : (body.error ?? 'Failed to resend invitation')
+        )
+      }
+
+      setSuccessMessage(
+        body.message ?? 'Invitation resent successfully.'
+      )
+
+      await loadUsers()
+    } catch (resendError) {
+      setError(
+        resendError instanceof Error
+          ? resendError.message
+          : 'Failed to resend invitation'
+      )
+    } finally {
+      setResendingId(null)
     }
   }
 
@@ -174,6 +235,8 @@ export function UserManagement() {
         )
       }
 
+      setSuccessMessage('')
+
       setShowForm(false)
       resetForm()
 
@@ -203,6 +266,7 @@ export function UserManagement() {
     role: UserRole
   ) {
     setError('')
+    setSuccessMessage('')
 
     try {
       const response = await fetch(
@@ -256,6 +320,12 @@ export function UserManagement() {
         </div>
       )}
 
+      {successMessage && (
+        <div className="rounded-md border border-green-600/30 bg-green-100/60 p-3 text-sm text-green-700">
+          {successMessage}
+        </div>
+      )}
+
       {loading ? (
         <div className="rounded-xl border bg-background p-8 text-center text-sm text-muted-foreground">
           Loading users...
@@ -273,6 +343,8 @@ export function UserManagement() {
             }
             onToggleStatus={toggleUserStatus}
             onRoleChange={changeUserRole}
+            onResendInvitation={resendInvitation}
+            resendingId={resendingId}
           />
 
           <UserSection
@@ -285,6 +357,8 @@ export function UserManagement() {
             }
             onToggleStatus={toggleUserStatus}
             onRoleChange={changeUserRole}
+            onResendInvitation={resendInvitation}
+            resendingId={resendingId}
           />
 
         </div>
@@ -447,7 +521,6 @@ export function UserManagement() {
   )
 }
 
-// UPDATE THE UserSection COMPONENT
 function UserSection({
   title,
   description,
@@ -456,6 +529,8 @@ function UserSection({
   onAdd,
   onToggleStatus,
   onRoleChange,
+  onResendInvitation,
+  resendingId,
 }: {
   title: string
   description: string
@@ -467,6 +542,8 @@ function UserSection({
     user: CompanyUser,
     role: UserRole
   ) => void
+  onResendInvitation: (user: CompanyUser) => void
+  resendingId: string | null
 }) {
   return (
     <section className="overflow-hidden rounded-xl border bg-background">
@@ -543,7 +620,6 @@ function UserSection({
                   Status
                 </th>
 
-                {/* ADD THIS COLUMN */}
                 <th className="px-5 py-3 text-right font-medium">
                   Action
                 </th>
@@ -610,26 +686,45 @@ function UserSection({
                   <td className="px-5 py-4">
                     <span
                       className={
-                        user.is_active
-                          ? 'inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700'
-                          : 'inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground'
+                        STATUS_STYLES[getAccountStatus(user)]
                       }
                     >
-                      {user.is_active
-                        ? 'Active'
-                        : 'Inactive'}
+                      {getAccountStatus(user)}
                     </span>
                   </td>
 
-                  {/* ADD THIS CELL */}
                   <td className="px-5 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onToggleStatus(user)}
-                      className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                    >
-                      {user.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      {getAccountStatus(user) === 'INVITED' &&
+                        user.role === 'internal_staff' && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onResendInvitation(user)
+                            }
+                            disabled={
+                              resendingId === user.id
+                            }
+                            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {resendingId === user.id
+                              ? 'Resending...'
+                              : 'Resend Invitation'}
+                          </button>
+                        )}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onToggleStatus(user)
+                        }
+                        className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                      >
+                        {user.is_active
+                          ? 'Deactivate'
+                          : 'Activate'}
+                      </button>
+                    </div>
                   </td>
 
                 </tr>

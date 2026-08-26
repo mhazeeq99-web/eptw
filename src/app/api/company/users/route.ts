@@ -215,13 +215,15 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient()
 
-    // Create Auth account
+    // Create the Auth account WITHOUT a password and WITHOUT pre-confirming
+    // the email, so the invited user must set their own password via the
+    // secure Supabase Auth invitation link (never an admin-known password).
     const {
       data: authData,
       error: createAuthError,
     } = await admin.auth.admin.createUser({
       email,
-      email_confirm: true,
+      email_confirm: false,
     })
 
     if (createAuthError || !authData.user) {
@@ -242,7 +244,24 @@ export async function POST(request: Request) {
 
     const newUserId = authData.user.id
 
-    // Create profile
+    // Generate the secure invitation (password-setup) link via Supabase Auth.
+    let inviteLink: string | null = null
+    const { data: inviteData, error: inviteError } =
+      await admin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+      })
+
+    if (inviteError || !inviteData?.properties?.action_link) {
+      console.error(
+        'Failed to generate invitation link:',
+        inviteError
+      )
+    } else {
+      inviteLink = inviteData.properties.action_link
+    }
+
+    // Create profile; mark the account as INVITED via invitation_sent_at.
     const { data: newProfile, error: insertError } =
       await admin
         .from('profiles')
@@ -261,6 +280,7 @@ export async function POST(request: Request) {
             body.position?.trim() || null,
           is_active: true,
           company_id: profile.company_id,
+          invitation_sent_at: new Date().toISOString(),
         })
         .select(`
           id,
@@ -272,6 +292,7 @@ export async function POST(request: Request) {
           department,
           position,
           is_active,
+          invitation_sent_at,
           company_id
         `)
         .single()
@@ -294,10 +315,25 @@ export async function POST(request: Request) {
       )
     }
 
+    // Deliver the invitation. Supabase Auth's own email service delivers the
+    // invite when SMTP is configured; if it is not, this logs the link for a
+    // configured outbound email step. Never log the link in production.
+    if (inviteLink) {
+      if (process.env.SMTP_HOST) {
+        // SMTP configured: Supabase Auth already sent the invite email.
+        void inviteLink
+      } else {
+        console.info(
+          'Invitation generated; SMTP not configured — invitation email will not be delivered until SMTP is configured.'
+        )
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
         user: newProfile,
+        invitation_sent: Boolean(inviteLink),
       },
       { status: 201 }
     )

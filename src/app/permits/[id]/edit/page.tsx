@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import EditPermitForm from '@/components/permits/edit-permit-form'
+import { BackButton } from '@/components/ui/back-button'
 
 export default async function EditPermitPage({
   params,
@@ -17,6 +18,9 @@ export default async function EditPermitPage({
 
   return (
     <DashboardShell>
+      <div className="mb-6">
+        <BackButton href={`/permits/${id}`} label="Back to Permit" />
+      </div>
       <EditPermitForm permitId={permitId} />
     </DashboardShell>
   )

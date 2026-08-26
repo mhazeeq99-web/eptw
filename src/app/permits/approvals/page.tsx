@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { resolvePermitScope } from '@/lib/permit-scope'
 import { formatDateTimeMY } from '@/lib/dates'
 import { ReadinessBadge } from './readiness-badge'
+import { BackButton } from '@/components/ui/back-button'
 
 type Permit = {
   id: number
@@ -107,6 +108,7 @@ export default async function ApprovalQueuePage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        <BackButton href="/dashboard" label="Back to Operations" />
 
         <div>
           <h1 className="text-3xl font-bold tracking-tight">

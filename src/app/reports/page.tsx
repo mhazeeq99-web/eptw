@@ -4,6 +4,7 @@ import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { resolvePermitScope } from '@/lib/permit-scope'
 import { getExpiryState } from '@/components/permits/status-badge'
+import { BackButton } from '@/components/ui/back-button'
 
 type PermitRow = {
   id: number
@@ -168,6 +169,8 @@ export default async function ReportsPage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        <BackButton href="/dashboard" label="Back to Operations" />
+
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Reports

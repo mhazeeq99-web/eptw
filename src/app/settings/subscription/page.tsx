@@ -12,6 +12,7 @@ import {
 } from '@/lib/entitlements'
 import { getCompanySubscription } from '@/lib/billing'
 import { formatBytes, formatPrice } from '@/lib/entitlements/format'
+import { BackButton } from '@/components/ui/back-button'
 
 type UsageRow = {
   label: string
@@ -99,6 +100,10 @@ export default async function SubscriptionPage() {
     return (
       <DashboardShell>
         <div className="max-w-3xl">
+          <div className="mb-6">
+            <BackButton href="/settings" label="Back to Settings" />
+          </div>
+
           <h1 className="text-3xl font-bold tracking-tight">
             Subscription
           </h1>
@@ -143,6 +148,8 @@ export default async function SubscriptionPage() {
   return (
     <DashboardShell>
       <div className="max-w-3xl space-y-6">
+        <BackButton href="/settings" label="Back to Settings" />
+
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Subscription

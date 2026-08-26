@@ -21,6 +21,7 @@ import { EmergencyArrangementsSection, type EmergencyArrangementsRecord } from '
 import { SafetyVerificationPanel } from '@/components/permits/safety-verification/safety-verification-panel'
 import { SpecialisedPermitSection } from '@/components/permits/specialised/specialised-permit-section'
 import { formatDateTimeMY } from '@/lib/dates'
+import { BackButton } from '@/components/ui/back-button'
 
 type PermitType = {
   id: number
@@ -639,6 +640,9 @@ export default async function PermitDetailsPage({
   return (
     <DashboardShell>
       <div className="max-w-5xl">
+        <div className="mb-6">
+          <BackButton href="/permits" label="Back to Permits" />
+        </div>
 
         {/* Permit Overview */}
         <section className="rounded-xl border bg-background">

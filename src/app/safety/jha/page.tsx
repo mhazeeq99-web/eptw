@@ -4,6 +4,7 @@ import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { VerifySafetyDocButton } from '@/components/permits/safety-documents/verify-button'
 import { StatusBadge, formatDate } from '@/components/permits/status-badge'
+import { BackButton } from '@/components/ui/back-button'
 
 type Jha = {
   id: number
@@ -67,6 +68,8 @@ export default async function JhaPage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        <BackButton href="/settings" label="Back to Safety" />
+
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             JSA / JHA
