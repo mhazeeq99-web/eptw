@@ -27,6 +27,7 @@ type SafetyControl = {
   description: string | null
   category: string | null
   is_active: boolean
+  is_system?: boolean
   created_at?: string
 }
 
@@ -275,6 +276,36 @@ export function SettingsManager() {
       )
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function deleteSafetyControl(control: SafetyControl) {
+    setError('')
+
+    const confirmed = window.confirm(
+      `Delete "${control.name}"? This safety control will be removed from the catalogue. This cannot be undone.`
+    )
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(
+        `/api/admin/safety-controls/${control.id}`,
+        { method: 'DELETE' }
+      )
+
+      const body = await response.json()
+
+      if (!response.ok) {
+        throw new Error(body.error ?? 'Unable to delete safety control')
+      }
+
+      await loadAll()
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Unable to delete safety control'
+      )
     }
   }
 
@@ -1025,13 +1056,28 @@ export function SettingsManager() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => toggleControl(control)}
-                        className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                      >
-                        {control.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleControl(control)}
+                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          {control.is_active ? 'Deactivate' : 'Activate'}
+                        </button>
+
+                        {!control.is_system && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteSafetyControl(control)
+                            }
+                            title="Delete this safety control"
+                            className="rounded-md border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

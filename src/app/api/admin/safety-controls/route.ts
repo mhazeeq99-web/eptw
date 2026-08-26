@@ -37,6 +37,7 @@ export async function GET() {
       description,
       category,
       is_active,
+      is_system,
       created_at
     `)
     .order('name')
