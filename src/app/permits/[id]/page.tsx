@@ -557,6 +557,14 @@ export default async function PermitDetailsPage({
     currentUserRole === 'safety_manager' ||
     currentUserRole === 'safety_coordinator'
 
+  // Safety-verification actions (site verification, PPE availability,
+  // emergency arrangements, worker briefing/acknowledgement) may ONLY be
+  // performed by an authorised safety verifier (SM/SC). Contractors and
+  // internal staff may view the state but must never see the edit controls —
+  // the API already rejects them; we hide the UI to match.
+  const canPerformSafetyVerification =
+    canAddSafetyDocs && canVerifySafetyDocs
+
   // ---------------------------------------------------------
   // Site-verification checklist template for this permit type
   // ---------------------------------------------------------
@@ -1303,7 +1311,7 @@ export default async function PermitDetailsPage({
         {permit.permit_type?.requires_site_verification !== false && (
           <SiteVerificationSection
             permitId={permit.id}
-            canEdit={canAddSafetyDocs}
+            canEdit={canPerformSafetyVerification}
             template={siteChecklistTemplate}
             initialRecord={
               (permit.site_verification ?? null) as
@@ -1318,7 +1326,7 @@ export default async function PermitDetailsPage({
         permit.permit_type?.requires_worker_briefing ? (
           <WorkerBriefingSection
             permitId={permit.id}
-            canEdit={canAddSafetyDocs}
+            canEdit={canPerformSafetyVerification}
             requiresLoto={
               permit.permit_type?.requires_loto ?? false
             }
@@ -1344,7 +1352,7 @@ export default async function PermitDetailsPage({
         {/* PPE Verification (Phase D) */}
         <PpeVerificationSection
           permitId={permit.id}
-          canEdit={canAddSafetyDocs}
+          canEdit={canPerformSafetyVerification}
           initialItems={ppeVerificationItems}
         />
 
@@ -1352,7 +1360,7 @@ export default async function PermitDetailsPage({
         {permit.permit_type?.requires_emergency_arrangements && (
           <EmergencyArrangementsSection
             permitId={permit.id}
-            canEdit={canAddSafetyDocs}
+            canEdit={canPerformSafetyVerification}
             initialRecord={
               (permit.emergency_arrangements ?? null) as
                 | EmergencyArrangementsRecord
