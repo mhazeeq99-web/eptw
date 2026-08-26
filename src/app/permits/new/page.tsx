@@ -45,6 +45,9 @@ type PermitType = {
   requires_jha: boolean
   requires_gas_test: boolean
   requires_loto: boolean
+  requires_site_verification: boolean
+  requires_worker_briefing: boolean
+  requires_emergency_arrangements: boolean
 }
 type SafetyControl = {
   id: number
@@ -431,7 +434,10 @@ export default function NewPermitPage() {
             code,
             requires_jha,
             requires_gas_test,
-            requires_loto
+            requires_loto,
+            requires_site_verification,
+            requires_worker_briefing,
+            requires_emergency_arrangements
           `)
           .eq(
             'company_id',
@@ -1041,6 +1047,148 @@ export default function NewPermitPage() {
             )}
 
           </section>
+
+          {/* ------------------------------------------------ */}
+          {/* Requirements Summary (live, before submit) */}
+          {/* ------------------------------------------------ */}
+
+          {selectedPermitType && (
+            <section className="rounded-xl border bg-background p-6">
+              <SectionHeader
+                title="Permit Requirements"
+                description="What must be completed before this permit can be approved. Site verification and safety verification are performed by the Safety Officer / Permit Issuer, not the contractor."
+              />
+
+              <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                {(() => {
+                  const hasRequiredControls =
+                    safetyControls.some(
+                      (control) => control.is_required
+                    )
+
+                  const hasRequiredPpe =
+                    Array.from(
+                      ppeRecommendations.values()
+                    ).includes('required')
+
+                  const requirements = [
+                    {
+                      label: 'JHA / HIRARC',
+                      state: selectedPermitType.requires_jha
+                        ? 'required'
+                        : 'not_required',
+                      note: selectedPermitType.requires_jha
+                        ? 'Fill a JHA or upload an existing HIRARC'
+                        : null,
+                    },
+                    {
+                      label: 'Safety Controls',
+                      state: hasRequiredControls
+                        ? 'required'
+                        : 'not_required',
+                      note: hasRequiredControls
+                        ? 'Required controls must be in place and verified'
+                        : null,
+                    },
+                    {
+                      label: 'PPE',
+                      state: hasRequiredPpe
+                        ? 'required'
+                        : 'not_required',
+                      note: hasRequiredPpe
+                        ? 'Required PPE must be selected and verified as available'
+                        : null,
+                    },
+                    {
+                      label: 'Site Verification',
+                      state:
+                        selectedPermitType.requires_site_verification ===
+                        false
+                          ? 'not_required'
+                          : 'safety',
+                      note:
+                        selectedPermitType.requires_site_verification ===
+                        false
+                          ? null
+                          : 'Performed by the Safety Officer / Permit Issuer',
+                    },
+                    {
+                      label: 'Gas Testing',
+                      state: selectedPermitType.requires_gas_test
+                        ? 'required'
+                        : 'not_required',
+                      note: null,
+                    },
+                    {
+                      label: 'LOTO',
+                      state: selectedPermitType.requires_loto
+                        ? 'required'
+                        : 'not_required',
+                      note: selectedPermitType.requires_loto
+                        ? 'All isolation points must be verified'
+                        : null,
+                    },
+                    {
+                      label: 'Worker Briefing',
+                      state: selectedPermitType.requires_worker_briefing
+                        ? 'required'
+                        : 'not_required',
+                      note: selectedPermitType.requires_worker_briefing
+                        ? 'Toolbox talk conducted and workers acknowledge'
+                        : null,
+                    },
+                    {
+                      label: 'Emergency Arrangements',
+                      state: selectedPermitType.requires_emergency_arrangements
+                        ? 'required'
+                        : 'not_required',
+                      note: null,
+                    },
+                  ]
+
+                  return requirements.map((requirement) => {
+                    const badge =
+                      requirement.state === 'required' ? (
+                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive">
+                          Required
+                        </span>
+                      ) : requirement.state === 'safety' ? (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                          Safety Officer
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                          Not required
+                        </span>
+                      )
+
+                    return (
+                      <div
+                        key={requirement.label}
+                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      >
+                        <span>{requirement.label}</span>
+                        <span className="ml-auto flex items-center gap-2">
+                          {requirement.note && (
+                            <span className="hidden text-xs text-muted-foreground sm:inline">
+                              {requirement.note}
+                            </span>
+                          )}
+                          {badge}
+                        </span>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+
+              <p className="mt-4 text-xs text-muted-foreground">
+                Requirements are determined by the selected permit type and
+                are shown here so you know what is expected before you submit.
+                Site verification is never performed by the contractor.
+              </p>
+            </section>
+          )}
 
           {/* ------------------------------------------------ */}
           {/* Contractor: Worker Details + Staff Reference */}
