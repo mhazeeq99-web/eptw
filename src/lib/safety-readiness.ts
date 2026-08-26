@@ -140,7 +140,8 @@ export async function getPermitSafetyReadiness(
   )
 
   // ---------------------------------------------------------
-  // JHA / HIRARC
+  // JHA / HIRARC — satisfied by EITHER a verified manual JHA OR an uploaded
+  // HIRARC document. The requirement is never forced through both methods.
   // ---------------------------------------------------------
   const jhaRequired = type?.requires_jha === true
   let jhaStatus: ReadinessStatus = 'not_required'
@@ -152,10 +153,21 @@ export async function getPermitSafetyReadiness(
       .eq('permit_id', permitId)
       .eq('status', 'verified')
       .maybeSingle()
-    jhaStatus = verifiedJha ? 'complete' : 'incomplete'
-    jhaReason = verifiedJha
+
+    const { data: hirarcDoc } = await supabase
+      .from('hirarc_documents')
+      .select('id')
+      .eq('permit_id', permitId)
+      .limit(1)
+      .maybeSingle()
+
+    const satisfied =
+      verifiedJha != null || hirarcDoc != null
+
+    jhaStatus = satisfied ? 'complete' : 'incomplete'
+    jhaReason = satisfied
       ? null
-      : 'Approval blocked: JHA/HIRARC has not been verified.'
+      : 'Approval blocked: JHA/HIRARC has not been completed (fill a JHA or upload an existing HIRARC).'
   }
   push('jha', 'JHA / HIRARC', jhaRequired, jhaStatus, jhaReason, 20)
 

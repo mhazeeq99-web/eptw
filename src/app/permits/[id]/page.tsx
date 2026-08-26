@@ -10,7 +10,7 @@ import { VerifySafetyControlButton } from '@/components/permits/verify-safety-co
 import { RejectPermitButton } from '@/components/permits/reject-permit-button'
 import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
 import { LifecyclePanel } from '@/components/permits/lifecycle-panel'
-import { JhaSection, type Jha } from '@/components/permits/safety-documents/jha-section'
+import { JhaSection, type Jha, type HirarcDocument } from '@/components/permits/safety-documents/jha-section'
 import { LotoSection, type LotoPoint } from '@/components/permits/safety-documents/loto-section'
 import { GasTestSection, type GasTest } from '@/components/permits/safety-documents/gas-test-section'
 import { AttachmentsSection, type Attachment } from '@/components/permits/attachments-section'
@@ -214,6 +214,7 @@ type Permit = {
   loto_points: LotoPoint[]
   gas_tests: GasTest[]
   attachments: Attachment[]
+  hirarc_documents: HirarcDocument[]
 }
 
 export default async function PermitDetailsPage({
@@ -527,6 +528,20 @@ export default async function PermitDetailsPage({
         size_bytes,
         created_at,
         uploader:profiles!permit_attachments_uploaded_by_fkey (
+          full_name
+        )
+      ),
+
+      hirarc_documents (
+        id,
+        permit_id,
+        uploaded_by,
+        filename,
+        storage_path,
+        content_type,
+        size_bytes,
+        created_at,
+        uploader:profiles!hirarc_documents_uploaded_by_fkey (
           full_name
         )
       )
@@ -1270,6 +1285,7 @@ export default async function PermitDetailsPage({
           canAdd={canAddSafetyDocs}
           canVerify={canVerifySafetyDocs}
           initialJhas={permit.jhas ?? []}
+          initialHirarc={permit.hirarc_documents ?? []}
         />
 
         {/* LOTO */}

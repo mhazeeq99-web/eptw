@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Download, Trash2 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 
 /**
@@ -83,6 +84,20 @@ export type Jha = {
   hazards: JhaHazard[] | null
 }
 
+export type HirarcDocument = {
+  id: number
+  permit_id: number
+  uploaded_by: string
+  filename: string
+  storage_path: string
+  content_type: string | null
+  size_bytes: number | null
+  created_at: string
+  uploader: {
+    full_name: string
+  } | null
+}
+
 type HazardDraft = {
   hazard: string
   hazard_category: string
@@ -123,11 +138,13 @@ export function JhaSection({
   canAdd,
   canVerify,
   initialJhas,
+  initialHirarc,
 }: {
   permitId: number
   canAdd: boolean
   canVerify: boolean
   initialJhas: Jha[]
+  initialHirarc: HirarcDocument[]
 }) {
   const router = useRouter()
 
@@ -142,6 +159,184 @@ export function JhaSection({
     number | null
   >(null)
   const [error, setError] = useState('')
+
+  const [hirarc, setHirarc] = useState<HirarcDocument[]>(
+    initialHirarc
+  )
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [deletingId, setDeletingId] = useState<number | null>(
+    null
+  )
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const satisfied =
+    initialJhas.some((jha) => jha.status === 'verified') ||
+    hirarc.length > 0
+
+  async function handleHirarcSelected(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploadError('')
+    setUploading(true)
+
+    try {
+      // 1. Request a signed upload URL.
+      const urlResponse = await fetch(
+        `/api/permits/${permitId}/hirarc/upload-url`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            content_type: file.type || null,
+            size_bytes: file.size,
+          }),
+        }
+      )
+
+      const urlResult = await urlResponse.json()
+
+      if (!urlResponse.ok) {
+        throw new Error(
+          urlResult.error ?? 'Unable to prepare upload'
+        )
+      }
+
+      // 2. Upload the file bytes to the signed URL.
+      const uploadResponse = await fetch(
+        urlResult.upload_url,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type':
+              file.type || 'application/octet-stream',
+          },
+          body: file,
+        }
+      )
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload to storage failed')
+      }
+
+      // 3. Record the HIRARC document metadata.
+      const recordResponse = await fetch(
+        `/api/permits/${permitId}/hirarc`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            permit_id: permitId,
+            filename: file.name,
+            storage_path: urlResult.storage_path,
+            content_type: file.type || null,
+            size_bytes: file.size,
+          }),
+        }
+      )
+
+      const recordResult = await recordResponse.json()
+
+      if (!recordResponse.ok) {
+        throw new Error(
+          recordResult.error ?? 'Unable to record document'
+        )
+      }
+
+      setHirarc((current) => [
+        recordResult.document,
+        ...current,
+      ])
+      router.refresh()
+    } catch (uploadError) {
+      setUploadError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : 'Unable to upload HIRARC document'
+      )
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  async function handleHirarcDownload(document: HirarcDocument) {
+    setUploadError('')
+
+    try {
+      const response = await fetch(
+        `/api/permits/${permitId}/hirarc/${document.id}/download`
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ?? 'Unable to download document'
+        )
+      }
+
+      window.open(result.download_url, '_blank')
+    } catch (downloadError) {
+      setUploadError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : 'Unable to download document'
+      )
+    }
+  }
+
+  async function handleHirarcDelete(document: HirarcDocument) {
+    setUploadError('')
+
+    const confirmed = window.confirm(
+      `Delete HIRARC document "${document.filename}"?`
+    )
+
+    if (!confirmed) return
+
+    setDeletingId(document.id)
+
+    try {
+      const response = await fetch(
+        `/api/permits/${permitId}/hirarc/${document.id}`,
+        {
+          method: 'DELETE',
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ?? 'Unable to delete document'
+        )
+      }
+
+      setHirarc((current) =>
+        current.filter((item) => item.id !== document.id)
+      )
+      router.refresh()
+    } catch (deleteError) {
+      setUploadError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Unable to delete document'
+      )
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   function updateHazard(
     index: number,
@@ -283,20 +478,59 @@ export function JhaSection({
         <div>
           <h2 className="font-semibold">JHA / HIRARC</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Job Hazard Analysis with structured hazard
-            identification and risk assessment.
+            Choose one method: fill a JHA/HIRARC in the system{' '}
+            <span className="font-medium">or</span> upload an
+            existing HIRARC document.
           </p>
         </div>
 
-        {canAdd && !showForm && (
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
-          >
-            Add JHA
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canAdd && (
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
+                satisfied
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
+              }`}
+            >
+              {satisfied ? 'Complete' : 'Incomplete'}
+            </span>
+          )}
+
+          {canAdd && !showForm && !satisfied && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(true)
+                  setUploadError('')
+                }}
+                className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+              >
+                Fill JHA / HIRARC
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
+              >
+                {uploading
+                  ? 'Uploading...'
+                  : 'Upload Existing HIRARC'}
+              </button>
+            </>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt"
+            onChange={handleHirarcSelected}
+          />
+        </div>
       </div>
 
       {showForm && (
@@ -932,6 +1166,102 @@ export function JhaSection({
           ))
         )}
       </div>
+
+      {/* Uploaded HIRARC documents (Option B — satisfies the requirement) */}
+      <div className="border-t">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div>
+            <p className="text-sm font-medium">
+              Uploaded HIRARC Documents
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              An uploaded HIRARC satisfies the JHA/HIRARC requirement
+              without a manual JHA.
+            </p>
+          </div>
+
+          {canAdd && hirarc.length > 0 && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            >
+              {uploading ? 'Uploading...' : 'Upload'}
+            </button>
+          )}
+        </div>
+
+        {uploadError && (
+          <div className="border-b px-6 py-3 text-sm text-destructive">
+            {uploadError}
+          </div>
+        )}
+
+        {hirarc.length === 0 ? (
+          <p className="px-6 pb-6 text-sm text-muted-foreground">
+            No HIRARC document uploaded yet.
+          </p>
+        ) : (
+          <div className="divide-y">
+            {hirarc.map((document) => (
+              <div
+                key={document.id}
+                className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-md border text-sm">
+                    📄
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {document.filename}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Uploaded by{' '}
+                      {document.uploader?.full_name ?? 'Unknown'}
+                      {' · '}
+                      {formatDate(document.created_at)}
+                      {document.size_bytes
+                        ? ` · ${formatBytes(document.size_bytes)}`
+                        : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleHirarcDownload(document)
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </button>
+
+                  {canAdd && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleHirarcDelete(document)
+                      }
+                      disabled={deletingId === document.id}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-destructive px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {deletingId === document.id
+                        ? 'Deleting...'
+                        : 'Delete'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   )
 }
@@ -961,4 +1291,10 @@ function formatDate(value: string | null) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
