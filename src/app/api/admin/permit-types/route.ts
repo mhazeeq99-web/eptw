@@ -47,6 +47,7 @@ export async function GET() {
       requires_worker_briefing,
       requires_emergency_arrangements,
       is_active,
+      is_system,
       created_at
     `)
     .order('name')

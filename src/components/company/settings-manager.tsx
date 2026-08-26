@@ -16,6 +16,7 @@ type PermitType = {
   requires_worker_briefing: boolean
   requires_emergency_arrangements: boolean
   is_active: boolean
+  is_system?: boolean
   created_at?: string
 }
 
@@ -304,6 +305,36 @@ export function SettingsManager() {
         toggleError instanceof Error
           ? toggleError.message
           : 'Unable to update permit type'
+      )
+    }
+  }
+
+  async function deletePermitType(permitType: PermitType) {
+    setError('')
+
+    const confirmed = window.confirm(
+      `Delete "${permitType.name}"? This will remove it and its safety-control, PPE and checklist mappings. This cannot be undone.`
+    )
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(
+        `/api/admin/permit-types/${permitType.id}`,
+        { method: 'DELETE' }
+      )
+
+      const body = await response.json()
+
+      if (!response.ok) {
+        throw new Error(body.error ?? 'Unable to delete permit type')
+      }
+
+      await loadAll()
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Unable to delete permit type'
       )
     }
   }
@@ -780,15 +811,28 @@ export function SettingsManager() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => togglePermitType(permitType)}
-                        className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                      >
-                        {permitType.is_active
-                          ? 'Deactivate'
-                          : 'Activate'}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => togglePermitType(permitType)}
+                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                        >
+                          {permitType.is_active
+                            ? 'Deactivate'
+                            : 'Activate'}
+                        </button>
+
+                        {!permitType.is_system && (
+                          <button
+                            type="button"
+                            onClick={() => deletePermitType(permitType)}
+                            title="Delete this permit type"
+                            className="rounded-md border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
