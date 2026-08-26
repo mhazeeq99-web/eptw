@@ -30,6 +30,8 @@ type SearchParams = {
   q?: string
   from?: string
   to?: string
+  page?: string
+  per?: string
 }
 
 type CompanyRow = {
@@ -91,8 +93,6 @@ type AuditEvent = {
   resource: string
   result: string
 }
-
-const MAX_EVENTS = 400
 
 export default async function PlatformAuditPage({
   searchParams,
@@ -340,8 +340,39 @@ export default async function PlatformAuditPage({
         new Date(a.timestamp).getTime()
     )
 
-  const shown = filtered.slice(0, MAX_EVENTS)
+  // ---------------------------------------------------------
+  // Pagination (display-level; events are derived in JS then sliced).
+  // ---------------------------------------------------------
+
+  const PER_OPTIONS = [25, 50, 100] as const
+  const perRaw = Number(params.per)
+  const per = (PER_OPTIONS as readonly number[]).includes(perRaw)
+    ? perRaw
+    : 25
+  const pageRaw = Number(params.page)
+  const page =
+    Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1
+
+  const total = filtered.length
+  const totalPages = Math.max(1, Math.ceil(total / per))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * per
+  const shown = filtered.slice(start, start + per)
   const hasActiveFilters = Boolean(q || params.from || params.to)
+
+  const filterBase = [
+    params.q ? `q=${encodeURIComponent(params.q)}` : '',
+    params.from ? `from=${params.from}` : '',
+    params.to ? `to=${params.to}` : '',
+  ]
+    .filter(Boolean)
+    .join('&')
+  const pageHref = (p: number) =>
+    `/platform/audit?${[filterBase, `per=${per}`, `page=${p}`]
+      .filter(Boolean)
+      .join('&')}`
+  const perHref = (p: number) =>
+    `/platform/audit?${[filterBase, `per=${p}`].filter(Boolean).join('&')}`
 
   return (
     <DashboardShell>
@@ -436,13 +467,29 @@ export default async function PlatformAuditPage({
           </div>
         </form>
 
-        {/* Count */}
-        <div className="text-sm text-muted-foreground">
-          {shown.length} event{shown.length === 1 ? '' : 's'}
-          {hasActiveFilters ? ' (filtered)' : ''}
-          {filtered.length > MAX_EVENTS
-            ? ` — showing the ${MAX_EVENTS} most recent`
-            : ''}
+        {/* Count + rows-per-page */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-muted-foreground">
+            {total} event{total === 1 ? '' : 's'}
+            {hasActiveFilters ? ' (filtered)' : ''}
+          </div>
+
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Rows/page</span>
+            {PER_OPTIONS.map((opt) => (
+              <Link
+                key={opt}
+                href={perHref(opt)}
+                className={`rounded-md border px-2 py-1 ${
+                  per === opt
+                    ? 'bg-muted font-medium'
+                    : 'hover:bg-muted'
+                }`}
+              >
+                {opt}
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* Table */}
@@ -524,6 +571,55 @@ export default async function PlatformAuditPage({
               </table>
             </div>
           )}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 text-sm">
+          <span className="text-muted-foreground">
+            {total === 0
+              ? 'Showing 0'
+              : `Showing ${start + 1}–${Math.min(
+                  start + per,
+                  total
+                )} of ${total}`}
+          </span>
+
+          <div className="flex items-center gap-1">
+            {safePage > 1 && (
+              <Link
+                href={pageHref(safePage - 1)}
+                className="rounded-md border px-3 py-1 hover:bg-muted"
+              >
+                Previous
+              </Link>
+            )}
+
+            {Array.from(
+              { length: totalPages },
+              (_, i) => i + 1
+            ).map((p) => (
+              <Link
+                key={p}
+                href={pageHref(p)}
+                className={`rounded-md border px-3 py-1 ${
+                  p === safePage
+                    ? 'bg-primary font-medium text-primary-foreground'
+                    : 'hover:bg-muted'
+                }`}
+              >
+                {p}
+              </Link>
+            ))}
+
+            {safePage < totalPages && (
+              <Link
+                href={pageHref(safePage + 1)}
+                className="rounded-md border px-3 py-1 hover:bg-muted"
+              >
+                Next
+              </Link>
+            )}
+          </div>
         </div>
 
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
