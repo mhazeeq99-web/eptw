@@ -1,46 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { NotificationsBell } from './notifications-bell'
 import { ThemeToggle } from './theme-toggle'
+import { AccountMenu } from './account-menu'
 
 export function Header({
   onMenuClick,
 }: {
   onMenuClick: () => void
 }) {
-  const [fullName, setFullName] = useState('User')
-  const [role, setRole] = useState('User')
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    async function loadProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) return
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile) {
-        setFullName(profile.full_name)
-        setRole(formatRole(profile.role))
-      }
-    }
-
-    loadProfile()
-  }, [])
-
-  const initials = getInitials(fullName)
-
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
@@ -65,41 +34,8 @@ export function Header({
 
         <NotificationsBell />
 
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
-            {initials}
-          </div>
-
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium">
-              {fullName}
-            </p>
-
-            <p className="text-xs text-muted-foreground">
-              {role}
-            </p>
-          </div>
-        </div>
+        <AccountMenu />
       </div>
     </header>
   )
-}
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/)
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase()
-  }
-
-  return (
-    parts[0][0] +
-    parts[parts.length - 1][0]
-  ).toUpperCase()
-}
-
-function formatRole(role: string) {
-  return role
-    .replaceAll('_', ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
