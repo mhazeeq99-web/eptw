@@ -64,7 +64,6 @@ export function SettingsManager() {
   // Permit type form
   const [showTypeForm, setShowTypeForm] = useState(false)
   const [typeName, setTypeName] = useState('')
-  const [typeCode, setTypeCode] = useState('')
   const [typeRequiresJha, setTypeRequiresJha] = useState(false)
   const [typeRequiresGas, setTypeRequiresGas] = useState(false)
   const [typeRequiresLoto, setTypeRequiresLoto] = useState(false)
@@ -77,7 +76,6 @@ export function SettingsManager() {
 
   // Safety control form
   const [showControlForm, setShowControlForm] = useState(false)
-  const [controlCode, setControlCode] = useState('')
   const [controlName, setControlName] = useState('')
   const [controlCategory, setControlCategory] = useState('')
 
@@ -199,7 +197,6 @@ export function SettingsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: typeName.trim(),
-          code: typeCode.trim() || null,
           requires_jha: typeRequiresJha,
           requires_gas_test: typeRequiresGas,
           requires_loto: typeRequiresLoto,
@@ -216,7 +213,6 @@ export function SettingsManager() {
       }
 
       setTypeName('')
-      setTypeCode('')
       setTypeRequiresJha(false)
       setTypeRequiresGas(false)
       setTypeRequiresLoto(false)
@@ -239,8 +235,8 @@ export function SettingsManager() {
   async function createControl() {
     setError('')
 
-    if (!controlCode.trim() || !controlName.trim()) {
-      setError('Code and name are required.')
+    if (!controlName.trim()) {
+      setError('Name is required.')
       return
     }
 
@@ -251,7 +247,6 @@ export function SettingsManager() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: controlCode.trim(),
           name: controlName.trim(),
           category: controlCategory.trim() || null,
         }),
@@ -263,7 +258,6 @@ export function SettingsManager() {
         throw new Error(body.error ?? 'Unable to create safety control')
       }
 
-      setControlCode('')
       setControlName('')
       setControlCategory('')
       setShowControlForm(false)
@@ -622,17 +616,6 @@ export function SettingsManager() {
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Code</label>
-                <input
-                  type="text"
-                  value={typeCode}
-                  onChange={(event) => setTypeCode(event.target.value)}
-                  placeholder="e.g. HOT"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </div>
             </div>
 
             <div className="flex flex-wrap gap-4 text-sm">
@@ -737,7 +720,6 @@ export function SettingsManager() {
               <thead className="border-b bg-muted/40">
                 <tr>
                   <th className="px-6 py-3 text-left font-medium">Name</th>
-                  <th className="px-6 py-3 text-center font-medium">Code</th>
                   <th className="px-6 py-3 text-center font-medium">JHA</th>
                   <th className="px-6 py-3 text-center font-medium">Gas</th>
                   <th className="px-6 py-3 text-center font-medium">LOTO</th>
@@ -769,7 +751,6 @@ export function SettingsManager() {
                         {permitType.name}
                       </button>
                     </td>
-                    <td className="px-6 py-4 text-center">{permitType.code ?? '—'}</td>
                     <td className="px-6 py-4 text-center">
                       {permitType.requires_jha ? '✓' : '—'}
                     </td>
@@ -905,10 +886,7 @@ export function SettingsManager() {
                   >
                     <div>
                       <p className="text-sm font-medium">
-                        {control.name}{' '}
-                        <span className="text-muted-foreground">
-                          ({control.code})
-                        </span>
+                        {control.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {control.category ?? 'General'}
@@ -963,18 +941,7 @@ export function SettingsManager() {
 
         {showControlForm && (
           <div className="space-y-4 border-b p-6">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Code *</label>
-                <input
-                  type="text"
-                  value={controlCode}
-                  onChange={(event) => setControlCode(event.target.value)}
-                  placeholder="e.g. JHA"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </div>
-
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Name *</label>
                 <input
@@ -1031,7 +998,6 @@ export function SettingsManager() {
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/40">
                 <tr>
-                  <th className="px-6 py-3 text-left font-medium">Code</th>
                   <th className="px-6 py-3 text-left font-medium">Name</th>
                   <th className="px-6 py-3 text-left font-medium">Category</th>
                   <th className="px-6 py-3 text-left font-medium">Status</th>
@@ -1041,8 +1007,7 @@ export function SettingsManager() {
               <tbody className="divide-y">
                 {controls.map((control) => (
                   <tr key={control.id} className="hover:bg-muted/40">
-                    <td className="px-6 py-4 font-medium">{control.code}</td>
-                    <td className="px-6 py-4">{control.name}</td>
+                    <td className="px-6 py-4 font-medium">{control.name}</td>
                     <td className="px-6 py-4">{control.category ?? '—'}</td>
                     <td className="px-6 py-4">
                       <span

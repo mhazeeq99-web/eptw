@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdminProfile } from '@/lib/admin-auth'
+import { deriveUniqueCode } from '@/lib/permit-codes'
 
 export async function GET() {
   const supabase = await createClient()
@@ -127,16 +128,37 @@ export async function POST(request: Request) {
     )
   }
 
+  // Derive a code from the name so the user never has to think of one.
+  // Respects the (company_id, code) uniqueness constraint by appending a
+  // suffix on collision. An explicit code is still honoured if provided
+  // (e.g. system seeding), otherwise the name is used.
+  const companyId = admin.profile.company_id
+  const existingCodes = new Set<string>()
+
+  let codeQuery = supabase.from('permit_types').select('code')
+  if (companyId != null) {
+    codeQuery = codeQuery.eq('company_id', companyId)
+  }
+  const { data: existingRows } = await codeQuery
+  for (const row of existingRows ?? []) {
+    if (row.code) existingCodes.add(row.code)
+  }
+
+  const explicitCode =
+    typeof body.code === 'string' && body.code.trim()
+      ? body.code.trim().toUpperCase()
+      : ''
+  const code = explicitCode
+    ? deriveUniqueCode(explicitCode, existingCodes)
+    : deriveUniqueCode(name, existingCodes)
+
   const { data: permitType, error: insertError } =
     await supabase
       .from('permit_types')
       .insert({
         company_id: admin.profile.company_id,
         name,
-        code:
-          typeof body.code === 'string' && body.code.trim()
-            ? body.code.trim()
-            : null,
+        code,
         requires_jha: body.requires_jha === true,
         requires_gas_test: body.requires_gas_test === true,
         requires_loto: body.requires_loto === true,

@@ -695,23 +695,22 @@ function UserSection({
 
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {getAccountStatus(user) === 'INVITED' &&
-                        user.role === 'internal_staff' && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onResendInvitation(user)
-                            }
-                            disabled={
-                              resendingId === user.id
-                            }
-                            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {resendingId === user.id
-                              ? 'Resending...'
-                              : 'Resend Invitation'}
-                          </button>
-                        )}
+                      {getAccountStatus(user) === 'INVITED' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onResendInvitation(user)
+                          }
+                          disabled={
+                            resendingId === user.id
+                          }
+                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {resendingId === user.id
+                            ? 'Resending...'
+                            : 'Resend Invitation'}
+                        </button>
+                      )}
 
                       <button
                         type="button"

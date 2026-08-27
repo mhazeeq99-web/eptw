@@ -3,12 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
- * Resends the internal-staff invitation (password-setup link).
+ * Resends the invitation (password-setup link) for an invited internal-staff
+ * or safety-coordinator user.
  * Server-side authorized:
  *   - authenticated requester
  *   - Safety Manager
  *   - requester and target user share the same company
- *   - target role is internal_staff
+ *   - target role is internal_staff or safety_coordinator
  *   - target account is still INVITED (invitation_sent_at set)
  * Never creates a duplicate Auth account or profile; the existing user id is
  * reused. Simple server-side rate limit prevents rapid repeated requests.
@@ -80,9 +81,9 @@ export async function POST(
     )
   }
 
-  if (target.role !== 'internal_staff') {
+  if (target.role !== 'internal_staff' && target.role !== 'safety_coordinator') {
     return NextResponse.json(
-      { error: 'Only internal staff invitations can be resent' },
+      { error: 'Only internal staff and safety coordinator invitations can be resent' },
       { status: 400 }
     )
   }

@@ -640,15 +640,10 @@ export default function NewPermitPage() {
 
       setSafetyControls(controls)
 
-      // Recommended controls start pre-selected (toggleable); required
-      // controls are locked and verified on the detail page.
-      setRecommendedControlIds(
-        new Set(
-          controls
-            .filter((control) => control.is_recommended)
-            .map((control) => control.id)
-        )
-      )
+      // Recommended controls are NOT pre-selected — the user ticks the ones
+      // they want. Required controls are locked and selected (mandatory and
+      // verified on the detail page).
+      setRecommendedControlIds(new Set())
     }
 
     loadSafetyControls()
@@ -715,10 +710,14 @@ export default function NewPermitPage() {
       }
       setPpeRecommendations(recommendations)
 
-      // Recommended/required PPE starts selected; the user can toggle
-      // recommended items, required items stay locked on.
+      // Required PPE starts selected (mandatory and part of the safety gate).
+      // Recommended PPE is NOT pre-selected — the user ticks what they want.
       setSelectedPpeIds(
-        new Set(recommendations.keys())
+        new Set(
+          Array.from(recommendations.entries())
+            .filter(([, req]) => req === 'required')
+            .map(([id]) => id)
+        )
       )
     }
 
@@ -1575,7 +1574,7 @@ export default function NewPermitPage() {
 
                   <SectionHeader
                     title="Safety Controls"
-                    description="Required controls are enforced before approval. Recommended controls are pre-selected and can be adjusted."
+                    description="Required controls are enforced before approval. Tick the recommended controls you plan to use."
                   />
 
                   <div className="mt-6 grid gap-2 sm:grid-cols-2">
