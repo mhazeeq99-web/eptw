@@ -20,11 +20,21 @@ function startOfCurrentMonthUTC(): string {
  * Permits created by the company in the current calendar month that consume
  * the monthly allowance.
  *
- * A permit only consumes the monthly allowance once it LEAVES draft status
- * (submitted/pending/active/etc.). Abandoned or in-progress drafts do NOT
- * count, so the draft-first Create flow does not silently deplete the
- * monthly quota. Drafts remain usable/editable even after the limit is hit
- * because they are excluded here.
+ * A permit consumes the monthly allowance once it has genuinely entered the
+ * operational permit workflow:
+ *   - draft                            -> does NOT count (never submitted)
+ *   - rejected                         -> does NOT count (never activated)
+ *   - cancelled, valid_from IS NULL    -> does NOT count (cancelled before
+ *                                          ever becoming operational, e.g.
+ *                                          from draft/pending/approved/issued)
+ *   - cancelled, valid_from IS NOT NULL-> counts (was activated then cancelled,
+ *                                          e.g. suspended -> cancelled)
+ *   - submitted / pending_approval / approved / issued / active / suspended /
+ *     completed / closed               -> counts
+ *
+ * Abandoned or in-progress drafts therefore do not silently deplete the Free
+ * monthly quota (draft-first Create flow), and drafts remain usable/editable
+ * even after the limit is hit because they are excluded here.
  *
  * Deleted QA records no longer exist, and previous months are excluded.
  */
@@ -36,7 +46,10 @@ export async function getMonthlyPermitUsage(
     .from('permits')
     .select('id', { count: 'exact', head: true })
     .eq('company_id', companyId)
-    .neq('status', 'draft')
+    .not('status', 'in', '("draft","rejected")')
+    .or(
+      'and(status.neq.cancelled),and(status.eq.cancelled,valid_from.not.is.null)'
+    )
     .gte('created_at', startOfCurrentMonthUTC())
 
   return count ?? 0
