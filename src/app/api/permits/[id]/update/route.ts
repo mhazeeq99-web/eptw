@@ -152,17 +152,12 @@ export async function PATCH(
     )
   }
 
-  if (
-    typeof body.work_title !== 'string' ||
-    !body.work_title.trim()
-  ) {
-    return NextResponse.json(
-      {
-        error: 'Work title is required',
-      },
-      { status: 400 }
-    )
-  }
+  // A DRAFT may be incomplete, so the work title is optional here (the
+  // submission validator enforces it before the permit can be submitted).
+  const workTitle =
+    typeof body.work_title === 'string'
+      ? body.work_title.trim()
+      : ''
 
   // ---------------------------------------------------------
   // 7. Validate permit type and safety requirements
@@ -404,7 +399,7 @@ export async function PATCH(
       .from('permits')
       .update({
         permit_type_id: body.permit_type_id,
-        work_title: body.work_title.trim(),
+        work_title: workTitle,
         work_description:
           body.work_description?.trim() || null,
         work_location:

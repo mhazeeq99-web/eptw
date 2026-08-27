@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
@@ -28,6 +29,7 @@ import { BackButton } from '@/components/ui/back-button'
 
 type Profile = {
   id: string
+  full_name: string
   role: string
   company_id: number | null
 }
@@ -117,6 +119,15 @@ export default function NewPermitPage() {
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submissionErrors, setSubmissionErrors] = useState<
+    Array<{ field: string; message: string }>
+  >([])
+  const [submittedPermit, setSubmittedPermit] = useState<{
+    id: number
+    permit_no: string
+    status: string
+  } | null>(null)
 
   const selectedPermitType = permitTypes.find(
     (type) => type.id === Number(permitTypeId)
@@ -201,6 +212,7 @@ export default function NewPermitPage() {
         .from('profiles')
         .select(`
           id,
+          full_name,
           role,
           company_id
         `)
@@ -670,11 +682,14 @@ export default function NewPermitPage() {
   // ---------------------------------------------------------
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>,
+    mode: 'draft' | 'submit'
   ) {
     event.preventDefault()
 
     setError('')
+    setSubmissionErrors([])
+    setSubmittedPermit(null)
 
     if (!companyId) {
       setError(
@@ -690,15 +705,21 @@ export default function NewPermitPage() {
       return
     }
 
-    if (!workTitle.trim()) {
+    // Client-side date validation (server also enforces it).
+    if (
+      plannedStart &&
+      plannedEnd &&
+      new Date(plannedEnd) <= new Date(plannedStart)
+    ) {
       setError(
-        'Work title is required.'
+        'Planned End must be later than Planned Start.'
       )
       return
     }
 
-    // Contractor PTW: at least one worker (name + NRIC/passport) and the
-    // customer staff reference are required.
+    // For submit mode only, run a quick client-side pre-check for the
+    // obvious submission requirements so the user gets immediate feedback.
+    // The server-side validator remains authoritative.
     const validWorkers = workers.filter(
       (worker) =>
         worker.full_name.trim() &&
@@ -706,17 +727,26 @@ export default function NewPermitPage() {
     )
 
     if (
+      mode === 'submit' &&
       isContractor &&
       (validWorkers.length === 0 ||
         !staffReferenceName.trim())
     ) {
-      setError(
-        'Worker name, worker NRIC/passport and the customer staff reference are required for contractor permits.'
-      )
+      setSubmissionErrors([
+        {
+          field: 'workers',
+          message:
+            'Worker name, worker NRIC/passport and the customer staff reference are required for contractor permits.',
+        },
+      ])
       return
     }
 
-    setLoading(true)
+    if (mode === 'submit') {
+      setSubmitting(true)
+    } else {
+      setLoading(true)
+    }
 
     try {
       const response = await fetch(
@@ -728,6 +758,7 @@ export default function NewPermitPage() {
               'application/json',
           },
           body: JSON.stringify({
+            submit: mode === 'submit',
             company_id:
               Number(companyId),
 
@@ -815,13 +846,29 @@ export default function NewPermitPage() {
         await response.json()
 
       if (!response.ok) {
-        setError(
-          result.error ||
-            'Unable to create permit.'
-        )
+        if (Array.isArray(result.errors)) {
+          setSubmissionErrors(result.errors)
+        } else {
+          setError(
+            result.error ||
+              'Unable to create permit.'
+          )
+        }
         return
       }
 
+      // Direct submission succeeded: show confirmation instead of the form.
+      if (result.submitted === true && result.permit) {
+        setSubmittedPermit({
+          id: result.permit.id,
+          permit_no: result.permit.permit_no,
+          status: result.permit.status,
+        })
+        return
+      }
+
+      // Draft saved: navigate to the permit detail page (the continuation of
+      // the same workspace).
       router.push(
         `/permits/${result.permit.id}`
       )
@@ -833,6 +880,7 @@ export default function NewPermitPage() {
       )
     } finally {
       setLoading(false)
+      setSubmitting(false)
     }
   }
 
@@ -897,7 +945,9 @@ export default function NewPermitPage() {
         </p>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={(event) =>
+            handleSubmit(event, 'draft')
+          }
           className="mt-8 space-y-8"
         >
 
@@ -1552,6 +1602,22 @@ export default function NewPermitPage() {
             </div>
           )}
 
+          {submissionErrors.length > 0 && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4">
+              <p className="font-medium text-destructive">
+                Cannot submit permit yet
+              </p>
+              <p className="mt-1 text-sm text-destructive/80">
+                The following items must be completed before submission:
+              </p>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-destructive/90">
+                {submissionErrors.map((item, index) => (
+                  <li key={index}>{item.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* ------------------------------------------------ */}
           {/* Actions */}
           {/* ------------------------------------------------ */}
@@ -1569,13 +1635,35 @@ export default function NewPermitPage() {
             </button>
 
             <button
-              type="submit"
+              type="button"
+              onClick={(event) =>
+                handleSubmit(
+                  event as unknown as React.FormEvent<HTMLFormElement>,
+                  'submit'
+                )
+              }
               disabled={
+                submitting ||
                 loading ||
                 !companyId ||
                 !permitTypeId
               }
               className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting
+                ? 'Submitting...'
+                : 'Submit Permit'}
+            </button>
+
+            <button
+              type="submit"
+              disabled={
+                loading ||
+                submitting ||
+                !companyId ||
+                !permitTypeId
+              }
+              className="rounded-md border px-5 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
                 ? 'Saving...'
@@ -1585,6 +1673,37 @@ export default function NewPermitPage() {
           </div>
 
         </form>
+
+        {submittedPermit && (
+          <div className="mt-8 rounded-xl border bg-background p-8 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
+              ✓
+            </div>
+            <h2 className="mt-4 text-2xl font-bold">
+              Permit Submitted
+            </h2>
+            <p className="mt-2 text-lg font-semibold text-primary">
+              {submittedPermit.permit_no}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Status:{' '}
+              <span className="font-medium uppercase">
+                {submittedPermit.status.replaceAll('_', ' ')}
+              </span>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Submitted by: {profile?.full_name ?? 'You'}
+            </p>
+            <div className="mt-6">
+              <Link
+                href={`/permits/${submittedPermit.id}`}
+                className="inline-flex rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                View Permit
+              </Link>
+            </div>
+          </div>
+        )}
 
       </div>
     </DashboardShell>

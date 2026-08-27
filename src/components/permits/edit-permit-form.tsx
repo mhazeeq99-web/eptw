@@ -545,6 +545,19 @@ export default function EditPermitForm({
     event.preventDefault()
 
     setError('')
+
+    // Client-side date validation (server also enforces it).
+    if (
+      plannedStart &&
+      plannedEnd &&
+      new Date(plannedEnd) <= new Date(plannedStart)
+    ) {
+      setError(
+        'Planned End must be later than Planned Start.'
+      )
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -825,7 +838,6 @@ export default function EditPermitForm({
             <div className="md:col-span-2">
               <Field
                 label="Work Title"
-                required
               >
                 <input
                   type="text"
@@ -835,7 +847,6 @@ export default function EditPermitForm({
                       event.target.value
                     )
                   }
-                  required
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 />
               </Field>

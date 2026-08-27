@@ -8,6 +8,9 @@ import {
   validateCsePersonnel,
   type CseResponsibility,
 } from '@/lib/specialised-permit'
+import { performPermitTransition } from '@/lib/permit-transition'
+import { notifyPermitEvent } from '@/lib/notifications'
+import { validatePermitSubmission } from '@/lib/permit-submission'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -67,6 +70,7 @@ export async function POST(request: Request) {
   let body: {
     company_id?: number
     permit_type_id?: number
+    submit?: boolean
     work_title?: string
     work_description?: string | null
     work_location?: string | null
@@ -128,12 +132,12 @@ export async function POST(request: Request) {
       ? body.work_title.trim()
       : ''
 
-  if (!workTitle) {
-    return NextResponse.json(
-      { error: 'Work title is required' },
-      { status: 400 }
-    )
-  }
+  const isSubmit = body.submit === true
+
+  // A DRAFT permit may be incomplete. When submitting, the structured
+  // submission validator (run after persistence below) reports exactly what
+  // is missing and the permit stays a DRAFT — we do NOT hard-fail here so the
+  // UI gets per-field errors.
 
   // ---------------------------------------------------------
   // 4. Determine contractor / company relationship
@@ -305,22 +309,9 @@ export async function POST(request: Request) {
       ]
     }
 
-    if (
-      !staffReferenceName ||
-      workers.length === 0 ||
-      workers.some(
-        (worker) =>
-          !worker.full_name || !worker.id_number
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Worker name, worker ID/NRIC and the customer staff reference are required for contractor permits',
-        },
-        { status: 400 }
-      )
-    }
+    // Contractor worker/staff-reference requirements are enforced by the
+    // structured submission validator (after persistence) so an invalid
+    // submit returns per-field errors and keeps the permit as a DRAFT.
   }
 
   const firstWorker = workers[0] ?? null
@@ -500,18 +491,28 @@ export async function POST(request: Request) {
   }
 
   // ---------------------------------------------------------
-  // 8. Create permit
+  // 7c. Validate the planned work period (blocked at create/edit/submit).
   // ---------------------------------------------------------
 
-  const {
-    data: contractorAuth,
-    error: contractorAuthError,
-  } = await supabase.rpc(
-    'is_contractor_authorized_for_company',
-    {
-      target_company_id: companyId,
-    }
-  )
+  if (
+    body.planned_start &&
+    body.planned_end &&
+    new Date(body.planned_end) <=
+      new Date(body.planned_start)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'Planned End must be later than Planned Start.',
+        field: 'planned_end',
+      },
+      { status: 400 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 8. Create permit
+  // ---------------------------------------------------------
 
   const {
     data: permit,
@@ -553,7 +554,8 @@ export async function POST(request: Request) {
       id,
       permit_no,
       status,
-      initiation_mode
+      initiation_mode,
+      company_id
     `)
     .single()
 
@@ -782,12 +784,119 @@ export async function POST(request: Request) {
   }
 
   // ---------------------------------------------------------
-  // 9. Return success
+  // 8e. Direct submit (submit=true): run submission validation, then
+  //     transition DRAFT -> PENDING_APPROVAL atomically when valid.
+  //     When invalid, the permit remains a DRAFT and the errors are returned
+  //     so the UI can highlight exactly what is missing. This deliberately
+  //     uses SUBMISSION validation (not the approval/readiness engine) —
+  //     safety verification happens later by the authorised verifier.
+  // ---------------------------------------------------------
+
+  if (isSubmit) {
+    const submission = await validatePermitSubmission(
+      supabase,
+      permit.id
+    )
+
+    if (!submission.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          submitted: false,
+          permit,
+          errors: submission.errors,
+        },
+        { status: 422 }
+      )
+    }
+
+    const transition = await performPermitTransition(
+      supabase,
+      permit.id,
+      'draft',
+      'pending_approval',
+      {
+        workflow_stage: 'safety_approval',
+        submitted_by: user.id,
+        submitted_at: new Date().toISOString(),
+      }
+    )
+
+    if (!transition.ok) {
+      console.error(
+        'Failed to submit permit after create:',
+        transition.error
+      )
+      return NextResponse.json(
+        {
+          error:
+            transition.error ??
+            'Permit was created but could not be submitted. Please try again.',
+          permit,
+        },
+        { status: 500 }
+      )
+    }
+
+    const { error: historyError } =
+      await supabase
+        .from('permit_approvals')
+        .insert({
+          permit_id: permit.id,
+          action: 'submitted',
+          performed_by: user.id,
+          remarks:
+            'Permit submitted for safety approval',
+        })
+
+    if (historyError) {
+      console.error(
+        'Failed to create submission history:',
+        historyError
+      )
+      return NextResponse.json(
+        {
+          error:
+            'Permit was submitted, but audit history could not be recorded. Please contact support.',
+          permit: { ...permit, status: 'pending_approval' },
+        },
+        { status: 500 }
+      )
+    }
+
+    await notifyPermitEvent(supabase, {
+      permit: {
+        id: permit.id,
+        permit_no: permit.permit_no,
+        company_id: permit.company_id,
+        requester_id: user.id,
+      },
+      event: 'permit_submitted',
+      actorId: user.id,
+    })
+
+    return NextResponse.json(
+      {
+        success: true,
+        submitted: true,
+        permit: {
+          ...permit,
+          status: 'pending_approval',
+          workflow_stage: 'safety_approval',
+        },
+      },
+      { status: 201 }
+    )
+  }
+
+  // ---------------------------------------------------------
+  // 9. Return success (draft saved)
   // ---------------------------------------------------------
 
   return NextResponse.json(
     {
       success: true,
+      submitted: false,
       permit,
     },
     { status: 201 }

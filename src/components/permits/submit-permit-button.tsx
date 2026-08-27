@@ -3,6 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+type SubmissionError = {
+  field: string
+  message: string
+}
+
 export function SubmitPermitButton({
   permitId,
 }: {
@@ -12,6 +17,7 @@ export function SubmitPermitButton({
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [errors, setErrors] = useState<SubmissionError[]>([])
 
   async function handleSubmit() {
     const confirmed = window.confirm(
@@ -24,6 +30,7 @@ export function SubmitPermitButton({
 
     setLoading(true)
     setError('')
+    setErrors([])
 
     try {
       const response = await fetch(
@@ -36,7 +43,11 @@ export function SubmitPermitButton({
       const result = await response.json()
 
       if (!response.ok) {
-        setError(result.error || 'Failed to submit permit')
+        if (Array.isArray(result.errors)) {
+          setErrors(result.errors)
+        } else {
+          setError(result.error || 'Failed to submit permit')
+        }
         setLoading(false)
         return
       }
@@ -49,12 +60,12 @@ export function SubmitPermitButton({
   }
 
   return (
-    <div>
+    <div className="w-full">
       <button
         type="button"
         onClick={handleSubmit}
         disabled={loading}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? 'Submitting...' : 'Submit Permit'}
       </button>
@@ -63,6 +74,19 @@ export function SubmitPermitButton({
         <p className="mt-2 text-sm text-destructive">
           {error}
         </p>
+      )}
+
+      {errors.length > 0 && (
+        <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3">
+          <p className="text-sm font-medium text-destructive">
+            The following must be completed before submission:
+          </p>
+          <ul className="mt-1 list-inside list-disc space-y-0.5 text-sm text-destructive/90">
+            {errors.map((item, index) => (
+              <li key={index}>{item.message}</li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

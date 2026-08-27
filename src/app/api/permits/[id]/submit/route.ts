@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { notifyPermitEvent } from '@/lib/notifications'
 import { performPermitTransition } from '@/lib/permit-transition'
+import { validatePermitSubmission } from '@/lib/permit-submission'
 
 export async function POST(
   request: Request,
@@ -105,40 +106,27 @@ export async function POST(
   }
 
   // ---------------------------------------------------------
-  // 5. Validate work title
+  // 5. Submission validation (distinct from approval/readiness).
+  //    Checks only what the requester/contractor must supply to hand the
+  //    permit to the Safety Officer. JHA verification, site verification,
+  //    worker briefing, etc. are NOT required here — they are evaluated later
+  //    by the approval engine.
   // ---------------------------------------------------------
 
-  if (!permit.work_title?.trim()) {
+  const submission = await validatePermitSubmission(
+    supabase,
+    permit.id
+  )
+
+  if (!submission.ok) {
     return NextResponse.json(
       {
-        error: 'Work title is required',
+        success: false,
+        errors: submission.errors,
       },
-      { status: 400 }
+      { status: 422 }
     )
   }
-
-  // ---------------------------------------------------------
-  // 6. Validate planned dates
-  // ---------------------------------------------------------
-
-  if (
-    permit.planned_start &&
-    permit.planned_end &&
-    new Date(permit.planned_end) <=
-      new Date(permit.planned_start)
-  ) {
-    return NextResponse.json(
-      {
-        error:
-          'Planned end time must be later than planned start time',
-      },
-      { status: 400 }
-    )
-  }
-
-  // ---------------------------------------------------------
-  // 7. Determine who is submitting
-  // ---------------------------------------------------------
 
   const isContractorCompletion =
     permit.initiation_mode ===
