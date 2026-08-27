@@ -114,7 +114,11 @@ const ROLE_LABEL: Record<string, string> = {
 
 /**
  * Server-side check: may the company add a user with the given role?
- * Enforces both the per-role allowance and the total-user allowance.
+ * Enforces the per-role allowance (except Contractor Admins, which are
+ * UNLIMITED on every plan) and the total-user allowance. A NULL per-role
+ * limit means unlimited for that role. Contractor Admins belong to contractor
+ * orgs (company_id NULL), so they are not company users; the total-user limit
+ * only counts company-attributable roles (SM/SC/IS).
  */
 export async function canCreateUser(
   admin: SupabaseClient,
@@ -131,6 +135,7 @@ export async function canCreateUser(
     excludeUserId
   )
 
+  // Per-role allowance: skip when the role is unlimited (NULL limit).
   if (limitKey) {
     const roleLimit = plan[limitKey]
     const roleUsage =
@@ -142,7 +147,7 @@ export async function canCreateUser(
             ? counts.internal_staff
             : counts.contractor_admins
 
-    if (roleUsage >= roleLimit) {
+    if (roleLimit != null && roleUsage >= roleLimit) {
       return limitError(
         plan,
         roleUsage,

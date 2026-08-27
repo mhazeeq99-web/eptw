@@ -21,6 +21,13 @@ function planRow(plan: Plan, key: keyof Plan): string {
   return String(value)
 }
 
+function retentionLabel(plan: Plan | undefined): string {
+  if (!plan) return '—'
+  const years = plan.max_history_years
+  if (years == null) return 'Unlimited'
+  return `${years} ${years === 1 ? 'year' : 'years'}`
+}
+
 export default async function PricingPage() {
   const supabase = await createClient()
 
@@ -61,11 +68,10 @@ export default async function PricingPage() {
     { label: 'Safety Managers', free: planRow(freePlan, 'max_safety_managers'), pro: planRow(proPlan, 'max_safety_managers') },
     { label: 'Safety Coordinators', free: planRow(freePlan, 'max_safety_coordinators'), pro: planRow(proPlan, 'max_safety_coordinators') },
     { label: 'Internal Staff', free: planRow(freePlan, 'max_internal_staff'), pro: planRow(proPlan, 'max_internal_staff') },
-    { label: 'Contractor Admins', free: planRow(freePlan, 'max_contractor_admins'), pro: planRow(proPlan, 'max_contractor_admins') },
-    { label: 'Maximum total users', free: planRow(freePlan, 'max_total_users'), pro: planRow(proPlan, 'max_total_users') },
     { label: 'PTWs per calendar month', free: planRow(freePlan, 'max_monthly_permits'), pro: planRow(proPlan, 'max_monthly_permits') },
     { label: 'Active PTWs at one time', free: planRow(freePlan, 'max_active_permits'), pro: planRow(proPlan, 'max_active_permits') },
     { label: 'Attachment storage', free: planRow(freePlan, 'max_storage_bytes'), pro: planRow(proPlan, 'max_storage_bytes') },
+    { label: 'Permit history retention', free: retentionLabel(freePlan), pro: retentionLabel(proPlan) },
   ]
 
   const featureRows: ComparisonRow[] = [
@@ -74,7 +80,6 @@ export default async function PricingPage() {
     { label: 'Gas Testing', free: planRow(freePlan, 'feature_gas_testing'), pro: planRow(proPlan, 'feature_gas_testing') },
     { label: 'Safety Controls', free: 'Yes', pro: 'Yes' },
     { label: 'Contractor PTW', free: planRow(freePlan, 'feature_contractor_ptw'), pro: planRow(proPlan, 'feature_contractor_ptw') },
-    { label: 'Permit history', free: 'Unlimited', pro: 'Unlimited' },
     { label: 'Basic Dashboard', free: 'Yes', pro: 'Yes' },
     { label: 'Basic Reports', free: planRow(freePlan, 'feature_basic_reports'), pro: planRow(proPlan, 'feature_basic_reports') },
     { label: 'Basic Notifications', free: planRow(freePlan, 'feature_notifications'), pro: planRow(proPlan, 'feature_notifications') },
@@ -123,8 +128,8 @@ export default async function PricingPage() {
                     <Row label="Sites" value={formatLimit(plan.max_sites)} />
                     <Row label="Monthly PTWs" value={formatLimit(plan.max_monthly_permits)} />
                     <Row label="Active PTWs" value={formatLimit(plan.max_active_permits)} />
-                    <Row label="Total users" value={formatLimit(plan.max_total_users)} />
                     <Row label="Storage" value={formatBytes(plan.max_storage_bytes)} />
+                    <Row label="Permit history retention" value={retentionLabel(plan)} />
                   </div>
 
                   {plan.code === 'pro' ? (
@@ -150,7 +155,7 @@ export default async function PricingPage() {
                     </div>
                   ) : (
                     <p className="mt-6 rounded-md border p-3 text-center text-sm text-muted-foreground">
-                      Your current default plan
+                      Your current plan
                     </p>
                   )}
                 </div>

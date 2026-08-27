@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { History as HistoryIcon, FileText } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { resolvePermitScope } from '@/lib/permit-scope'
+import { getCompanyPlan } from '@/lib/entitlements'
 import { QuickFilters } from '@/components/permits/quick-filters'
 import { StatusBadge, formatDate } from '@/components/permits/status-badge'
 
@@ -54,6 +56,20 @@ export default async function PermitHistoryPage({
 
   if (!scope) return null
 
+  // Permit history retention (product access rule — never deletes records).
+  // Permit history older than the plan's retention window is hidden from the
+  // normal history access. Free = 2 years, Pro = 10 years. Contractor and
+  // platform users fall back to the longest retention (10 years) since they
+  // are not tied to a single customer plan.
+  let historyCutoff: string | null = null
+  if (scope.companyId !== null) {
+    const plan = await getCompanyPlan(
+      createAdminClient(),
+      scope.companyId
+    )
+    historyCutoff = await resolveHistoryCutoff(plan.max_history_years)
+  }
+
   let query = supabase
     .from('permits')
     .select(`
@@ -76,6 +92,10 @@ export default async function PermitHistoryPage({
       )
     `)
     .in('status', HISTORY_STATUSES)
+
+  if (historyCutoff) {
+    query = query.gte('updated_at', historyCutoff)
+  }
 
   if (!scope.isPlatformAdmin) {
     if (scope.companyId !== null) {
@@ -266,4 +286,21 @@ export default async function PermitHistoryPage({
 
 function escapeLike(value: string) {
   return value.replace(/[%_\\]/g, (char) => `\\${char}`)
+}
+
+/**
+ * Resolves the permit-history retention cutoff (an ISO timestamp) from the
+ * plan's max_history_years. A null/zero years means no cutoff (unlimited).
+ * This is a product access/visibility rule — records are never deleted.
+ * Kept as a separate async helper so the server component body stays pure.
+ */
+async function resolveHistoryCutoff(
+  years: number | null
+): Promise<string | null> {
+  if (years == null || years <= 0) return null
+  const now = new Date()
+  const cutoff = new Date(
+    now.getTime() - years * 365.25 * 24 * 60 * 60 * 1000
+  )
+  return cutoff.toISOString()
 }

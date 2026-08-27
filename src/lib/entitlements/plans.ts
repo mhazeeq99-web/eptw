@@ -21,11 +21,12 @@ export const FALLBACK_FREE_PLAN: Plan = {
   max_safety_managers: 1,
   max_safety_coordinators: 2,
   max_internal_staff: 5,
-  max_contractor_admins: 3,
+  max_contractor_admins: null, // unlimited
   max_total_users: 11,
   max_monthly_permits: 20,
   max_active_permits: 10,
-  max_storage_bytes: 500 * 1024 * 1024,
+  max_storage_bytes: 250 * 1024 * 1024, // 250 MB
+  max_history_years: 2,
   feature_jha: true,
   feature_loto: true,
   feature_gas_testing: true,

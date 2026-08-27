@@ -19,11 +19,13 @@ export type Plan = {
   max_safety_managers: number
   max_safety_coordinators: number
   max_internal_staff: number
-  max_contractor_admins: number
+  max_contractor_admins: number | null
   max_total_users: number
   max_monthly_permits: number | null
   max_active_permits: number | null
   max_storage_bytes: number
+  /** Permit history retention in years (product retention/access limit). */
+  max_history_years: number | null
   // Feature flags
   feature_jha: boolean
   feature_loto: boolean

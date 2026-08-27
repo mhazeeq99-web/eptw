@@ -50,7 +50,6 @@ function buildUsageRows(entitlements: Entitlements): UsageRow[] {
         `${usage.users.safety_manager} / ${plan.max_safety_managers} Safety Managers`,
         `${usage.users.safety_coordinator} / ${plan.max_safety_coordinators} Safety Coordinators`,
         `${usage.users.internal_staff} / ${plan.max_internal_staff} Internal Staff`,
-        `${usage.users.contractor_admins} / ${plan.max_contractor_admins} Contractor Admins`,
       ].join(' · '),
     },
     {
