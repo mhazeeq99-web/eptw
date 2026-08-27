@@ -863,6 +863,17 @@ export default function NewPermitPage() {
       return
     }
 
+    if (mode === 'submit' && !declaration) {
+      setSubmissionErrors([
+        {
+          field: 'declaration',
+          message:
+            'You must confirm the Applicant Declaration before submitting the permit.',
+        },
+      ])
+      return
+    }
+
     if (mode === 'submit') {
       setSubmitting(true)
     } else {
@@ -1781,7 +1792,8 @@ export default function NewPermitPage() {
                     <span>
                       I confirm that the information provided in this permit
                       application is accurate and that I am authorised to
-                      apply for this permit.
+                      apply for this permit.{' '}
+                      <span className="text-destructive">*</span>
                     </span>
                   </label>
                 </div>

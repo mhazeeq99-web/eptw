@@ -2,16 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionSuccessDialog } from './action-success-dialog'
 
 export function ApproveAndIssueButton({
   permitId,
+  permitNo,
 }: {
   permitId: number
+  permitNo?: string
 }) {
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   async function handleApproveAndIssue() {
     const confirmed = window.confirm(
@@ -43,6 +47,7 @@ export function ApproveAndIssueButton({
         return
       }
 
+      setSuccess(true)
       router.refresh()
     } catch {
       setError(
@@ -71,6 +76,15 @@ export function ApproveAndIssueButton({
           {error}
         </p>
       )}
+
+      <ActionSuccessDialog
+        open={success}
+        title="Permit Approved & Issued"
+        message="This permit is now ACTIVE and the work may proceed."
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(false)}
+      />
     </div>
   )
 }

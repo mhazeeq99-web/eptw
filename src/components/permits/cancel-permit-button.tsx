@@ -2,16 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionSuccessDialog } from './action-success-dialog'
 
 export function CancelPermitButton({
   permitId,
+  permitNo,
 }: {
   permitId: number
+  permitNo?: string
 }) {
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   async function handleCancel() {
     const remarks = window.prompt(
@@ -62,6 +66,7 @@ export function CancelPermitButton({
         return
       }
 
+      setSuccess(true)
       router.refresh()
     } catch {
       setError(
@@ -88,6 +93,15 @@ export function CancelPermitButton({
           {error}
         </p>
       )}
+
+      <ActionSuccessDialog
+        open={success}
+        title="Permit Cancelled"
+        message="This permit has been cancelled and is no longer active."
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(false)}
+      />
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { SuspendPermitButton } from '@/components/permits/suspend-permit-button'
 import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
 import { RejectPermitButton } from '@/components/permits/reject-permit-button'
 import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
+import { ApplicantDeclarationConfirm } from '@/components/permits/applicant-declaration-confirm'
 import { LifecyclePanel } from '@/components/permits/lifecycle-panel'
 import { JhaSection, type Jha, type HirarcDocument } from '@/components/permits/safety-documents/jha-section'
 import { LotoSection, type LotoPoint } from '@/components/permits/safety-documents/loto-section'
@@ -574,6 +575,14 @@ export default async function PermitDetailsPage({
     currentUserRole === 'safety_manager' ||
     currentUserRole === 'safety_coordinator'
 
+  // The Applicant Declaration may be confirmed/revoked by the requester while
+  // the permit is in a submittable state (draft, or rejected before resubmit).
+  // The submission gate requires the declaration to be confirmed before the
+  // permit can move forward.
+  const canConfirmDeclaration =
+    (permit.status === 'draft' || permit.status === 'rejected') &&
+    user?.id === permit.requester?.id
+
   // Safety-verification actions (site verification, PPE availability,
   // emergency arrangements, worker briefing/acknowledgement) may ONLY be
   // performed by an authorised safety verifier (SM/SC). Contractors and
@@ -690,6 +699,7 @@ export default async function PermitDetailsPage({
               permit.initiation_mode === 'internal' && (
                 <SubmitPermitButton
                   permitId={permit.id}
+                  permitNo={permit.permit_no}
                 />
               )}
 
@@ -698,6 +708,7 @@ export default async function PermitDetailsPage({
                 'contractor_direct' && (
                 <SubmitPermitButton
                   permitId={permit.id}
+                  permitNo={permit.permit_no}
                 />
               )}
 
@@ -733,6 +744,7 @@ export default async function PermitDetailsPage({
 
                   <ResubmitPermitButton
                     permitId={permit.id}
+                    permitNo={permit.permit_no}
                   />
                 </div>
               )}
@@ -745,6 +757,7 @@ export default async function PermitDetailsPage({
                 currentUserRole === 'safety_manager') && (
                 <RejectPermitButton
                   permitId={permit.id}
+                  permitNo={permit.permit_no}
                 />
               )}
 
@@ -755,6 +768,7 @@ export default async function PermitDetailsPage({
                 currentUserRole === 'safety_coordinator') && (
                 <SuspendPermitButton
                   permitId={permit.id}
+                  permitNo={permit.permit_no}
                 />
               )}
 
@@ -778,6 +792,7 @@ export default async function PermitDetailsPage({
                 currentUserRole === 'safety_coordinator') && (
                 <CancelPermitButton
                   permitId={permit.id}
+                  permitNo={permit.permit_no}
                 />
               )}
           </div>
@@ -1336,23 +1351,13 @@ export default async function PermitDetailsPage({
           />
 
           <div className="p-6">
-            <p className="text-sm">
-              I confirm that the information provided in this permit
-              application is accurate and that I am authorised to apply for
-              this permit.
-            </p>
-
-            <p
-              className={`mt-3 text-sm font-medium ${
+            <ApplicantDeclarationConfirm
+              permitId={permit.id}
+              initiallyConfirmed={Boolean(
                 permit.declaration_confirmed_at
-                  ? 'text-green-600'
-                  : 'text-muted-foreground'
-              }`}
-            >
-              {permit.declaration_confirmed_at
-                ? '✓ Declared'
-                : '— Not yet declared'}
-            </p>
+              )}
+              editable={canConfirmDeclaration}
+            />
           </div>
         </section>
 
@@ -1426,6 +1431,7 @@ export default async function PermitDetailsPage({
         permit.status === 'draft' ? (
           <SafetyVerificationPanel
             permitId={permit.id}
+            permitNo={permit.permit_no}
             canApprove={
               permit.status === 'pending_approval' &&
               permit.workflow_stage === 'safety_approval' &&
@@ -1439,6 +1445,7 @@ export default async function PermitDetailsPage({
         <LifecyclePanel
           permitId={permit.id}
           status={permit.status}
+          permitNo={permit.permit_no}
           canAct={
             currentUserRole === 'safety_manager' ||
             currentUserRole === 'safety_coordinator'

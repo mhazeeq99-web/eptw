@@ -67,8 +67,11 @@ export async function PATCH(
     )
   }
 
+  // safety_controls has no UPDATE RLS policy for authenticated users;
+  // use the service-role client after the user-scoped authorization above
+  // (same pattern as DELETE below and permit types).
   const { data: control, error: updateError } =
-    await supabase
+    await createAdminClient()
       .from('safety_controls')
       .update({ is_active: body.is_active })
       .eq('id', controlId)

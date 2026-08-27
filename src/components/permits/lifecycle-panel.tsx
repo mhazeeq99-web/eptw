@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDateTimeMY } from '@/lib/dates'
+import { ActionSuccessDialog } from './action-success-dialog'
 
 type ChecklistItem = {
   item_key: string
@@ -36,10 +37,12 @@ export function LifecyclePanel({
   permitId,
   status,
   canAct,
+  permitNo,
 }: {
   permitId: number
   status: string
   canAct: boolean
+  permitNo?: string
 }) {
   const router = useRouter()
 
@@ -52,6 +55,9 @@ export function LifecyclePanel({
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState<
+    { title: string; message: string } | null
+  >(null)
 
   async function loadLifecycle() {
     setLoading(true)
@@ -141,6 +147,21 @@ export function LifecyclePanel({
         setError(result.error || `Unable to ${action} permit.`)
         return
       }
+      const messages: Record<string, { title: string; message: string }> = {
+        resume: {
+          title: 'Permit Resumed',
+          message: 'Work may now continue under this permit.',
+        },
+        complete: {
+          title: 'Permit Completed',
+          message: 'This permit has been marked as completed.',
+        },
+        close: {
+          title: 'Permit Closed',
+          message: 'This permit has been fully closed.',
+        },
+      }
+      setSuccess(messages[action])
       router.refresh()
     } catch {
       setError(`Unable to ${action} permit.`)
@@ -430,6 +451,15 @@ export function LifecyclePanel({
           </>
         )}
       </div>
+
+      <ActionSuccessDialog
+        open={success !== null}
+        title={success?.title ?? ''}
+        message={success?.message}
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(null)}
+      />
     </section>
   )
 }

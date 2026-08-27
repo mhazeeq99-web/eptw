@@ -119,7 +119,8 @@ export async function validatePermitSubmission(
       planned_start,
       planned_end,
       staff_reference_name,
-      initiation_mode
+      initiation_mode,
+      declaration_confirmed_at
     `)
     .eq('id', permitId)
     .single()
@@ -140,6 +141,17 @@ export async function validatePermitSubmission(
   errors.push(
     ...validateWorkPeriod(permit.planned_start, permit.planned_end)
   )
+
+  // The Applicant Declaration must be confirmed before the permit can be
+  // handed to the Safety Officer. This is authoritative and applies to every
+  // submission path (new form, detail page, resubmit).
+  if (!permit.declaration_confirmed_at) {
+    errors.push({
+      field: 'declaration',
+      message:
+        'You must confirm the Applicant Declaration before submitting the permit.',
+    })
+  }
 
   // Contractor permits require at least one worker (with a name + ID/NRIC)
   // and the customer staff reference before submission.

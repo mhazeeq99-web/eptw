@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionSuccessDialog } from './action-success-dialog'
 
 type SubmissionError = {
   field: string
@@ -10,14 +11,17 @@ type SubmissionError = {
 
 export function SubmitPermitButton({
   permitId,
+  permitNo,
 }: {
   permitId: number
+  permitNo?: string
 }) {
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [errors, setErrors] = useState<SubmissionError[]>([])
+  const [success, setSuccess] = useState(false)
 
   async function handleSubmit() {
     const confirmed = window.confirm(
@@ -52,6 +56,7 @@ export function SubmitPermitButton({
         return
       }
 
+      setSuccess(true)
       router.refresh()
     } catch {
       setError('Unable to submit permit')
@@ -88,6 +93,15 @@ export function SubmitPermitButton({
           </ul>
         </div>
       )}
+
+      <ActionSuccessDialog
+        open={success}
+        title="Permit Submitted"
+        message="Your permit has been submitted and is now pending safety approval."
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(false)}
+      />
     </div>
   )
 }

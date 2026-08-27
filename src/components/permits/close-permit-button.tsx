@@ -2,16 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionSuccessDialog } from './action-success-dialog'
 
 export function ClosePermitButton({
   permitId,
+  permitNo,
 }: {
   permitId: number
+  permitNo?: string
 }) {
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   async function handleClose() {
     const remarks = window.prompt(
@@ -62,6 +66,7 @@ export function ClosePermitButton({
         return
       }
 
+      setSuccess(true)
       router.refresh()
     } catch {
       setError(
@@ -88,6 +93,15 @@ export function ClosePermitButton({
           {error}
         </p>
       )}
+
+      <ActionSuccessDialog
+        open={success}
+        title="Permit Closed"
+        message="This permit has been fully closed."
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(false)}
+      />
     </div>
   )
 }

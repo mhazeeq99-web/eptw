@@ -2,16 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionSuccessDialog } from './action-success-dialog'
 
 export function ResubmitPermitButton({
   permitId,
+  permitNo,
 }: {
   permitId: number
+  permitNo?: string
 }) {
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   async function handleResubmit() {
     const confirmed = window.confirm(
@@ -44,6 +48,7 @@ export function ResubmitPermitButton({
         return
       }
 
+      setSuccess(true)
       router.refresh()
     } catch {
       setError(
@@ -71,6 +76,15 @@ export function ResubmitPermitButton({
           {error}
         </p>
       )}
+
+      <ActionSuccessDialog
+        open={success}
+        title="Permit Resubmitted"
+        message="This permit has been resubmitted for review."
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(false)}
+      />
     </div>
   )
 }

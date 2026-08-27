@@ -47,7 +47,8 @@ export async function POST(
         work_location,
         planned_start,
         planned_end,
-        status
+        status,
+        declaration_confirmed_at
       `)
       .eq('id', id)
       .single()
@@ -112,6 +113,17 @@ export async function POST(
       {
         error:
           'Work title is required before resubmission.',
+      },
+      { status: 400 }
+    )
+  }
+
+  // The Applicant Declaration must be confirmed before resubmission.
+  if (!permit.declaration_confirmed_at) {
+    return NextResponse.json(
+      {
+        error:
+          'You must confirm the Applicant Declaration before resubmitting the permit.',
       },
       { status: 400 }
     )

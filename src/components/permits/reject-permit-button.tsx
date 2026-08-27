@@ -2,16 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionSuccessDialog } from './action-success-dialog'
 
 export function RejectPermitButton({
   permitId,
+  permitNo,
 }: {
   permitId: number
+  permitNo?: string
 }) {
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   async function handleReject() {
     const remarks = window.prompt(
@@ -61,6 +65,7 @@ export function RejectPermitButton({
         return
       }
 
+      setSuccess(true)
       router.refresh()
     } catch {
       setError('Unable to reject permit.')
@@ -85,6 +90,15 @@ export function RejectPermitButton({
           {error}
         </p>
       )}
+
+      <ActionSuccessDialog
+        open={success}
+        title="Permit Rejected"
+        message="This permit has been rejected. The requester can revise and resubmit it."
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(false)}
+      />
     </div>
   )
 }

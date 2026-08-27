@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionSuccessDialog } from '../action-success-dialog'
 
 export type ReadinessItemData = {
   key: string
@@ -21,9 +22,11 @@ export type ReadinessItemData = {
 export function SafetyVerificationPanel({
   permitId,
   canApprove,
+  permitNo,
 }: {
   permitId: number
   canApprove: boolean
+  permitNo?: string
 }) {
   const router = useRouter()
 
@@ -32,6 +35,7 @@ export function SafetyVerificationPanel({
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   async function loadReadiness() {
     setLoading(true)
@@ -90,6 +94,7 @@ export function SafetyVerificationPanel({
         return
       }
 
+      setSuccess(true)
       router.refresh()
     } catch {
       setError('Unable to approve and issue permit')
@@ -235,6 +240,15 @@ export function SafetyVerificationPanel({
           </>
         )}
       </div>
+
+      <ActionSuccessDialog
+        open={success}
+        title="Permit Approved & Issued"
+        message="This permit is now ACTIVE and the work may proceed."
+        permitNo={permitNo}
+        permitId={permitId}
+        onClose={() => setSuccess(false)}
+      />
     </section>
   )
 }
