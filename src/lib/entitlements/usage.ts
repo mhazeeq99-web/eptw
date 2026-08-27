@@ -17,7 +17,15 @@ function startOfCurrentMonthUTC(): string {
 }
 
 /**
- * Permits created by the company in the current calendar month.
+ * Permits created by the company in the current calendar month that consume
+ * the monthly allowance.
+ *
+ * A permit only consumes the monthly allowance once it LEAVES draft status
+ * (submitted/pending/active/etc.). Abandoned or in-progress drafts do NOT
+ * count, so the draft-first Create flow does not silently deplete the
+ * monthly quota. Drafts remain usable/editable even after the limit is hit
+ * because they are excluded here.
+ *
  * Deleted QA records no longer exist, and previous months are excluded.
  */
 export async function getMonthlyPermitUsage(
@@ -28,6 +36,7 @@ export async function getMonthlyPermitUsage(
     .from('permits')
     .select('id', { count: 'exact', head: true })
     .eq('company_id', companyId)
+    .neq('status', 'draft')
     .gte('created_at', startOfCurrentMonthUTC())
 
   return count ?? 0

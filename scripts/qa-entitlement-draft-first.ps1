@@ -48,6 +48,7 @@ function GetJson($resp) {
   if ([string]::IsNullOrWhiteSpace($t)) { return @() }
   try { return @($t | ConvertFrom-Json) } catch { return @() }
 }
+function UtcIso([int]$hoursFromNow) { return (Get-Date).ToUniversalTime().AddHours($hoursFromNow).ToString('yyyy-MM-ddTHH:mm:ss') + 'Z' }
 function StartOfMonth() {
   $now = Get-Date
   return (Get-Date -Year $now.Year -Month $now.Month -Day 1 -Hour 0 -Minute 0 -Second 0 -Millisecond 0).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss') + 'Z'
@@ -58,7 +59,7 @@ function Get-MonthlyUsage([int]$companyId) {
   $mgmtPat = 'sbp_e23dfd186001f73743b23ba2eb719d11e57d98af'
   $h = @{ Authorization = "Bearer $mgmtPat"; 'Content-Type' = 'application/json' }
   $mgmtUrl = "https://api.supabase.com/v1/projects/$ref/database/query"
-  $body = @{ query = "SELECT count(*) AS n FROM public.permits WHERE company_id=$companyId AND created_at >= date_trunc('month', now());" } | ConvertTo-Json
+  $body = @{ query = "SELECT count(*) AS n FROM public.permits WHERE company_id=$companyId AND status <> 'draft' AND created_at >= date_trunc('month', now());" } | ConvertTo-Json
   try {
     $resp = Invoke-RestMethod -Uri $mgmtUrl -Method Post -Headers $h -Body $body
     return [int]$resp.n
@@ -79,32 +80,113 @@ if ($Mode -eq 'main') {
   $typeId = [int]$types[0].id
 
   $before = Get-MonthlyUsage 1
-  Write-Output "INFO | monthly usage before bootstrap: $before"
-  Write-Output "INFO | free plan max_monthly_permits: 20 (company 1 effective plan = free, no active subscription)"
+  Write-Output "INFO | monthly usage before: $before (non-draft permits this month)"
 
+  # ============================================================
+  # 1. Bootstrap abandoned drafts -> usage unchanged
+  # ============================================================
   $drafts = 0
-  # Bootstrap 5 abandoned drafts (company + permit type ONLY, never submit)
   for ($i = 1; $i -le 5; $i++) {
     $b = @{ company_id = 1; permit_type_id = $typeId } | ConvertTo-Json -Compress -Depth 6
     $r = Invoke-Api $IS1 'POST' '/api/permits' $b
     $permitId = 0
     if ($r.Status -eq 201) { try { $permitId = [int]($r.Body | ConvertFrom-Json).permit.id } catch {} }
     if ($permitId) { $script:ids.permits += $permitId; $drafts++ }
-    Write-Output ("bootstrap #" + $i + " -> HTTP " + $r.Status + " permitId=" + $permitId)
+    Write-Output ("bootstrap draft #" + $i + " -> HTTP " + $r.Status + " permitId=" + $permitId)
   }
+  $afterDrafts = Get-MonthlyUsage 1
+  Write-Output "INFO | usage after $drafts abandoned drafts: $afterDrafts"
+  if ($afterDrafts -eq $before) { Write-Output "PASS | abandoned drafts do NOT increment monthly usage (before=$before after=$afterDrafts)" }
+  else { Write-Output "FAIL | abandoned drafts incremented usage (before=$before after=$afterDrafts)" }
 
-  $after = Get-MonthlyUsage 1
-  Write-Output "INFO | monthly usage after $drafts bootstrapped drafts: $after"
-  Write-Output "INFO | delta: $($after - $before)"
+  # ============================================================
+  # 2. Complete + submit ONE draft -> usage +1
+  # ============================================================
+  # Take the last draft, fill required scalar fields, submit it.
+  $submitId = 0
+  if ($ids.permits.Count -gt 0) { $submitId = [int]$ids.permits[-1] }
+  if ($submitId) {
+    $patchBody = @{
+      permit_type_id = $typeId
+      work_title = 'QA Entitlement Submit'
+      work_location = 'QA'
+      planned_start = (UtcIso 0)
+      planned_end = (UtcIso 6)
+    } | ConvertTo-Json -Compress -Depth 6
+    $r = Invoke-Api $IS1 'PATCH' "/api/permits/$submitId/update" $patchBody
+    Write-Output ("submit-prep PATCH -> HTTP " + $r.Status)
+    $r = Invoke-Api $IS1 'POST' "/api/permits/$submitId/submit"
+    Write-Output ("submit -> HTTP " + $r.Status)
+  }
+  $afterSubmit = Get-MonthlyUsage 1
+  Write-Output "INFO | usage after submitting 1 permit: $afterSubmit"
+  if ($afterSubmit -eq ($before + 1)) { Write-Output "PASS | submitting a permit increments usage by exactly 1 (before=$before after=$afterSubmit)" }
+  else { Write-Output "FAIL | submit usage delta wrong (expected $($before+1) got $afterSubmit)" }
 
-  # Report
-  if ($drafts -eq 0) { Write-Output "FAIL | expected drafts created" }
-  elseif (($after - $before) -eq $drafts) { Write-Output "PASS | each abandoned draft increments monthly usage by 1 (delta=$($after-$before))" }
-  else { Write-Output "FAIL | expected delta=$drafts got delta=$($after-$before)" }
+  # ============================================================
+  # 3. Drive monthly usage to the Free limit (20), then verify blocked
+  # ============================================================
+  $limit = 20
+  $created = 0
+  $blockedAtLimit = $false
+  while ($true) {
+    $usageNow = Get-MonthlyUsage 1
+    if ($usageNow -ge $limit) { break }
+    $b = @{ company_id = 1; permit_type_id = $typeId; work_title = "QA Limit $created" } | ConvertTo-Json -Compress -Depth 6
+    $r = Invoke-Api $IS1 'POST' '/api/permits' $b
+    $permitId = 0
+    if ($r.Status -eq 201) { try { $permitId = [int]($r.Body | ConvertFrom-Json).permit.id } catch {} }
+    if ($permitId) { $script:ids.permits += $permitId }
+    if ($permitId) {
+      $pb = @{ permit_type_id = $typeId; work_title = "QA Limit $created"; planned_start=(UtcIso 0); planned_end=(UtcIso 6) } | ConvertTo-Json -Compress -Depth 6
+      Invoke-Api $IS1 'PATCH' "/api/permits/$permitId/update" | Out-Null
+      Invoke-Api $IS1 'POST' "/api/permits/$permitId/submit" | Out-Null
+      $created++
+    } else {
+      # create blocked (403) — this means we reached the limit
+      $blockedAtLimit = $true
+      break
+    }
+    if ($created -gt 60) { Write-Output "WARN | safety break at $created creates"; break }
+  }
+  $finalUsage = Get-MonthlyUsage 1
+  Write-Output "INFO | usage at Free limit: $finalUsage (limit=$limit), created+submitted=$created"
+  if ($finalUsage -ge $limit) { Write-Output "PASS | reached Free monthly limit ($limit, usage=$finalUsage)" }
+  else { Write-Output "FAIL | did not reach limit (usage=$finalUsage)" }
 
-  # Confirm none submitted (all still draft)
-  $draftCount = @(GetJson (RestSvc 'GET' "permits?select=id&company_id=eq.1&status=eq.draft&limit=1000")).Count
-  Write-Output "INFO | total company-1 drafts this month now: $draftCount"
+  # Next create must be BLOCKED by entitlement.
+  $r = Invoke-Api $IS1 'POST' '/api/permits' (@{ company_id = 1; permit_type_id = $typeId } | ConvertTo-Json -Compress -Depth 6)
+  $blocked = ($r.Status -eq 403)
+  if ($blocked) { Write-Output "PASS | permit creation blocked at Free limit (HTTP 403)" }
+  else { Write-Output "FAIL | creation NOT blocked at limit (HTTP $($r.Status))" }
+
+  # ============================================================
+  # 4. Existing drafts remain usable/editable at the limit
+  # ============================================================
+  # Take an abandoned draft from step 1 and try to edit it.
+  $editDraftId = 0
+  if ($ids.permits.Count -gt 0) {
+    # find one still in draft status (via Management SQL, reliable)
+    $mgmtPat2 = 'sbp_e23dfd186001f73743b23ba2eb719d11e57d98af'
+    $h2 = @{ Authorization = "Bearer $mgmtPat2"; 'Content-Type' = 'application/json' }
+    $mgmtUrl2 = "https://api.supabase.com/v1/projects/$ref/database/query"
+    foreach ($id in $ids.permits) {
+      $qBody = @{ query = "SELECT status FROM public.permits WHERE id=$id;" } | ConvertTo-Json
+      try {
+        $resp = Invoke-RestMethod -Uri $mgmtUrl2 -Method Post -Headers $h2 -Body $qBody
+        $status = [string]$resp[0].status
+        if ($status -eq 'draft') { $editDraftId = [int]$id; break }
+      } catch {}
+    }
+  }
+  if ($editDraftId) {
+    $pb = @{ permit_type_id = $typeId; work_title = 'QA Draft Still Editable' } | ConvertTo-Json -Compress -Depth 6
+    $r = Invoke-Api $IS1 'PATCH' "/api/permits/$editDraftId/update" $pb
+    if ($r.Status -eq 200) { Write-Output "PASS | existing draft still editable at Free limit (HTTP 200)" }
+    else { Write-Output "FAIL | draft not editable at limit (HTTP $($r.Status))" }
+  } else {
+    Write-Output "INFO | no abandoned draft found to test editability"
+  }
 
   SaveIds
   Write-Output "DONE"
