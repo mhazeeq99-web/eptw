@@ -938,6 +938,9 @@ export default async function PermitDetailsPage({
           </section>
         )}
 
+        {/* ── Divider: APPLICANT / PERMIT INFORMATION ─────── */}
+        <div className="mt-8 rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground">APPLICANT / PERMIT INFORMATION</div>
+
         {/* Work Details */}
         <section className="mt-6 rounded-xl border bg-background">
           <SectionHeader
@@ -1126,6 +1129,105 @@ export default async function PermitDetailsPage({
           </section>
         )}
 
+        {/* JHA / JSA */}
+        <JhaSection
+          permitId={permit.id}
+          canAdd={canAddSafetyDocs}
+          canVerify={canVerifySafetyDocs}
+          initialJhas={permit.jhas ?? []}
+          initialHirarc={permit.hirarc_documents ?? []}
+        />
+
+        {/* Safety Requirements */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader
+            title="Safety Requirements"
+            subtitle="Safety controls required or selected for this permit"
+          />
+
+          <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+            {permit.safety_controls?.length ? (
+              permit.safety_controls.map((control) => (
+                <Requirement
+                  key={control.id}
+                  label={
+                    control.safety_control?.name ??
+                    'Safety Control'
+                  }
+                  required={control.is_required}
+                  status={control.status}
+                  permitId={permit.id}
+                  controlId={control.id}
+                />
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No safety controls configured for this permit.
+              </p>
+            )}
+          </div>
+        </section>
+
+        {/* Recommended Controls */}
+        {permit.recommended_controls &&
+          permit.recommended_controls.filter(
+            (item) => item.is_selected && item.safety_control
+          ).length > 0 && (
+            <section className="mt-6 rounded-xl border bg-background">
+              <SectionHeader
+                title="Recommended Controls"
+                subtitle="Additional controls selected for this permit"
+              />
+
+              <div className="flex flex-wrap gap-2 p-6">
+                {permit.recommended_controls
+                  .filter(
+                    (item) => item.is_selected && item.safety_control
+                  )
+                  .map((item) => (
+                    <span
+                      key={item.safety_control_id}
+                      className="rounded-full border px-3 py-1 text-sm"
+                    >
+                      {item.safety_control?.name}
+                    </span>
+                  ))}
+              </div>
+            </section>
+          )}
+
+        {/* Requester */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader
+            title="Requester"
+            subtitle="Details of the person who requested this permit"
+          />
+
+          <div className="grid gap-6 p-6 md:grid-cols-2">
+
+            <InfoItem
+              label="Name"
+              value={permit.requester?.full_name}
+            />
+
+            <InfoItem
+              label="Employee No."
+              value={permit.requester?.employee_no}
+            />
+
+            <InfoItem
+              label="Department"
+              value={permit.requester?.department}
+            />
+
+            <InfoItem
+              label="Position"
+              value={permit.requester?.position}
+            />
+
+          </div>
+        </section>
+
         {/* PPE Requirements */}
         {(permit.permit_ppe && permit.permit_ppe.length > 0) ||
         permit.ppe_other ? (
@@ -1189,121 +1291,6 @@ export default async function PermitDetailsPage({
           </section>
         ) : null}
 
-        {/* Recommended Controls */}
-        {permit.recommended_controls &&
-          permit.recommended_controls.filter(
-            (item) => item.is_selected && item.safety_control
-          ).length > 0 && (
-            <section className="mt-6 rounded-xl border bg-background">
-              <SectionHeader
-                title="Recommended Controls"
-                subtitle="Additional controls selected for this permit"
-              />
-
-              <div className="flex flex-wrap gap-2 p-6">
-                {permit.recommended_controls
-                  .filter(
-                    (item) => item.is_selected && item.safety_control
-                  )
-                  .map((item) => (
-                    <span
-                      key={item.safety_control_id}
-                      className="rounded-full border px-3 py-1 text-sm"
-                    >
-                      {item.safety_control?.name}
-                    </span>
-                  ))}
-              </div>
-            </section>
-          )}
-
-        {/* Requester */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Requester"
-            subtitle="Details of the person who requested this permit"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Name"
-              value={permit.requester?.full_name}
-            />
-
-            <InfoItem
-              label="Employee No."
-              value={permit.requester?.employee_no}
-            />
-
-            <InfoItem
-              label="Department"
-              value={permit.requester?.department}
-            />
-
-            <InfoItem
-              label="Position"
-              value={permit.requester?.position}
-            />
-
-          </div>
-        </section>
-
-        {/* Safety Requirements */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Safety Requirements"
-            subtitle="Safety controls required or selected for this permit"
-          />
-
-          <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
-            {permit.safety_controls?.length ? (
-              permit.safety_controls.map((control) => (
-                <Requirement
-                  key={control.id}
-                  label={
-                    control.safety_control?.name ??
-                    'Safety Control'
-                  }
-                  required={control.is_required}
-                  status={control.status}
-                  permitId={permit.id}
-                  controlId={control.id}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No safety controls configured for this permit.
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* JHA / JSA */}
-        <JhaSection
-          permitId={permit.id}
-          canAdd={canAddSafetyDocs}
-          canVerify={canVerifySafetyDocs}
-          initialJhas={permit.jhas ?? []}
-          initialHirarc={permit.hirarc_documents ?? []}
-        />
-
-        {/* LOTO */}
-        <LotoSection
-          permitId={permit.id}
-          canAdd={canAddSafetyDocs}
-          canVerify={canVerifySafetyDocs}
-          initialPoints={permit.loto_points ?? []}
-        />
-
-        {/* Gas Testing */}
-        <GasTestSection
-          permitId={permit.id}
-          canAdd={canAddSafetyDocs}
-          canVerify={canVerifySafetyDocs}
-          initialTests={permit.gas_tests ?? []}
-        />
-
         {/* Specialised Permit Details (Phase E) */}
         <SpecialisedPermitSection
           permitId={permit.id}
@@ -1323,6 +1310,25 @@ export default async function PermitDetailsPage({
           canEdit={canAddSafetyDocs}
         />
 
+        {/* LOTO */}
+        <LotoSection
+          permitId={permit.id}
+          canAdd={canAddSafetyDocs}
+          canVerify={canVerifySafetyDocs}
+          initialPoints={permit.loto_points ?? []}
+        />
+
+        {/* Gas Testing */}
+        <GasTestSection
+          permitId={permit.id}
+          canAdd={canAddSafetyDocs}
+          canVerify={canVerifySafetyDocs}
+          initialTests={permit.gas_tests ?? []}
+        />
+
+        {/* ── Divider: SAFETY PERSONNEL VERIFICATION ──────── */}
+        <div className="mt-8 rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground">SAFETY PERSONNEL VERIFICATION</div>
+
         {/* Site / Work-Area Verification (Phase D) */}
         {permit.permit_type?.requires_site_verification !== false && (
           <SiteVerificationSection
@@ -1332,6 +1338,26 @@ export default async function PermitDetailsPage({
             initialRecord={
               (permit.site_verification ?? null) as
                 | SiteVerificationRecord
+                | null
+            }
+          />
+        )}
+
+        {/* PPE Verification (Phase D) */}
+        <PpeVerificationSection
+          permitId={permit.id}
+          canEdit={canPerformSafetyVerification}
+          initialItems={ppeVerificationItems}
+        />
+
+        {/* Emergency Arrangements (Phase D) */}
+        {permit.permit_type?.requires_emergency_arrangements && (
+          <EmergencyArrangementsSection
+            permitId={permit.id}
+            canEdit={canPerformSafetyVerification}
+            initialRecord={
+              (permit.emergency_arrangements ?? null) as
+                | EmergencyArrangementsRecord
                 | null
             }
           />
@@ -1364,26 +1390,6 @@ export default async function PermitDetailsPage({
             )}
           />
         ) : null}
-
-        {/* PPE Verification (Phase D) */}
-        <PpeVerificationSection
-          permitId={permit.id}
-          canEdit={canPerformSafetyVerification}
-          initialItems={ppeVerificationItems}
-        />
-
-        {/* Emergency Arrangements (Phase D) */}
-        {permit.permit_type?.requires_emergency_arrangements && (
-          <EmergencyArrangementsSection
-            permitId={permit.id}
-            canEdit={canPerformSafetyVerification}
-            initialRecord={
-              (permit.emergency_arrangements ?? null) as
-                | EmergencyArrangementsRecord
-                | null
-            }
-          />
-        )}
 
         {/* Safety Verification readiness panel (Phase D) */}
         {permit.status === 'pending_approval' ||

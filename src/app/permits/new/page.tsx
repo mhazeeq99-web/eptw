@@ -959,7 +959,7 @@ export default function NewPermitPage() {
 
             <SectionHeader
               title="Permit Information"
-              description="Select the customer company and permit type for this work."
+              description="Company, permit type and location for the work to be performed."
             />
 
             <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
@@ -1099,6 +1099,130 @@ export default function NewPermitPage() {
           </section>
 
           {/* ------------------------------------------------ */}
+          {/* Work Details */}
+          {/* ------------------------------------------------ */}
+
+          <section className="rounded-xl border bg-background p-6">
+
+            <SectionHeader
+              title="Work Details"
+              description="Describe the scope, location and method of the work to be performed."
+            />
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+
+              <Field
+                label="Work Title"
+                required
+              >
+                <input
+                  type="text"
+                  value={workTitle}
+                  onChange={(event) =>
+                    setWorkTitle(
+                      event.target.value
+                    )
+                  }
+                  placeholder="e.g. Welding repair at production machine"
+                  required
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Work Location">
+                <input
+                  type="text"
+                  value={workLocation}
+                  onChange={(event) =>
+                    setWorkLocation(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Specific work location"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+            </div>
+
+            <div className="mt-6 space-y-6">
+
+              <Field label="Work Description">
+                <textarea
+                  value={workDescription}
+                  onChange={(event) =>
+                    setWorkDescription(
+                      event.target.value
+                    )
+                  }
+                  rows={4}
+                  placeholder="Describe the work to be performed..."
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Work Method / Sequence">
+                <textarea
+                  value={workMethod}
+                  onChange={(event) =>
+                    setWorkMethod(
+                      event.target.value
+                    )
+                  }
+                  rows={3}
+                  placeholder="Step-by-step method / sequence of work (optional)..."
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+            </div>
+
+          </section>
+
+          {/* ------------------------------------------------ */}
+          {/* Planned Work Period */}
+          {/* ------------------------------------------------ */}
+
+          <section className="rounded-xl border bg-background p-6">
+
+            <SectionHeader
+              title="Planned Work Period"
+              description="Optional planned start and end for the work window."
+            />
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+
+              <Field label="Planned Start">
+                <input
+                  type="datetime-local"
+                  value={plannedStart}
+                  onChange={(event) =>
+                    setPlannedStart(
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Planned End">
+                <input
+                  type="datetime-local"
+                  value={plannedEnd}
+                  onChange={(event) =>
+                    setPlannedEnd(
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </Field>
+
+            </div>
+
+          </section>
+
+          {/* ------------------------------------------------ */}
           {/* Requirements Summary (live, before submit) */}
           {/* ------------------------------------------------ */}
 
@@ -1106,7 +1230,7 @@ export default function NewPermitPage() {
             <section className="rounded-xl border bg-background p-6">
               <SectionHeader
                 title="Permit Requirements"
-                description="What must be completed before this permit can be approved. Site verification and safety verification are performed by the Safety Officer / Permit Issuer, not the contractor."
+                description="What you must complete to submit this permit. Safety verification is performed by authorised Safety Personnel after the permit is submitted."
               />
 
               <div className="mt-6 grid gap-2 sm:grid-cols-2">
@@ -1235,7 +1359,7 @@ export default function NewPermitPage() {
               <p className="mt-4 text-xs text-muted-foreground">
                 Requirements are determined by the selected permit type and
                 are shown here so you know what is expected before you submit.
-                Site verification is never performed by the contractor.
+                Safety verification is performed by authorised Safety Personnel after the permit is submitted.
               </p>
             </section>
           )}
@@ -1290,86 +1414,7 @@ export default function NewPermitPage() {
             </>
           )}
 
-          {/* ------------------------------------------------ */}
-          {/* Work Details */}
-          {/* ------------------------------------------------ */}
 
-          <section className="rounded-xl border bg-background p-6">
-
-            <SectionHeader
-              title="Work Details"
-              description="Describe the scope, location and method of the work to be performed."
-            />
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-
-              <Field
-                label="Work Title"
-                required
-              >
-                <input
-                  type="text"
-                  value={workTitle}
-                  onChange={(event) =>
-                    setWorkTitle(
-                      event.target.value
-                    )
-                  }
-                  placeholder="e.g. Welding repair at production machine"
-                  required
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Work Location">
-                <input
-                  type="text"
-                  value={workLocation}
-                  onChange={(event) =>
-                    setWorkLocation(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Specific work location"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-            </div>
-
-            <div className="mt-6 space-y-6">
-
-              <Field label="Work Description">
-                <textarea
-                  value={workDescription}
-                  onChange={(event) =>
-                    setWorkDescription(
-                      event.target.value
-                    )
-                  }
-                  rows={4}
-                  placeholder="Describe the work to be performed..."
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Work Method / Sequence">
-                <textarea
-                  value={workMethod}
-                  onChange={(event) =>
-                    setWorkMethod(
-                      event.target.value
-                    )
-                  }
-                  rows={3}
-                  placeholder="Step-by-step method / sequence of work (optional)..."
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-            </div>
-
-          </section>
 
           {/* ------------------------------------------------ */}
           {/* Workers / Authorised Personnel (internal PTW) */}
@@ -1549,48 +1594,7 @@ export default function NewPermitPage() {
             </section>
           )}
 
-          {/* ------------------------------------------------ */}
-          {/* Planned Work Period */}
-          {/* ------------------------------------------------ */}
 
-          <section className="rounded-xl border bg-background p-6">
-
-            <SectionHeader
-              title="Planned Work Period"
-              description="Optional planned start and end for the work window."
-            />
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-
-              <Field label="Planned Start">
-                <input
-                  type="datetime-local"
-                  value={plannedStart}
-                  onChange={(event) =>
-                    setPlannedStart(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Planned End">
-                <input
-                  type="datetime-local"
-                  value={plannedEnd}
-                  onChange={(event) =>
-                    setPlannedEnd(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-            </div>
-
-          </section>
 
           {/* ------------------------------------------------ */}
           {/* Error */}

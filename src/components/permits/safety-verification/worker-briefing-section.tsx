@@ -179,10 +179,11 @@ export function WorkerBriefingSection({
     <section className="mt-6 rounded-xl border bg-background">
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
-          <h2 className="font-semibold">Worker Briefing / Toolbox Talk</h2>
+          <h2 className="font-semibold">Worker Briefing — Safety Personnel responsibility</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Briefing topics covered with the listed workers and their
-            individual acknowledgement.
+            Safety personnel brief the authorised workers before work
+            commences. This is recorded for audit and is a Safety
+            Personnel responsibility, not an applicant task.
           </p>
         </div>
 
