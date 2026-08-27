@@ -73,10 +73,7 @@ export function WorkerListEditor({
               <th className="px-3 py-2 font-medium">Name</th>
               <th className="px-3 py-2 font-medium">{idLabel}</th>
               {mode === 'contractor' && (
-                <>
-                  <th className="px-3 py-2 font-medium">Nationality</th>
-                  <th className="px-3 py-2 font-medium">Induction</th>
-                </>
+                <th className="px-3 py-2 font-medium">Nationality</th>
               )}
               <th className="px-3 py-2" />
             </tr>
@@ -85,7 +82,7 @@ export function WorkerListEditor({
             {initial.length === 0 && (
               <tr>
                 <td
-                  colSpan={mode === 'contractor' ? 6 : 4}
+                  colSpan={mode === 'contractor' ? 5 : 4}
                   className="px-3 py-4 text-center text-sm text-muted-foreground"
                 >
                   No workers added yet.
@@ -130,44 +127,24 @@ export function WorkerListEditor({
                   />
                 </td>
                 {mode === 'contractor' && (
-                  <>
-                    <td className="px-3 py-2">
-                      <select
-                        value={worker.nationality ?? 'Malaysian'}
-                        onChange={(event) =>
-                          update(index, {
-                            nationality: event.target.value,
-                          })
-                        }
-                        aria-label="Nationality"
-                        className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                      >
-                        {NATIONALITIES.map((nation) => (
-                          <option key={nation} value={nation}>
-                            {nation}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(
-                            worker.induction_completed
-                          )}
-                          onChange={(event) =>
-                            update(index, {
-                              induction_completed:
-                                event.target.checked,
-                            })
-                          }
-                          className="h-4 w-4 rounded border"
-                        />
-                        Completed
-                      </label>
-                    </td>
-                  </>
+                  <td className="px-3 py-2">
+                    <select
+                      value={worker.nationality ?? 'Malaysian'}
+                      onChange={(event) =>
+                        update(index, {
+                          nationality: event.target.value,
+                        })
+                      }
+                      aria-label="Nationality"
+                      className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    >
+                      {NATIONALITIES.map((nation) => (
+                        <option key={nation} value={nation}>
+                          {nation}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                 )}
                 <td className="px-3 py-2 text-right">
                   <button

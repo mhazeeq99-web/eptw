@@ -1223,17 +1223,21 @@ export default function NewPermitPage() {
 
             <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
 
-              {/* Customer Company */}
+              {/* Customer Company (contractor) / Company (internal + safety) */}
 
               <Field
-                label="Customer Company"
+                label={isContractor ? 'Customer Company' : 'Company'}
                 required
               >
                 <SearchableCombobox
                   searchFn={searchCompanies}
                   value={companyOption}
                   onChange={handleCompanyChange}
-                  placeholder="Search customer company..."
+                  placeholder={
+                    isContractor
+                      ? 'Search customer company...'
+                      : 'Search company...'
+                  }
                   clearable={
                     isPlatformAdmin || isContractor
                   }

@@ -7,6 +7,7 @@ import { SubmitPermitButton } from '@/components/permits/submit-permit-button'
 import { ResubmitPermitButton } from '@/components/permits/resubmit-permit-button'
 import { SuspendPermitButton } from '@/components/permits/suspend-permit-button'
 import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
+import { AddSafetyControlButton } from '@/components/permits/add-safety-control-button'
 import { RejectPermitButton } from '@/components/permits/reject-permit-button'
 import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
 import { ApplicantDeclarationConfirm } from '@/components/permits/applicant-declaration-confirm'
@@ -1116,10 +1117,7 @@ export default async function PermitDetailsPage({
                           : 'Employee ID'}
                       </th>
                       {permit.workers.some((w) => w.is_contractor) && (
-                        <>
-                          <th className="px-3 py-2 font-medium">Nationality</th>
-                          <th className="px-3 py-2 font-medium">Induction</th>
-                        </>
+                        <th className="px-3 py-2 font-medium">Nationality</th>
                       )}
                     </tr>
                   </thead>
@@ -1132,16 +1130,9 @@ export default async function PermitDetailsPage({
                         <td className="px-3 py-2">{worker.full_name}</td>
                         <td className="px-3 py-2">{worker.id_number ?? '—'}</td>
                         {worker.is_contractor && (
-                          <>
-                            <td className="px-3 py-2">
-                              {worker.nationality ?? '—'}
-                            </td>
-                            <td className="px-3 py-2">
-                              {worker.induction_completed
-                                ? 'Completed'
-                                : '—'}
-                            </td>
-                          </>
+                          <td className="px-3 py-2">
+                            {worker.nationality ?? '—'}
+                          </td>
                         )}
                       </tr>
                     ))}
@@ -1214,6 +1205,13 @@ export default async function PermitDetailsPage({
                 No safety controls configured for this permit.
               </p>
             )}
+          </div>
+
+          <div className="px-6 pb-6">
+            <AddSafetyControlButton
+              permitId={permit.id}
+              canAdd={canPerformSafetyVerification}
+            />
           </div>
         </section>
 
