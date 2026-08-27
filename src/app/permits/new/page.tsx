@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -26,6 +26,31 @@ import {
   type ComboboxOption,
 } from '@/components/company/searchable-combobox'
 import { BackButton } from '@/components/ui/back-button'
+import {
+  JhaSection,
+  type Jha,
+  type HirarcDocument,
+} from '@/components/permits/safety-documents/jha-section'
+import {
+  LotoSection,
+  type LotoPoint,
+} from '@/components/permits/safety-documents/loto-section'
+import {
+  GasTestSection,
+  type GasTest,
+} from '@/components/permits/safety-documents/gas-test-section'
+import {
+  AttachmentsSection,
+  type Attachment,
+} from '@/components/permits/attachments-section'
+
+// The live child sections start empty on a brand-new draft; each component
+// manages its own state directly against the draft permit id.
+const EMPTY_JHAS: Jha[] = []
+const EMPTY_HIRARC: HirarcDocument[] = []
+const EMPTY_LOTO_POINTS: LotoPoint[] = []
+const EMPTY_GAS_TESTS: GasTest[] = []
+const EMPTY_ATTACHMENTS: Attachment[] = []
 
 type Profile = {
   id: string
@@ -79,11 +104,30 @@ export default function NewPermitPage() {
   const supabase = createClient()
 
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [companies, setCompanies] = useState<Company[]>([])
   const [permitTypes, setPermitTypes] = useState<PermitType[]>([])
   const [safetyControls, setSafetyControls] = useState<SafetyControl[]>([])
   const [areas, setAreas] = useState<Area[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
+
+  // ---------------------------------------------------------
+  // Draft-first architecture: selecting a customer company + permit type
+  // auto-creates a DRAFT permit via POST /api/permits (submit:false).
+  // Create and Draft are the SAME PTW — every Save/Submit action PATCHes
+  // that draft and this page stays open.
+  // ---------------------------------------------------------
+
+  const [draftPermitId, setDraftPermitId] = useState<number | null>(null)
+  const [draftPermitNo, setDraftPermitNo] = useState<string | null>(null)
+  const [draftCreating, setDraftCreating] = useState(false)
+  const [declaration, setDeclaration] = useState(false)
+  // Captured from the authenticated user's contractor membership so the
+  // update route can preserve contractor_id on the draft permit.
+  const [contractorId, setContractorId] = useState<number | null>(null)
+  // Guards the bootstrap effect so it auto-creates exactly once per
+  // (company, permit type) selection (also survives StrictMode re-runs).
+  const bootstrapKeyRef = useRef('')
 
   const [companyId, setCompanyId] = useState('')
   const [companyOption, setCompanyOption] =
@@ -205,6 +249,8 @@ export default function NewPermitPage() {
         return
       }
 
+      setCurrentUserId(user.id)
+
       const {
         data: profileData,
         error: profileError,
@@ -324,6 +370,8 @@ export default function NewPermitPage() {
           setLoadingData(false)
           return
         }
+
+        setContractorId(membership.contractor_id)
 
         const {
           data: relationships,
@@ -678,7 +726,81 @@ export default function NewPermitPage() {
   }, [permitTypeId, supabase])
 
   // ---------------------------------------------------------
-  // Submit
+  // Bootstrap: auto-create the draft permit once the customer company
+  // and permit type are both selected (Create == Draft).
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    async function createDraft() {
+      if (!companyId || !permitTypeId) return
+      if (draftPermitId !== null) return
+
+      // Guard: only one create attempt per (company, permit type)
+      // selection. Once a draft exists the effect is a no-op.
+      const key = `${companyId}:${permitTypeId}`
+      if (bootstrapKeyRef.current === key) return
+      bootstrapKeyRef.current = key
+
+      setDraftCreating(true)
+      setError('')
+
+      try {
+        const response = await fetch(
+          '/api/permits',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+            body: JSON.stringify({
+              company_id:
+                Number(companyId),
+              permit_type_id:
+                Number(permitTypeId),
+              submit: false,
+            }),
+          }
+        )
+
+        const result =
+          await response.json()
+
+        if (
+          !response.ok ||
+          !result.permit
+        ) {
+          if (Array.isArray(result.errors)) {
+            setSubmissionErrors(
+              result.errors
+            )
+          } else {
+            setError(
+              result.error ||
+                'Unable to create the draft permit.'
+            )
+          }
+          return
+        }
+
+        setDraftPermitId(result.permit.id)
+        setDraftPermitNo(
+          result.permit.permit_no ?? null
+        )
+      } catch {
+        setError(
+          'Unable to connect to the server while creating the draft permit.'
+        )
+      } finally {
+        setDraftCreating(false)
+      }
+    }
+
+    createDraft()
+  }, [companyId, permitTypeId, draftPermitId])
+
+  // ---------------------------------------------------------
+  // Save Draft / Submit Permit
   // ---------------------------------------------------------
 
   async function handleSubmit(
@@ -749,131 +871,252 @@ export default function NewPermitPage() {
     }
 
     try {
-      const response = await fetch(
-        '/api/permits',
+      // 1. Ensure the draft permit exists. Normally the bootstrap effect
+      //    has already created it; this is the fallback path when the
+      //    user saves before the bootstrap completed.
+      let permitId = draftPermitId
+
+      if (permitId === null) {
+        const createResponse = await fetch(
+          '/api/permits',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+            body: JSON.stringify({
+              company_id:
+                Number(companyId),
+              permit_type_id:
+                Number(permitTypeId),
+              submit: false,
+            }),
+          }
+        )
+
+        const createResult =
+          await createResponse.json()
+
+        if (
+          !createResponse.ok ||
+          !createResult.permit
+        ) {
+          if (
+            Array.isArray(
+              createResult.errors
+            )
+          ) {
+            setSubmissionErrors(
+              createResult.errors
+            )
+          } else {
+            setError(
+              createResult.error ||
+                'Unable to create the draft permit.'
+            )
+          }
+          return
+        }
+
+        permitId = createResult.permit.id
+        setDraftPermitId(
+          createResult.permit.id
+        )
+        setDraftPermitNo(
+          createResult.permit.permit_no ??
+            null
+        )
+      }
+
+      // The create block above either returned on failure or assigned a
+      // number; re-assert so TypeScript narrows permitId for the rest of
+      // the submit flow.
+      if (permitId === null) {
+        setError(
+          'Unable to create the draft permit.'
+        )
+        return
+      }
+
+      // 2. Persist all applicant scalar fields onto the draft permit.
+      const patchBody: Record<
+        string,
+        unknown
+      > = {
+        permit_type_id:
+          Number(permitTypeId),
+
+        work_title: workTitle.trim(),
+
+        work_description:
+          workDescription.trim() ||
+          null,
+
+        work_location:
+          workLocation.trim() || null,
+
+        work_method:
+          workMethod.trim() || null,
+
+        area_id: areaId
+          ? Number(areaId)
+          : null,
+
+        equipment_id: equipmentId
+          ? Number(equipmentId)
+          : null,
+
+        contractor_id: contractorId,
+
+        planned_start:
+          plannedStart || null,
+
+        planned_end:
+          plannedEnd || null,
+
+        staff_reference_name:
+          isContractor
+            ? staffReferenceName.trim() ||
+              null
+            : null,
+
+        ppe_other:
+          ppeOther.trim() || null,
+
+        ppe_item_ids: Array.from(
+          selectedPpeIds
+        ),
+
+        recommended_control_ids: Array.from(
+          recommendedControlIds
+        ),
+
+        // Phase E: specialised permit-type details + CSE personnel.
+        // Only included when the selected permit type has a
+        // specialised section (COLD sends an empty object / no
+        // assignments, so no irrelevant fields reach the API).
+        special_details:
+          selectedPermitType &&
+          ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
+            selectedPermitType.code
+          )
+            ? specialDetails
+            : null,
+
+        cse_personnel:
+          selectedPermitType?.code === 'CSE'
+            ? csePersonnel
+            : null,
+
+        declaration_confirmed_at:
+          declaration
+            ? new Date().toISOString()
+            : null,
+
+        declaration_confirmed_by:
+          declaration
+            ? currentUserId
+            : null,
+      }
+
+      // Contractor drafts can be saved before any worker is entered; the
+      // update route hard-rejects a contractor payload without a complete
+      // worker list, so the worker array is only sent once at least one
+      // complete worker exists. Submission-time validation still enforces
+      // the full requirement at submit.
+      if (validWorkers.length > 0) {
+        patchBody.workers = validWorkers.map(
+          (worker) => ({
+            full_name:
+              worker.full_name.trim(),
+            id_number:
+              worker.id_number.trim(),
+            nationality:
+              worker.nationality ?? null,
+            induction_completed: Boolean(
+              worker.induction_completed
+            ),
+          })
+        )
+      }
+
+      const updateResponse = await fetch(
+        `/api/permits/${permitId}/update`,
         {
-          method: 'POST',
+          method: 'PATCH',
           headers: {
             'Content-Type':
               'application/json',
           },
-          body: JSON.stringify({
-            submit: mode === 'submit',
-            company_id:
-              Number(companyId),
-
-            permit_type_id:
-              Number(permitTypeId),
-
-            work_title:
-              workTitle.trim(),
-
-            work_description:
-              workDescription.trim() ||
-              null,
-
-            work_location:
-              workLocation.trim() ||
-              null,
-
-            work_method:
-              workMethod.trim() || null,
-
-            workers: validWorkers.map(
-              (worker) => ({
-                full_name:
-                  worker.full_name.trim(),
-                id_number:
-                  worker.id_number.trim(),
-                nationality:
-                  worker.nationality ?? null,
-                induction_completed: Boolean(
-                  worker.induction_completed
-                ),
-              })
-            ),
-
-            area_id: areaId
-              ? Number(areaId)
-              : null,
-
-            equipment_id: equipmentId
-              ? Number(equipmentId)
-              : null,
-
-            planned_start:
-              plannedStart || null,
-
-            planned_end:
-              plannedEnd || null,
-
-            staff_reference_name: isContractor
-              ? staffReferenceName.trim() || null
-              : null,
-
-            ppe_other:
-              ppeOther.trim() || null,
-
-            ppe_item_ids: Array.from(
-              selectedPpeIds
-            ),
-
-            recommended_control_ids: Array.from(
-              recommendedControlIds
-            ),
-
-            // Phase E: specialised permit-type details + CSE personnel.
-            // Only included when the selected permit type has a
-            // specialised section (COLD sends an empty object / no
-            // assignments, so no irrelevant fields reach the API).
-            special_details:
-              selectedPermitType &&
-              ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
-                selectedPermitType.code
-              )
-                ? specialDetails
-                : null,
-
-            cse_personnel:
-              selectedPermitType?.code === 'CSE'
-                ? csePersonnel
-                : null,
-          }),
+          body: JSON.stringify(patchBody),
         }
       )
 
-      const result =
-        await response.json()
+      const updateResult =
+        await updateResponse.json()
 
-      if (!response.ok) {
-        if (Array.isArray(result.errors)) {
-          setSubmissionErrors(result.errors)
+      if (!updateResponse.ok) {
+        if (
+          Array.isArray(updateResult.errors)
+        ) {
+          setSubmissionErrors(
+            updateResult.errors
+          )
         } else {
           setError(
-            result.error ||
-              'Unable to create permit.'
+            updateResult.error ||
+              'Unable to save the permit.'
           )
         }
         return
       }
 
-      // Direct submission succeeded: show confirmation instead of the form.
-      if (result.submitted === true && result.permit) {
+      // 3. Submit mode: hand the draft to the workflow.
+      if (mode === 'submit') {
+        const submitResponse =
+          await fetch(
+            `/api/permits/${permitId}/submit`,
+            { method: 'POST' }
+          )
+
+        const submitResult =
+          await submitResponse.json()
+
+        if (!submitResponse.ok) {
+          if (
+            Array.isArray(
+              submitResult.errors
+            )
+          ) {
+            setSubmissionErrors(
+              submitResult.errors
+            )
+          } else {
+            setError(
+              submitResult.error ||
+                'Unable to submit the permit.'
+            )
+          }
+          return
+        }
+
         setSubmittedPermit({
-          id: result.permit.id,
-          permit_no: result.permit.permit_no,
-          status: result.permit.status,
+          id: permitId,
+          permit_no:
+            submitResult.permit
+              ?.permit_no ??
+            draftPermitNo ??
+            '',
+          status:
+            submitResult.permit?.status ??
+            'pending_approval',
         })
         return
       }
 
-      // Draft saved: navigate to the permit detail page (the continuation of
-      // the same workspace).
-      router.push(
-        `/permits/${result.permit.id}`
-      )
-
-      router.refresh()
+      // Draft saved: stay on this page — the draft IS the permit, so
+      // Create and Draft are the same PTW (no redirect).
     } catch {
       setError(
         'Unable to connect to the server.'
@@ -944,6 +1187,12 @@ export default function NewPermitPage() {
           Create a new permit-to-work application.
         </p>
 
+        {draftPermitNo && (
+          <p className="mt-2 text-sm font-medium text-primary">
+            Draft permit: {draftPermitNo}
+          </p>
+        )}
+
         <form
           onSubmit={(event) =>
             handleSubmit(event, 'draft')
@@ -952,7 +1201,7 @@ export default function NewPermitPage() {
         >
 
           {/* ------------------------------------------------ */}
-          {/* Permit Information */}
+          {/* 1. Permit Information (drives the draft bootstrap) */}
           {/* ------------------------------------------------ */}
 
           <section className="rounded-xl border bg-background p-6">
@@ -1098,503 +1347,449 @@ export default function NewPermitPage() {
 
           </section>
 
-          {/* ------------------------------------------------ */}
-          {/* Work Details */}
-          {/* ------------------------------------------------ */}
-
-          <section className="rounded-xl border bg-background p-6">
-
-            <SectionHeader
-              title="Work Details"
-              description="Describe the scope, location and method of the work to be performed."
-            />
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-
-              <Field
-                label="Work Title"
-                required
-              >
-                <input
-                  type="text"
-                  value={workTitle}
-                  onChange={(event) =>
-                    setWorkTitle(
-                      event.target.value
-                    )
-                  }
-                  placeholder="e.g. Welding repair at production machine"
-                  required
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Work Location">
-                <input
-                  type="text"
-                  value={workLocation}
-                  onChange={(event) =>
-                    setWorkLocation(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Specific work location"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-            </div>
-
-            <div className="mt-6 space-y-6">
-
-              <Field label="Work Description">
-                <textarea
-                  value={workDescription}
-                  onChange={(event) =>
-                    setWorkDescription(
-                      event.target.value
-                    )
-                  }
-                  rows={4}
-                  placeholder="Describe the work to be performed..."
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Work Method / Sequence">
-                <textarea
-                  value={workMethod}
-                  onChange={(event) =>
-                    setWorkMethod(
-                      event.target.value
-                    )
-                  }
-                  rows={3}
-                  placeholder="Step-by-step method / sequence of work (optional)..."
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-            </div>
-
-          </section>
-
-          {/* ------------------------------------------------ */}
-          {/* Planned Work Period */}
-          {/* ------------------------------------------------ */}
-
-          <section className="rounded-xl border bg-background p-6">
-
-            <SectionHeader
-              title="Planned Work Period"
-              description="Optional planned start and end for the work window."
-            />
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-
-              <Field label="Planned Start">
-                <input
-                  type="datetime-local"
-                  value={plannedStart}
-                  onChange={(event) =>
-                    setPlannedStart(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Planned End">
-                <input
-                  type="datetime-local"
-                  value={plannedEnd}
-                  onChange={(event) =>
-                    setPlannedEnd(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-
-            </div>
-
-          </section>
-
-          {/* ------------------------------------------------ */}
-          {/* Requirements Summary (live, before submit) */}
-          {/* ------------------------------------------------ */}
-
-          {selectedPermitType && (
-            <section className="rounded-xl border bg-background p-6">
-              <SectionHeader
-                title="Permit Requirements"
-                description="What you must complete to submit this permit. Safety verification is performed by authorised Safety Personnel after the permit is submitted."
-              />
-
-              <div className="mt-6 grid gap-2 sm:grid-cols-2">
-                {(() => {
-                  const hasRequiredControls =
-                    safetyControls.some(
-                      (control) => control.is_required
-                    )
-
-                  const hasRequiredPpe =
-                    Array.from(
-                      ppeRecommendations.values()
-                    ).includes('required')
-
-                  const requirements = [
-                    {
-                      label: 'JHA / HIRARC',
-                      state: selectedPermitType.requires_jha
-                        ? 'required'
-                        : 'not_required',
-                      note: selectedPermitType.requires_jha
-                        ? 'Fill a JHA or upload an existing HIRARC'
-                        : null,
-                    },
-                    {
-                      label: 'Safety Controls',
-                      state: hasRequiredControls
-                        ? 'required'
-                        : 'not_required',
-                      note: hasRequiredControls
-                        ? 'Required controls must be in place and verified'
-                        : null,
-                    },
-                    {
-                      label: 'PPE',
-                      state: hasRequiredPpe
-                        ? 'required'
-                        : 'not_required',
-                      note: hasRequiredPpe
-                        ? 'Required PPE must be selected and verified as available'
-                        : null,
-                    },
-                    {
-                      label: 'Site Verification',
-                      state:
-                        selectedPermitType.requires_site_verification ===
-                        false
-                          ? 'not_required'
-                          : 'safety',
-                      note:
-                        selectedPermitType.requires_site_verification ===
-                        false
-                          ? null
-                          : 'Performed by the Safety Officer / Permit Issuer',
-                    },
-                    {
-                      label: 'Gas Testing',
-                      state: selectedPermitType.requires_gas_test
-                        ? 'required'
-                        : 'not_required',
-                      note: null,
-                    },
-                    {
-                      label: 'LOTO',
-                      state: selectedPermitType.requires_loto
-                        ? 'required'
-                        : 'not_required',
-                      note: selectedPermitType.requires_loto
-                        ? 'All isolation points must be verified'
-                        : null,
-                    },
-                    {
-                      label: 'Worker Briefing',
-                      state: selectedPermitType.requires_worker_briefing
-                        ? 'required'
-                        : 'not_required',
-                      note: selectedPermitType.requires_worker_briefing
-                        ? 'Toolbox talk conducted and workers acknowledge'
-                        : null,
-                    },
-                    {
-                      label: 'Emergency Arrangements',
-                      state: selectedPermitType.requires_emergency_arrangements
-                        ? 'required'
-                        : 'not_required',
-                      note: null,
-                    },
-                  ]
-
-                  return requirements.map((requirement) => {
-                    const badge =
-                      requirement.state === 'required' ? (
-                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive">
-                          Required
-                        </span>
-                      ) : requirement.state === 'safety' ? (
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                          Safety Officer
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                          Not required
-                        </span>
-                      )
-
-                    return (
-                      <div
-                        key={requirement.label}
-                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                      >
-                        <span>{requirement.label}</span>
-                        <span className="ml-auto flex items-center gap-2">
-                          {requirement.note && (
-                            <span className="hidden text-xs text-muted-foreground sm:inline">
-                              {requirement.note}
-                            </span>
-                          )}
-                          {badge}
-                        </span>
-                      </div>
-                    )
-                  })
-                })()}
-              </div>
-
-              <p className="mt-4 text-xs text-muted-foreground">
-                Requirements are determined by the selected permit type and
-                are shown here so you know what is expected before you submit.
-                Safety verification is performed by authorised Safety Personnel after the permit is submitted.
-              </p>
-            </section>
+          {/* Bootstrap status while the draft permit is being created */}
+          {draftCreating && draftPermitId === null && (
+            <p className="text-sm text-muted-foreground">
+              Creating draft permit...
+            </p>
           )}
 
           {/* ------------------------------------------------ */}
-          {/* Contractor: Worker Details + Staff Reference */}
+          {/* Full applicant PTW workspace (operates on the draft) */}
           {/* ------------------------------------------------ */}
 
-          {isContractor && (
+          {draftPermitId !== null && (
             <>
-              <section className="rounded-xl border bg-background p-6">
-                <SectionHeader
-                  title="Workers / Authorised Personnel"
-                  description="List every worker performing this work. At least one worker with a full name and NRIC/passport is required for contractor permits."
-                />
 
-                <div className="mt-6">
-                  <WorkerListEditor
-                    mode="contractor"
-                    initial={workers}
-                    onChange={setWorkers}
-                  />
-                </div>
-              </section>
+              {/* ------------------------------------------------ */}
+              {/* 2. Work Description & Method */}
+              {/* ------------------------------------------------ */}
 
               <section className="rounded-xl border bg-background p-6">
+
                 <SectionHeader
-                  title={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
-                  description="Name of the company staff you are liaising with for this work. Required for contractor permits."
+                  title="Work Description & Method"
+                  description="Describe the scope, location and method of the work to be performed."
                 />
 
-                <div className="mt-6">
+                <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+
                   <Field
-                    label={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                    label="Work Title"
                     required
                   >
                     <input
                       type="text"
-                      value={staffReferenceName}
+                      value={workTitle}
                       onChange={(event) =>
-                        setStaffReferenceName(
+                        setWorkTitle(
                           event.target.value
                         )
                       }
-                      placeholder="e.g. Ahmad bin Ali"
+                      placeholder="e.g. Welding repair at production machine"
                       required
                       className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                     />
                   </Field>
-                </div>
-              </section>
-            </>
-          )}
 
-
-
-          {/* ------------------------------------------------ */}
-          {/* Workers / Authorised Personnel (internal PTW) */}
-          {/* ------------------------------------------------ */}
-
-          {!isContractor && (
-            <section className="rounded-xl border bg-background p-6">
-              <SectionHeader
-                title="Workers / Authorised Personnel"
-                description="List the authorised personnel who will perform this work."
-              />
-
-              <div className="mt-6">
-                <WorkerListEditor
-                  mode="internal"
-                  initial={workers}
-                  onChange={setWorkers}
-                />
-              </div>
-            </section>
-          )}
-
-          {/* ------------------------------------------------ */}
-          {/* Safety Requirements */}
-          {/* ------------------------------------------------ */}
-
-          {selectedPermitType && (
-            <section className="rounded-xl border bg-background p-6">
-
-              <SectionHeader
-                title="Safety Requirements"
-                description="Required controls are enforced before approval. Recommended controls are pre-selected and can be adjusted."
-              />
-
-              <div className="mt-6 grid gap-2 sm:grid-cols-2">
-
-                {safetyControls.length > 0 ? (
-                  safetyControls.map(
-                    (control) => {
-                      const isRequired =
-                        control.is_required
-                      const isRecommended =
-                        control.is_recommended &&
-                        !isRequired
-                      const isChecked =
-                        isRequired ||
-                        recommendedControlIds.has(
-                          control.id
+                  <Field label="Work Location">
+                    <input
+                      type="text"
+                      value={workLocation}
+                      onChange={(event) =>
+                        setWorkLocation(
+                          event.target.value
                         )
-                      return (
-                        <label
-                          key={control.id}
-                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            disabled={isRequired}
-                            onChange={() => {
-                              const next = new Set(
-                                recommendedControlIds
-                              )
-                              if (next.has(control.id)) {
-                                next.delete(control.id)
-                              } else {
-                                next.add(control.id)
-                              }
-                              setRecommendedControlIds(
-                                next
-                              )
-                            }}
-                            className="h-4 w-4 rounded border"
-                          />
-                          <span>{control.name}</span>
-                          {isRequired && (
-                            <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                              REQUIRED
-                            </span>
-                          )}
-                          {isRecommended && (
-                            <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                              Recommended
-                            </span>
-                          )}
-                        </label>
+                      }
+                      placeholder="Specific work location"
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+
+                </div>
+
+                <div className="mt-6 space-y-6">
+
+                  <Field label="Work Description">
+                    <textarea
+                      value={workDescription}
+                      onChange={(event) =>
+                        setWorkDescription(
+                          event.target.value
+                        )
+                      }
+                      rows={4}
+                      placeholder="Describe the work to be performed..."
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+
+                  <Field label="Work Method / Sequence">
+                    <textarea
+                      value={workMethod}
+                      onChange={(event) =>
+                        setWorkMethod(
+                          event.target.value
+                        )
+                      }
+                      rows={3}
+                      placeholder="Step-by-step method / sequence of work (optional)..."
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+
+                </div>
+
+              </section>
+
+              {/* ------------------------------------------------ */}
+              {/* 3. Workers / Authorised Personnel */}
+              {/* ------------------------------------------------ */}
+
+              {/* Contractor: worker details + staff reference */}
+              {isContractor && (
+                <>
+                  <section className="rounded-xl border bg-background p-6">
+                    <SectionHeader
+                      title="Workers / Authorised Personnel"
+                      description="List every worker performing this work. At least one worker with a full name and NRIC/passport is required for contractor permits."
+                    />
+
+                    <div className="mt-6">
+                      <WorkerListEditor
+                        mode="contractor"
+                        initial={workers}
+                        onChange={setWorkers}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl border bg-background p-6">
+                    <SectionHeader
+                      title={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                      description="Name of the company staff you are liaising with for this work. Required for contractor permits."
+                    />
+
+                    <div className="mt-6">
+                      <Field
+                        label={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                        required
+                      >
+                        <input
+                          type="text"
+                          value={staffReferenceName}
+                          onChange={(event) =>
+                            setStaffReferenceName(
+                              event.target.value
+                            )
+                          }
+                          placeholder="e.g. Ahmad bin Ali"
+                          required
+                          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                        />
+                      </Field>
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {/* Internal PTW: worker details */}
+              {!isContractor && (
+                <section className="rounded-xl border bg-background p-6">
+                  <SectionHeader
+                    title="Workers / Authorised Personnel"
+                    description="List the authorised personnel who will perform this work."
+                  />
+
+                  <div className="mt-6">
+                    <WorkerListEditor
+                      mode="internal"
+                      initial={workers}
+                      onChange={setWorkers}
+                    />
+                  </div>
+                </section>
+              )}
+
+              {/* ------------------------------------------------ */}
+              {/* 4. Work Period */}
+              {/* ------------------------------------------------ */}
+
+              <section className="rounded-xl border bg-background p-6">
+
+                <SectionHeader
+                  title="Work Period"
+                  description="Optional planned start and end for the work window."
+                />
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+
+                  <Field label="Planned Start">
+                    <input
+                      type="datetime-local"
+                      value={plannedStart}
+                      onChange={(event) =>
+                        setPlannedStart(
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+
+                  <Field label="Planned End">
+                    <input
+                      type="datetime-local"
+                      value={plannedEnd}
+                      onChange={(event) =>
+                        setPlannedEnd(
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </Field>
+
+                </div>
+
+              </section>
+
+              {/* ------------------------------------------------ */}
+              {/* 5. JHA / HIRARC (live on the draft) */}
+              {/* ------------------------------------------------ */}
+
+              <JhaSection
+                permitId={draftPermitId}
+                canAdd={true}
+                canVerify={false}
+                initialJhas={EMPTY_JHAS}
+                initialHirarc={EMPTY_HIRARC}
+              />
+
+              {/* ------------------------------------------------ */}
+              {/* 6. Safety Controls */}
+              {/* ------------------------------------------------ */}
+
+              {selectedPermitType && (
+                <section className="rounded-xl border bg-background p-6">
+
+                  <SectionHeader
+                    title="Safety Controls"
+                    description="Required controls are enforced before approval. Recommended controls are pre-selected and can be adjusted."
+                  />
+
+                  <div className="mt-6 grid gap-2 sm:grid-cols-2">
+
+                    {safetyControls.length > 0 ? (
+                      safetyControls.map(
+                        (control) => {
+                          const isRequired =
+                            control.is_required
+                          const isRecommended =
+                            control.is_recommended &&
+                            !isRequired
+                          const isChecked =
+                            isRequired ||
+                            recommendedControlIds.has(
+                              control.id
+                            )
+                          return (
+                            <label
+                              key={control.id}
+                              className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isRequired}
+                                onChange={() => {
+                                  const next = new Set(
+                                    recommendedControlIds
+                                  )
+                                  if (next.has(control.id)) {
+                                    next.delete(control.id)
+                                  } else {
+                                    next.add(control.id)
+                                  }
+                                  setRecommendedControlIds(
+                                    next
+                                  )
+                                }}
+                                className="h-4 w-4 rounded border"
+                              />
+                              <span>{control.name}</span>
+                              {isRequired && (
+                                <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                                  REQUIRED
+                                </span>
+                              )}
+                              {isRecommended && (
+                                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                  Recommended
+                                </span>
+                              )}
+                            </label>
+                          )
+                        }
                       )
-                    }
-                  )
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No safety controls are configured for this
-                    permit type.
-                  </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No safety controls are configured for this
+                        permit type.
+                      </p>
+                    )}
+
+                  </div>
+
+                </section>
+              )}
+
+              {/* ------------------------------------------------ */}
+              {/* 7. PPE Requirements */}
+              {/* ------------------------------------------------ */}
+
+              {selectedPermitType && (
+                <section className="rounded-xl border bg-background p-6">
+
+                  <SectionHeader
+                    title="PPE Requirements"
+                    description="Recommended PPE is based on the permit type. Adjust the selection for the specific work and hazards."
+                  />
+
+                  <div className="mt-6">
+                    <PpeSelector
+                      items={ppeItems}
+                      recommendationByItemId={
+                        ppeRecommendations
+                      }
+                      selectedIds={selectedPpeIds}
+                      onToggle={(id) => {
+                        const next = new Set(
+                          selectedPpeIds
+                        )
+                        if (next.has(id)) {
+                          next.delete(id)
+                        } else {
+                          next.add(id)
+                        }
+                        setSelectedPpeIds(next)
+                      }}
+                      ppeOther={ppeOther}
+                      onPpeOtherChange={setPpeOther}
+                    />
+                  </div>
+
+                </section>
+              )}
+
+              {/* ------------------------------------------------ */}
+              {/* 8. Permit-Specific Requirements */}
+              {/* ------------------------------------------------ */}
+
+              {/* Only specialised permit types (HOT/CSE/WAH/ELEC) render a
+                  detail section; COLD permits have no specialised section. */}
+              {selectedPermitType &&
+                ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
+                  selectedPermitType.code
+                ) && (
+                  <SpecialisedDetailsFields
+                    code={selectedPermitType.code}
+                    value={specialDetails}
+                    onChange={setSpecialDetails}
+                  />
                 )}
 
-              </div>
+              {/* CSE Personnel Responsibilities (Phase E) */}
+              {selectedPermitType?.code === 'CSE' && (
+                <section className="rounded-xl border bg-background p-6">
+                  <SectionHeader
+                    title="Confined Space Personnel"
+                    description="Permit-level responsibilities assigned from the workers listed on this permit. No new global roles."
+                  />
 
-            </section>
-          )}
+                  <div className="mt-6">
+                    <CsePersonnelEditor
+                      workers={workers.map((worker, index) => ({
+                        index,
+                        full_name: worker.full_name,
+                      }))}
+                      value={csePersonnel}
+                      onChange={setCsePersonnel}
+                    />
+                  </div>
+                </section>
+              )}
 
-          {/* ------------------------------------------------ */}
-          {/* PPE Requirements */}
-          {/* ------------------------------------------------ */}
+              {/* ------------------------------------------------ */}
+              {/* LOTO (live on the draft, when the type requires it) */}
+              {/* ------------------------------------------------ */}
 
-          {selectedPermitType && (
-            <section className="rounded-xl border bg-background p-6">
-
-              <SectionHeader
-                title="PPE Requirements"
-                description="Recommended PPE is based on the permit type. Adjust the selection for the specific work and hazards."
-              />
-
-              <div className="mt-6">
-                <PpeSelector
-                  items={ppeItems}
-                  recommendationByItemId={
-                    ppeRecommendations
-                  }
-                  selectedIds={selectedPpeIds}
-                  onToggle={(id) => {
-                    const next = new Set(
-                      selectedPpeIds
-                    )
-                    if (next.has(id)) {
-                      next.delete(id)
-                    } else {
-                      next.add(id)
-                    }
-                    setSelectedPpeIds(next)
-                  }}
-                  ppeOther={ppeOther}
-                  onPpeOtherChange={setPpeOther}
+              {selectedPermitType?.requires_loto && (
+                <LotoSection
+                  permitId={draftPermitId}
+                  canAdd={true}
+                  canVerify={false}
+                  initialPoints={EMPTY_LOTO_POINTS}
                 />
-              </div>
+              )}
 
-            </section>
-          )}
+              {/* ------------------------------------------------ */}
+              {/* Gas Testing (live on the draft, when required) */}
+              {/* ------------------------------------------------ */}
 
-          {/* ------------------------------------------------ */}
-          {/* Specialised Permit Details (Phase E) */}
-          {/* ------------------------------------------------ */}
-
-          {/* Only specialised permit types (HOT/CSE/WAH/ELEC) render a
-              detail section; COLD permits have no specialised section. */}
-          {selectedPermitType &&
-            ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
-              selectedPermitType.code
-            ) && (
-              <SpecialisedDetailsFields
-                code={selectedPermitType.code}
-                value={specialDetails}
-                onChange={setSpecialDetails}
-              />
-            )}
-
-          {/* ------------------------------------------------ */}
-          {/* CSE Personnel Responsibilities (Phase E) */}
-          {/* ------------------------------------------------ */}
-
-          {selectedPermitType?.code === 'CSE' && (
-            <section className="rounded-xl border bg-background p-6">
-              <SectionHeader
-                title="Confined Space Personnel"
-                description="Permit-level responsibilities assigned from the workers listed on this permit. No new global roles."
-              />
-
-              <div className="mt-6">
-                <CsePersonnelEditor
-                  workers={workers.map((worker, index) => ({
-                    index,
-                    full_name: worker.full_name,
-                  }))}
-                  value={csePersonnel}
-                  onChange={setCsePersonnel}
+              {selectedPermitType?.requires_gas_test && (
+                <GasTestSection
+                  permitId={draftPermitId}
+                  canAdd={true}
+                  canVerify={false}
+                  initialTests={EMPTY_GAS_TESTS}
                 />
-              </div>
-            </section>
+              )}
+
+              {/* ------------------------------------------------ */}
+              {/* 9. Supporting Documents (live uploads on the draft) */}
+              {/* ------------------------------------------------ */}
+
+              <AttachmentsSection
+                permitId={draftPermitId}
+                canUpload={true}
+                canDelete={false}
+                initialAttachments={EMPTY_ATTACHMENTS}
+              />
+
+              {/* ------------------------------------------------ */}
+              {/* 10. Applicant Declaration */}
+              {/* ------------------------------------------------ */}
+
+              <section className="rounded-xl border bg-background p-6">
+                <SectionHeader
+                  title="Applicant Declaration"
+                  description="Confirm that the information provided in this permit application is accurate and that you are authorised to apply for this permit."
+                />
+
+                <div className="mt-6">
+                  <label className="flex items-start gap-3 rounded-md border px-4 py-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={declaration}
+                      onChange={(event) =>
+                        setDeclaration(
+                          event.target.checked
+                        )
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border"
+                    />
+                    <span>
+                      I confirm that the information provided in this permit
+                      application is accurate and that I am authorised to
+                      apply for this permit.
+                    </span>
+                  </label>
+                </div>
+              </section>
+
+            </>
           )}
-
-
 
           {/* ------------------------------------------------ */}
           {/* Error */}
@@ -1649,6 +1844,7 @@ export default function NewPermitPage() {
               disabled={
                 submitting ||
                 loading ||
+                draftCreating ||
                 !companyId ||
                 !permitTypeId
               }
@@ -1664,6 +1860,7 @@ export default function NewPermitPage() {
               disabled={
                 loading ||
                 submitting ||
+                draftCreating ||
                 !companyId ||
                 !permitTypeId
               }

@@ -198,6 +198,7 @@ type Permit = {
     } | null
   }> | null
   remarks: string | null
+  declaration_confirmed_at: string | null
   created_at: string
   permit_type: PermitType | null
   area: Area | null
@@ -360,6 +361,7 @@ export default async function PermitDetailsPage({
         )
       ),
       remarks,
+      declaration_confirmed_at,
       created_at,
 
       permit_type:permit_types!permits_permit_type_id_fkey (
@@ -941,10 +943,42 @@ export default async function PermitDetailsPage({
         {/* ── Divider: APPLICANT / PERMIT INFORMATION ─────── */}
         <div className="mt-8 rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground">APPLICANT / PERMIT INFORMATION</div>
 
-        {/* Work Details */}
+        {/* Permit Information */}
         <section className="mt-6 rounded-xl border bg-background">
           <SectionHeader
-            title="Work Details"
+            title="Permit Information"
+            subtitle="Company, permit type and location for the work to be performed"
+          />
+
+          <div className="grid gap-6 p-6 md:grid-cols-2">
+
+            <InfoItem
+              label="Company"
+              value={permit.company?.name}
+            />
+
+            <InfoItem
+              label="Permit Type"
+              value={permit.permit_type?.name}
+            />
+
+            <InfoItem
+              label="Area"
+              value={permit.area?.name}
+            />
+
+            <InfoItem
+              label="Equipment"
+              value={permit.equipment?.name}
+            />
+
+          </div>
+        </section>
+
+        {/* Work Description & Method */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader
+            title="Work Description & Method"
             subtitle="Scope, location and conditions of the work"
           />
 
@@ -1003,28 +1037,6 @@ export default async function PermitDetailsPage({
                 />
               </div>
             )}
-
-          </div>
-        </section>
-
-        {/* Planned Work Period */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Planned Work Period"
-            subtitle="Scheduled start and end of the work"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Planned Start"
-              value={formatDate(permit.planned_start)}
-            />
-
-            <InfoItem
-              label="Planned End"
-              value={formatDate(permit.planned_end)}
-            />
 
           </div>
         </section>
@@ -1129,6 +1141,28 @@ export default async function PermitDetailsPage({
           </section>
         )}
 
+        {/* Work Period */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader
+            title="Work Period"
+            subtitle="Scheduled start and end of the work"
+          />
+
+          <div className="grid gap-6 p-6 md:grid-cols-2">
+
+            <InfoItem
+              label="Planned Start"
+              value={formatDate(permit.planned_start)}
+            />
+
+            <InfoItem
+              label="Planned End"
+              value={formatDate(permit.planned_end)}
+            />
+
+          </div>
+        </section>
+
         {/* JHA / JSA */}
         <JhaSection
           permitId={permit.id}
@@ -1138,10 +1172,10 @@ export default async function PermitDetailsPage({
           initialHirarc={permit.hirarc_documents ?? []}
         />
 
-        {/* Safety Requirements */}
+        {/* Safety Controls */}
         <section className="mt-6 rounded-xl border bg-background">
           <SectionHeader
-            title="Safety Requirements"
+            title="Safety Controls"
             subtitle="Safety controls required or selected for this permit"
           />
 
@@ -1195,38 +1229,6 @@ export default async function PermitDetailsPage({
               </div>
             </section>
           )}
-
-        {/* Requester */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Requester"
-            subtitle="Details of the person who requested this permit"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Name"
-              value={permit.requester?.full_name}
-            />
-
-            <InfoItem
-              label="Employee No."
-              value={permit.requester?.employee_no}
-            />
-
-            <InfoItem
-              label="Department"
-              value={permit.requester?.department}
-            />
-
-            <InfoItem
-              label="Position"
-              value={permit.requester?.position}
-            />
-
-          </div>
-        </section>
 
         {/* PPE Requirements */}
         {(permit.permit_ppe && permit.permit_ppe.length > 0) ||
@@ -1326,6 +1328,34 @@ export default async function PermitDetailsPage({
           initialTests={permit.gas_tests ?? []}
         />
 
+        {/* Applicant Declaration */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader
+            title="Applicant Declaration"
+            subtitle="Declaration made by the applicant for this permit application"
+          />
+
+          <div className="p-6">
+            <p className="text-sm">
+              I confirm that the information provided in this permit
+              application is accurate and that I am authorised to apply for
+              this permit.
+            </p>
+
+            <p
+              className={`mt-3 text-sm font-medium ${
+                permit.declaration_confirmed_at
+                  ? 'text-green-600'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {permit.declaration_confirmed_at
+                ? '✓ Declared'
+                : '— Not yet declared'}
+            </p>
+          </div>
+        </section>
+
         {/* ── Divider: SAFETY PERSONNEL VERIFICATION ──────── */}
         <div className="mt-8 rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground">SAFETY PERSONNEL VERIFICATION</div>
 
@@ -1415,6 +1445,16 @@ export default async function PermitDetailsPage({
           }
         />
 
+        {/* Supporting Documents */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <div className="p-6">
+            <p className="text-sm text-muted-foreground">
+              Supporting Documents — you can attach documents such as
+              drawings, method statements and certificates below.
+            </p>
+          </div>
+        </section>
+
         {/* Attachments */}
         <AttachmentsSection
           permitId={permit.id}
@@ -1497,6 +1537,38 @@ export default async function PermitDetailsPage({
                 No approval history available.
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Requester */}
+        <section className="mt-6 rounded-xl border bg-background">
+          <SectionHeader
+            title="Requester"
+            subtitle="Details of the person who requested this permit"
+          />
+
+          <div className="grid gap-6 p-6 md:grid-cols-2">
+
+            <InfoItem
+              label="Name"
+              value={permit.requester?.full_name}
+            />
+
+            <InfoItem
+              label="Employee No."
+              value={permit.requester?.employee_no}
+            />
+
+            <InfoItem
+              label="Department"
+              value={permit.requester?.department}
+            />
+
+            <InfoItem
+              label="Position"
+              value={permit.requester?.position}
+            />
+
           </div>
         </section>
 

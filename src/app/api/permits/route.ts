@@ -96,6 +96,8 @@ export async function POST(request: Request) {
       worker_index?: number
       responsibility?: string
     }>
+    declaration_confirmed_at?: string | null
+    declaration_confirmed_by?: string | null
   }
 
   try {
@@ -549,6 +551,14 @@ export async function POST(request: Request) {
       staff_reference_name: staffReferenceName || null,
       ppe_other: ppeOther || null,
       special_details: specialDetails,
+      declaration_confirmed_at:
+        typeof body.declaration_confirmed_at === 'string'
+          ? body.declaration_confirmed_at
+          : null,
+      declaration_confirmed_by:
+        typeof body.declaration_confirmed_by === 'string'
+          ? body.declaration_confirmed_by
+          : null,
     })
     .select(`
       id,

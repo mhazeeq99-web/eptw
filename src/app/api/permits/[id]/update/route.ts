@@ -66,6 +66,8 @@ export async function PATCH(
       worker_index?: number
       responsibility?: string
     }>
+    declaration_confirmed_at?: string | null
+    declaration_confirmed_by?: string | null
   }
 
   try {
@@ -424,6 +426,14 @@ export async function PATCH(
         ...(specialDetails !== undefined
           ? { special_details: specialDetails }
           : {}),
+        declaration_confirmed_at:
+          typeof body.declaration_confirmed_at === 'string'
+            ? body.declaration_confirmed_at
+            : null,
+        declaration_confirmed_by:
+          typeof body.declaration_confirmed_by === 'string'
+            ? body.declaration_confirmed_by
+            : null,
       })
       .eq('id', id)
       .eq('requester_id', user.id)
