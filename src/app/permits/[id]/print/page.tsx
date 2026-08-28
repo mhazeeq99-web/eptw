@@ -769,34 +769,6 @@ export default async function PrintPermitPage({
           </div>
         </div>
       </div>
-
-      {/* Print styles */}
-      <style jsx global>{`
-        @media print {
-          .print\\:hidden {
-            display: none !important;
-          }
-          .print\\:bg-white {
-            background-color: white !important;
-          }
-          .print\\:p-0 {
-            padding: 0 !important;
-          }
-          .print\\:rounded-none {
-            border-radius: 0 !important;
-          }
-          .print\\:shadow-none {
-            box-shadow: none !important;
-          }
-          @page {
-            margin: 1cm;
-          }
-          body {
-            background: white !important;
-            color: black !important;
-          }
-        }
-      `}</style>
     </main>
   )
 }

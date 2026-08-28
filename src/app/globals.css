@@ -128,3 +128,46 @@
     @apply font-sans;
   }
 }
+
+/* Print styles */
+@media print {
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:bg-white {
+    background-color: white !important;
+  }
+
+  .print\:p-0 {
+    padding: 0 !important;
+  }
+
+  .print\:rounded-none {
+    border-radius: 0 !important;
+  }
+
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+
+  /* Ensure dark mode doesn't affect print output */
+  .dark body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .dark .print\:bg-white {
+    background-color: white !important;
+  }
+}
