@@ -235,8 +235,10 @@ export async function getPermitSafetyReadiness(
   push('ppe', 'PPE', ppeHasRequired, ppeStatus, ppeReason, 50)
 
   // ---------------------------------------------------------
-  // Safety controls (required only). Mirrors the legacy gate exactly:
-  // a permit with NO required controls configured is also blocked.
+  // Safety controls (required only). If the safety manager has not marked any
+  // controls as required for this permit type, the gate is NOT enforced —
+  // approval is not blocked for an absent required-controls configuration.
+  // When required controls exist, every one of them must be verified.
   // ---------------------------------------------------------
   const { data: requiredControls } = await supabase
     .from('permit_safety_controls')
@@ -244,7 +246,9 @@ export async function getPermitSafetyReadiness(
     .eq('permit_id', permitId)
     .eq('is_required', true)
 
-  const controlsRequired = true
+  const hasRequiredControls =
+    (requiredControls ?? []).length > 0
+  const controlsRequired = hasRequiredControls
   const incompleteControls = (requiredControls ?? []).filter(
     (control) => control.status !== 'verified'
   )
@@ -252,10 +256,9 @@ export async function getPermitSafetyReadiness(
   let controlsStatus: ReadinessStatus
   let controlsReason: string | null
 
-  if (!requiredControls || requiredControls.length === 0) {
-    controlsStatus = 'incomplete'
-    controlsReason =
-      'Permit cannot be approved because no safety controls are configured for this permit.'
+  if (!hasRequiredControls) {
+    controlsStatus = 'not_required'
+    controlsReason = null
   } else if (incompleteControls.length > 0) {
     controlsStatus = 'incomplete'
     controlsReason =
