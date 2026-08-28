@@ -161,6 +161,12 @@ export function JhaSection({
   >(null)
   const [error, setError] = useState('')
 
+  // Local copy of the JHA list so records saved in this component (the new
+  // permit form passes a static EMPTY_JHAS prop) appear immediately instead of
+  // requiring the parent's `initialJhas` prop to change. `hirarc` already does
+  // this; `jhas` mirrors the same behaviour.
+  const [jhas, setJhas] = useState<Jha[]>(initialJhas)
+
   const [hirarc, setHirarc] = useState<HirarcDocument[]>(
     initialHirarc
   )
@@ -172,11 +178,11 @@ export function JhaSection({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const satisfied =
-    initialJhas.some((jha) => jha.status === 'verified') ||
+    jhas.some((jha) => jha.status === 'verified') ||
     hirarc.length > 0
 
   const methodLabels: string[] = []
-  if (initialJhas.some((jha) => jha.status === 'verified')) {
+  if (jhas.some((jha) => jha.status === 'verified')) {
     methodLabels.push('Manual JHA')
   }
   if (hirarc.length > 0) {
@@ -444,10 +450,14 @@ export function JhaSection({
         return
       }
 
+      const created = result.jha
       setTitle('')
       setDescription('')
       setHazards([emptyHazard()])
       setShowForm(false)
+      if (created) {
+        setJhas((current) => [...current, created])
+      }
       notifyPermitChanged()
       router.refresh()
     } catch {
@@ -476,6 +486,13 @@ export function JhaSection({
         return
       }
 
+      setJhas((current) =>
+        current.map((jha) =>
+          jha.id === jhaId
+            ? { ...jha, status: 'completed' }
+            : jha
+        )
+      )
       notifyPermitChanged()
       router.refresh()
     } catch {
@@ -951,12 +968,12 @@ export function JhaSection({
       )}
 
       <div className="divide-y">
-        {initialJhas.length === 0 ? (
+        {jhas.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">
             No JHA has been added to this permit.
           </p>
         ) : (
-          initialJhas.map((jha) => (
+          jhas.map((jha) => (
             <div key={jha.id} className="p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
