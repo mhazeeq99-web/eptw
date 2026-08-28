@@ -1,8 +1,8 @@
 'use client'
 
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FormEvent, Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import {
@@ -96,6 +96,51 @@ type Company = {
   code: string
 }
 
+// Shape of the draft returned by GET /api/permits/[id] for edit mode.
+type EditPermitData = {
+  id: number
+  permit_no: string | null
+  company_id: number | null
+  permit_type_id: number | null
+  area_id: number | null
+  equipment_id: number | null
+  work_title: string | null
+  work_description: string | null
+  work_location: string | null
+  work_method: string | null
+  planned_start: string | null
+  planned_end: string | null
+  staff_reference_name: string | null
+  ppe_other: string | null
+  special_details: Record<string, unknown> | null
+  declaration_confirmed_at: string | null
+  company: { id: number; name: string; code: string } | null
+  workers: Array<{
+    id: number
+    full_name: string | null
+    id_number: string | null
+    nationality: string | null
+    induction_completed: boolean | null
+  }> | null
+  permit_ppe: Array<{
+    ppe_item_id: number
+    is_selected: boolean | null
+  }> | null
+  recommended_controls: Array<{
+    safety_control_id: number
+    is_selected: boolean | null
+  }> | null
+  cse_personnel: Array<{
+    worker_id: number
+    responsibility: string
+  }> | null
+  jhas: Jha[] | null
+  hirarc_documents: HirarcDocument[] | null
+  loto_points: LotoPoint[] | null
+  gas_tests: GasTest[] | null
+  attachments: Attachment[] | null
+}
+
 type PermitType = {
   id: number
   name: string
@@ -131,6 +176,14 @@ type Equipment = {
 }
 
 export default function NewPermitPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewPermitWorkspace />
+    </Suspense>
+  )
+}
+
+function NewPermitWorkspace() {
   const router = useRouter()
   const supabase = createClient()
 
@@ -151,6 +204,22 @@ export default function NewPermitPage() {
 
   const [draftPermitId, setDraftPermitId] = useState<number | null>(null)
   const [draftPermitNo, setDraftPermitNo] = useState<string | null>(null)
+
+  // ---------------------------------------------------------
+  // Edit mode: /permits/new?edit=<permitId> loads an existing draft into the
+  // SAME unified workspace instead of the legacy edit page. The draft's data
+  // is fetched and pre-populated so the requester can continue where they
+  // left off. Create and Draft remain the same PTW.
+  // ---------------------------------------------------------
+  const searchParams = useSearchParams()
+  const editDraftId = (() => {
+    const raw = searchParams.get('edit')
+    const n = raw ? Number(raw) : NaN
+    return Number.isInteger(n) && n > 0 ? n : null
+  })()
+  const [editPermitData, setEditPermitData] = useState<EditPermitData | null>(null)
+  const editLoadedRef = useRef(false)
+  const editAppliedRef = useRef(false)
   const [draftCreating, setDraftCreating] = useState(false)
   const [declaration, setDeclaration] = useState(false)
   // Captured from the authenticated user's contractor membership so the
@@ -187,6 +256,13 @@ export default function NewPermitPage() {
   const [recommendedControlIds, setRecommendedControlIds] = useState<
     Set<number>
   >(new Set())
+  // Pending edit-mode selections, applied once the permit type's catalog loads.
+  const [pendingRecommendedIds, setPendingRecommendedIds] = useState<
+    number[] | null
+  >(null)
+  const [pendingPpeIds, setPendingPpeIds] = useState<number[] | null>(
+    null
+  )
 
   const [specialDetails, setSpecialDetails] = useState<SpecialDetailsState>({})
   const [csePersonnel, setCsePersonnel] = useState<CsePersonnelDraft[]>([])
@@ -534,6 +610,135 @@ export default function NewPermitPage() {
 
     loadProfileAndCompanies()
   }, [router, supabase])
+
+  // ---------------------------------------------------------
+  // Edit mode: load an existing draft into this workspace
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    async function loadEditDraft() {
+      if (!editDraftId || editLoadedRef.current) return
+      if (loadingData) return
+      editLoadedRef.current = true
+      setError('')
+      try {
+        const response = await fetch(
+          `/api/permits/${editDraftId}`
+        )
+        const result = await response.json()
+        if (!response.ok || !result.permit) {
+          setError(
+            result.error ||
+              'Unable to load the draft for editing.'
+          )
+          return
+        }
+        const p = result.permit
+        setEditPermitData(p)
+        setDraftPermitId(p.id)
+        setDraftPermitNo(p.permit_no ?? null)
+        if (p.company_id) {
+          setCompanyId(String(p.company_id))
+          setCompanyOption({
+            id: p.company_id,
+            label: p.company?.name ?? '',
+            code: p.company?.code ?? null,
+          })
+        }
+      } catch {
+        setError(
+          'Unable to load the draft for editing.'
+        )
+      }
+    }
+    loadEditDraft()
+  }, [editDraftId, loadingData])
+
+  // Once the company's permit types have loaded (so the type is selectable),
+  // apply the draft's permit type and all scalar fields.
+  useEffect(() => {
+    if (!editPermitData || editAppliedRef.current) return
+    if (permitTypes.length === 0) return
+    const targetTypeId = editPermitData.permit_type_id
+    if (targetTypeId == null) return
+    if (!permitTypes.some((t) => t.id === targetTypeId)) return
+
+    editAppliedRef.current = true
+    setPermitTypeId(String(targetTypeId))
+    setAreaId(editPermitData.area_id ? String(editPermitData.area_id) : '')
+    setEquipmentId(
+      editPermitData.equipment_id
+        ? String(editPermitData.equipment_id)
+        : ''
+    )
+    setWorkTitle(editPermitData.work_title ?? '')
+    setWorkDescription(editPermitData.work_description ?? '')
+    setWorkLocation(editPermitData.work_location ?? '')
+    setWorkMethod(editPermitData.work_method ?? '')
+    setPlannedStart(
+      editPermitData.planned_start
+        ? toLocalInput(editPermitData.planned_start)
+        : ''
+    )
+    setPlannedEnd(
+      editPermitData.planned_end
+        ? toLocalInput(editPermitData.planned_end)
+        : ''
+    )
+    setStaffReferenceName(
+      editPermitData.staff_reference_name ?? ''
+    )
+    setPpeOther(editPermitData.ppe_other ?? '')
+    setWorkers(
+      (editPermitData.workers ?? []).map((w) => ({
+        full_name: w.full_name ?? '',
+        id_number: w.id_number ?? '',
+        nationality: w.nationality ?? null,
+        induction_completed: w.induction_completed === true,
+      }))
+    )
+    setSpecialDetails(editPermitData.special_details ?? {})
+    // CSE personnel: map stored worker_id back to a worker index.
+    setCsePersonnel(
+      (editPermitData.cse_personnel ?? []).map((a) => {
+        const idx = (editPermitData.workers ?? []).findIndex(
+          (w) => w.id === a.worker_id
+        )
+        return {
+          worker_index: idx >= 0 ? idx : 0,
+          responsibility: a.responsibility as CsePersonnelDraft['responsibility'],
+        }
+      })
+    )
+    setDeclaration(
+      Boolean(editPermitData.declaration_confirmed_at)
+    )
+    // Recommended controls + PPE selections are applied once the catalog
+    // (safetyControls / ppeItems) has loaded for this permit type.
+    setPendingRecommendedIds(
+      (editPermitData.recommended_controls ?? [])
+        .filter((r) => r.is_selected)
+        .map((r) => r.safety_control_id)
+    )
+    setPendingPpeIds(
+      (editPermitData.permit_ppe ?? [])
+        .filter((p) => p.is_selected)
+        .map((p) => p.ppe_item_id)
+    )
+  }, [editPermitData, permitTypes])
+
+  // Apply recommended-control + PPE selections once the type's catalog loaded.
+  useEffect(() => {
+    if (!pendingRecommendedIds) return
+    setRecommendedControlIds(new Set(pendingRecommendedIds))
+    setPendingRecommendedIds(null)
+  }, [pendingRecommendedIds, safetyControls])
+
+  useEffect(() => {
+    if (!pendingPpeIds) return
+    setSelectedPpeIds(new Set(pendingPpeIds))
+    setPendingPpeIds(null)
+  }, [pendingPpeIds, ppeItems])
 
   // ---------------------------------------------------------
   // Load company-specific permit data
@@ -1266,10 +1471,12 @@ export default function NewPermitPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                Create Permit
+                {editDraftId ? 'Edit Permit' : 'Create Permit'}
               </h1>
               <p className="mt-2 text-muted-foreground">
-                Create a new permit-to-work application.
+                {editDraftId
+                  ? 'Continue editing this draft in the unified permit workspace.'
+                  : 'Create a new permit-to-work application.'}
               </p>
               {draftPermitNo && (
                 <div className="mt-2">
@@ -1624,8 +1831,10 @@ export default function NewPermitPage() {
                 permitId={draftPermitId}
                 canAdd={true}
                 canVerify={false}
-                initialJhas={EMPTY_JHAS}
-                initialHirarc={EMPTY_HIRARC}
+                initialJhas={editPermitData?.jhas ?? EMPTY_JHAS}
+                initialHirarc={
+                  editPermitData?.hirarc_documents ?? EMPTY_HIRARC
+                }
               />
 
               {/* Section 6: Safety Controls */}
@@ -1778,7 +1987,9 @@ export default function NewPermitPage() {
                   permitId={draftPermitId}
                   canAdd={true}
                   canVerify={false}
-                  initialPoints={EMPTY_LOTO_POINTS}
+                  initialPoints={
+                    editPermitData?.loto_points ?? EMPTY_LOTO_POINTS
+                  }
                 />
               )}
 
@@ -1788,7 +1999,9 @@ export default function NewPermitPage() {
                   permitId={draftPermitId}
                   canAdd={true}
                   canVerify={false}
-                  initialTests={EMPTY_GAS_TESTS}
+                  initialTests={
+                    editPermitData?.gas_tests ?? EMPTY_GAS_TESTS
+                  }
                 />
               )}
 
@@ -1797,7 +2010,9 @@ export default function NewPermitPage() {
                 permitId={draftPermitId}
                 canUpload={true}
                 canDelete={false}
-                initialAttachments={EMPTY_ATTACHMENTS}
+                initialAttachments={
+                  editPermitData?.attachments ?? EMPTY_ATTACHMENTS
+                }
               />
 
               {/* Declaration */}
@@ -1962,6 +2177,16 @@ export default function NewPermitPage() {
       </div>
     </DashboardShell>
   )
+}
+
+function toLocalInput(value: string | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+    d.getDate()
+  )}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function CollapsibleSection({

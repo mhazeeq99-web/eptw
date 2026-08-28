@@ -78,18 +78,18 @@ export function SuspendPermitButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div>
       <button
         type="button"
         onClick={handleSuspend}
         disabled={loading}
-        className="rounded-md border border-destructive px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-10 items-center justify-center rounded-lg border border-destructive px-4 text-sm font-medium text-destructive shadow-sm transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? 'Suspending...' : 'Suspend Permit'}
       </button>
 
       {error && (
-        <p className="text-sm text-destructive">
+        <p className="mt-2 text-sm text-destructive">
           {error}
         </p>
       )}

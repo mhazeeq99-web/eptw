@@ -65,12 +65,12 @@ export function SubmitPermitButton({
   }
 
   return (
-    <div className="w-full">
+    <div>
       <button
         type="button"
         onClick={handleSubmit}
         disabled={loading}
-        className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? 'Submitting...' : 'Submit Permit'}
       </button>

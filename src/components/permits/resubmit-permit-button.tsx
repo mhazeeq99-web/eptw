@@ -59,12 +59,12 @@ export function ResubmitPermitButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div>
       <button
         type="button"
         onClick={handleResubmit}
         disabled={loading}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading
           ? 'Resubmitting...'
@@ -72,7 +72,7 @@ export function ResubmitPermitButton({
       </button>
 
       {error && (
-        <p className="text-sm text-destructive">
+        <p className="mt-2 text-sm text-destructive">
           {error}
         </p>
       )}
