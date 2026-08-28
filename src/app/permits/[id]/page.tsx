@@ -16,8 +16,6 @@ import {
   PlayCircle, 
   History, 
   Paperclip, 
-  ChevronDown, 
-  ChevronUp,
   ArrowLeft,
   Calendar,
   Wrench,
@@ -49,15 +47,13 @@ import { SafetyVerificationPanel } from '@/components/permits/safety-verificatio
 import { SpecialisedPermitSection } from '@/components/permits/specialised/specialised-permit-section'
 import { formatDateTimeMY } from '@/lib/dates'
 import { BackButton } from '@/components/ui/back-button'
-import { useState } from 'react'
+import { CollapsibleSection } from '@/components/permits/collapsible-section'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Progress } from '@/components/ui/progress'
 
 type PermitType = {
@@ -1488,27 +1484,6 @@ function TimelineItem({ approval, isLast }: { approval: PermitApproval; isLast: 
   )
 }
 
-function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = useState(true)
-
-  return (
-    <Card className="mt-6">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="flex w-full items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-800">
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-600" />
-            {title}
-          </CardTitle>
-          {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-        </CollapsibleTrigger>
-        <CollapsibleContent className="px-6 pb-6">
-          {children}
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
-  )
-}
-
 function PpeDisplay({ permit }: { permit: Permit }) {
   const categories: string[] = []
   const selectedPpe = (permit.permit_ppe ?? [])
@@ -1624,17 +1599,6 @@ function WorkerStatusBadge({ worker }: { worker: { briefed: boolean; acknowledge
     return <Badge variant="info">Briefed</Badge>
   }
   return <Badge variant="secondary">Not Briefed</Badge>
-}
-
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div className="border-b px-6 py-4">
-      <h2 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
-      {subtitle && (
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
-      )}
-    </div>
-  )
 }
 
 function InfoItem({ label, value, icon: Icon }: { label: string; value?: string | null; icon?: any }) {
