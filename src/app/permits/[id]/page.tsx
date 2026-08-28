@@ -1,6 +1,31 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Printer } from 'lucide-react'
+import { 
+  Printer, 
+  Clock, 
+  MapPin, 
+  Building2, 
+  User, 
+  Users, 
+  Shield, 
+  FileText, 
+  AlertTriangle, 
+  CheckCircle2, 
+  XCircle, 
+  PauseCircle, 
+  PlayCircle, 
+  History, 
+  Paperclip, 
+  ChevronDown, 
+  ChevronUp,
+  ArrowLeft,
+  Calendar,
+  Wrench,
+  HardHat,
+  ClipboardCheck,
+  Activity,
+  Info
+} from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { SubmitPermitButton } from '@/components/permits/submit-permit-button'
@@ -24,6 +49,16 @@ import { SafetyVerificationPanel } from '@/components/permits/safety-verificatio
 import { SpecialisedPermitSection } from '@/components/permits/specialised/specialised-permit-section'
 import { formatDateTimeMY } from '@/lib/dates'
 import { BackButton } from '@/components/ui/back-button'
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Progress } from '@/components/ui/progress'
 
 type PermitType = {
   id: number
@@ -576,19 +611,10 @@ export default async function PermitDetailsPage({
     currentUserRole === 'safety_manager' ||
     currentUserRole === 'safety_coordinator'
 
-  // The Applicant Declaration may be confirmed/revoked by the requester while
-  // the permit is in a submittable state (draft, or rejected before resubmit).
-  // The submission gate requires the declaration to be confirmed before the
-  // permit can move forward.
   const canConfirmDeclaration =
     (permit.status === 'draft' || permit.status === 'rejected') &&
     user?.id === permit.requester?.id
 
-  // Safety-verification actions (site verification, PPE availability,
-  // emergency arrangements, worker briefing/acknowledgement) may ONLY be
-  // performed by an authorised safety verifier (SM/SC). Contractors and
-  // internal staff may view the state but must never see the edit controls —
-  // the API already rejects them; we hide the UI to match.
   const canPerformSafetyVerification =
     canAddSafetyDocs && canVerifySafetyDocs
 
@@ -616,8 +642,7 @@ export default async function PermitDetailsPage({
   }
 
   // ---------------------------------------------------------
-  // Permit-type PPE mappings (required vs recommended) for the
-  // PPE verification display.
+  // Permit-type PPE mappings
   // ---------------------------------------------------------
 
   let ppeVerificationItems: PpeVerificationItem[] = []
@@ -672,991 +697,862 @@ export default async function PermitDetailsPage({
       ? `${formatDate(permit.planned_start)} → ${formatDate(permit.planned_end)}`
       : null
 
+  const completionPercentage = calculateCompletionPercentage(permit)
+
   return (
     <DashboardShell>
-      <div className="max-w-5xl">
-        <div className="mb-6">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Breadcrumb & Quick Actions */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <BackButton href="/permits" label="Back to Permits" />
-        </div>
-
-        {/* Permit Overview */}
-        <section className="rounded-xl border bg-background">
-          <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-bold tracking-tight">
-                  {permit.permit_no}
-                </h1>
-
-                <StatusBadge status={permit.status} />
-              </div>
-
-              <p className="mt-2 text-muted-foreground">
-                {permit.permit_type?.name ?? 'Permit'}
-              </p>
-            </div>
-
-            {permit.status === 'draft' &&
-              permit.initiation_mode === 'internal' && (
-                <SubmitPermitButton
-                  permitId={permit.id}
-                  permitNo={permit.permit_no}
-                />
-              )}
-
-            {permit.status === 'draft' &&
-              permit.initiation_mode ===
-                'contractor_direct' && (
-                <SubmitPermitButton
-                  permitId={permit.id}
-                  permitNo={permit.permit_no}
-                />
-              )}
-
-            {permit.status === 'draft' &&
-              permit.initiation_mode ===
-                'contractor_work_supervisor' &&
-              permit.workflow_stage ===
-                'contractor_completion' && (
-                <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                  Awaiting contractor completion.
-                </div>
-              )}
-
-            {permit.status === 'draft' &&
-              user?.id === permit.requester?.id && (
-                <Link
-                  href={`/permits/${permit.id}/edit`}
-                  className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  Edit Permit
-                </Link>
-              )}
-
-            {permit.status === 'rejected' &&
-              user?.id === permit.requester?.id && (
-                <div className="flex gap-2">
-                  <Link
-                    href={`/permits/${permit.id}/edit`}
-                    className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-                  >
-                    Revise Permit
-                  </Link>
-
-                  <ResubmitPermitButton
-                    permitId={permit.id}
-                    permitNo={permit.permit_no}
-                  />
-                </div>
-              )}
-
-            {/* Safety approval happens from the Safety Verification panel
-                (readiness-gated). Reject stays here. */}
-            {permit.status === 'pending_approval' &&
-              permit.workflow_stage === 'safety_approval' &&
-              (currentUserRole === 'safety_coordinator' ||
-                currentUserRole === 'safety_manager') && (
-                <RejectPermitButton
-                  permitId={permit.id}
-                  permitNo={permit.permit_no}
-                />
-              )}
-
-            {/* Suspend stays in the header; resume/complete/close are driven
-                from the Permit Lifecycle panel (checklist-gated). */}
-            {permit.status === 'active' &&
-              (currentUserRole === 'safety_manager' ||
-                currentUserRole === 'safety_coordinator') && (
-                <SuspendPermitButton
-                  permitId={permit.id}
-                  permitNo={permit.permit_no}
-                />
-              )}
-
+          <div className="flex flex-wrap gap-2">
             <Link
               href={`/permits/${permit.id}/print`}
               target="_blank"
-              className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
             >
               <Printer className="h-4 w-4" />
               Print / PDF
             </Link>
-
-            {(permit.status === 'draft' ||
-              permit.status === 'pending_approval' ||
-              permit.status === 'rejected' ||
-              permit.status === 'approved' ||
-              permit.status === 'issued' ||
-              permit.status === 'suspended') &&
-              (user?.id === permit.requester?.id ||
-                currentUserRole === 'safety_manager' ||
-                currentUserRole === 'safety_coordinator') && (
-                <CancelPermitButton
-                  permitId={permit.id}
-                  permitNo={permit.permit_no}
-                />
-              )}
+            {renderActionButtons(permit, currentUserRole, user)}
           </div>
+        </div>
 
-          <div className="grid gap-6 border-t p-6 sm:grid-cols-2 lg:grid-cols-4">
-            <InfoItem
-              label="Company"
-              value={permit.company?.name}
-            />
-
-            <InfoItem
-              label="Area"
-              value={permit.area?.name}
-            />
-
-            <InfoItem
-              label="Validity"
-              value={validityLabel}
-            />
-
-            <InfoItem
-              label="Requester"
-              value={permit.requester?.full_name}
-            />
-          </div>
-        </section>
-
-        {/* Workflow Information */}
-        {(permit.initiation_mode ||
-          permit.workflow_stage ||
-          permit.submitted_by ||
-          permit.submitted_at ||
-          permit.work_verified_by ||
-          permit.work_verified_at ||
-          permit.approved_by ||
-          permit.approved_at) && (
-          <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader
-              title="Workflow Information"
-              subtitle="Initiation, verification and approval trail for this permit"
-            />
-
-            <div className="grid gap-6 p-6 md:grid-cols-2">
-              {permit.initiation_mode && (
-                <InfoItem
-                  label="Initiation Mode"
-                  value={permit.initiation_mode}
-                />
-              )}
-
-              {permit.workflow_stage && (
-                <InfoItem
-                  label="Workflow Stage"
-                  value={permit.workflow_stage}
-                />
-              )}
-
-              {permit.submitted_by && (
-                <InfoItem
-                  label="Submitted By"
-                  value={permit.submitted_by}
-                />
-              )}
-
-              {permit.submitted_at && (
-                <InfoItem
-                  label="Submitted At"
-                  value={formatDate(permit.submitted_at)}
-                />
-              )}
-
-              {permit.work_verified_by && (
-                <InfoItem
-                  label="Work Verified By"
-                  value={permit.work_verified_by}
-                />
-              )}
-
-              {permit.work_verified_at && (
-                <InfoItem
-                  label="Work Verified At"
-                  value={formatDate(permit.work_verified_at)}
-                />
-              )}
-
-              {permit.approved_by && (
-                <InfoItem
-                  label="Approved By"
-                  value={permit.approved_by}
-                />
-              )}
-
-              {permit.approved_at && (
-                <InfoItem
-                  label="Approved At"
-                  value={formatDate(permit.approved_at)}
-                />
-              )}
-
-              {permit.completed_by && (
-                <InfoItem
-                  label="Completed By"
-                  value={permit.completed_by}
-                />
-              )}
-
-              {permit.completed_at && (
-                <InfoItem
-                  label="Completed At"
-                  value={formatDate(permit.completed_at)}
-                />
-              )}
-
-              {permit.closed_by && (
-                <InfoItem
-                  label="Closed By"
-                  value={permit.closed_by}
-                />
-              )}
-
-              {permit.closed_at && (
-                <InfoItem
-                  label="Closed At"
-                  value={formatDate(permit.closed_at)}
-                />
-              )}
-
-              {permit.cancelled_by && (
-                <InfoItem
-                  label="Cancelled By"
-                  value={permit.cancelled_by}
-                />
-              )}
-
-              {permit.cancelled_at && (
-                <InfoItem
-                  label="Cancelled At"
-                  value={formatDate(permit.cancelled_at)}
-                />
-              )}
-
-              {permit.suspension_reason && (
-                <div className="md:col-span-2">
-                  <InfoItem
-                    label="Suspension Reason"
-                    value={permit.suspension_reason}
-                  />
+        {/* Hero Section */}
+        <Card className="overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-white sm:px-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    {permit.permit_no}
+                  </h1>
+                  <StatusBadge status={permit.status} />
+                  <Badge variant="secondary" className="bg-white/20 text-white">
+                    {permit.permit_type?.name ?? 'Permit'}
+                  </Badge>
                 </div>
-              )}
-
-              {permit.rejection_reason && (
-                <div className="md:col-span-2">
-                  <InfoItem
-                    label="Rejection Reason"
-                    value={permit.rejection_reason}
-                  />
+                <p className="text-lg font-medium text-white/90">
+                  {permit.work_title}
+                </p>
+                <div className="flex flex-wrap gap-4 text-sm text-white/80">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    {validityLabel || 'No validity period set'}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4" />
+                    {permit.company?.name}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4" />
+                    {permit.area?.name}
+                  </span>
                 </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* ── Divider: APPLICANT / PERMIT INFORMATION ─────── */}
-        <div className="mt-8 rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground">APPLICANT / PERMIT INFORMATION</div>
-
-        {/* Permit Information */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Permit Information"
-            subtitle="Company, permit type and location for the work to be performed"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Company"
-              value={permit.company?.name}
-            />
-
-            <InfoItem
-              label="Permit Type"
-              value={permit.permit_type?.name}
-            />
-
-            <InfoItem
-              label="Area"
-              value={permit.area?.name}
-            />
-
-            <InfoItem
-              label="Equipment"
-              value={permit.equipment?.name}
-            />
-
-          </div>
-        </section>
-
-        {/* Work Description & Method */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Work Description & Method"
-            subtitle="Scope, location and conditions of the work"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Work Title"
-              value={permit.work_title}
-            />
-
-            <InfoItem
-              label="Work Location"
-              value={permit.work_location}
-            />
-
-            <InfoItem
-              label="Permit Type"
-              value={permit.permit_type?.name}
-            />
-
-            <InfoItem
-              label="Area"
-              value={permit.area?.name}
-            />
-
-            <InfoItem
-              label="Equipment"
-              value={
-                permit.equipment
-                  ? `${permit.equipment.name}${
-                      permit.equipment.equipment_no
-                        ? ` (${permit.equipment.equipment_no})`
-                        : ''
-                    }`
-                  : null
-              }
-            />
-
-            <InfoItem
-              label="Contractor"
-              value={permit.contractor?.company_name}
-            />
-
-            <div className="md:col-span-2">
-              <InfoItem
-                label="Work Description"
-                value={permit.work_description}
-              />
-            </div>
-
-            {permit.work_method && (
-              <div className="md:col-span-2">
-                <InfoItem
-                  label="Work Method / Sequence"
-                  value={permit.work_method}
-                />
               </div>
-            )}
-
-          </div>
-        </section>
-
-        {/* Contractor Details (contractor PTW) */}
-        {permit.contractor && (
-          <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader
-              title="Contractor Details"
-              subtitle="Contractor responsible for carrying out this permit"
-            />
-
-            <div className="grid gap-6 p-6 md:grid-cols-2">
-              <InfoItem
-                label="Contractor Company"
-                value={permit.contractor.company_name}
-              />
-
-              <InfoItem
-                label="Contractor Admin"
-                value={permit.requester?.full_name}
-              />
-            </div>
-          </section>
-        )}
-
-        {/* Customer Staff Reference (contractor PTW) */}
-        {permit.contractor && permit.staff_reference_name && (
-          <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader
-              title={`${permit.company?.name ?? 'Customer Company'}'s Staff Reference`}
-              subtitle="Customer company's staff contact for this permit"
-            />
-
-            <div className="grid gap-6 p-6 md:grid-cols-2">
-              <InfoItem
-                label="Reference Name"
-                value={permit.staff_reference_name}
-              />
-            </div>
-          </section>
-        )}
-
-        {/* Workers / Authorised Personnel */}
-        {permit.workers && permit.workers.length > 0 && (
-          <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader
-              title="Workers / Authorised Personnel"
-              subtitle="Personnel authorised to perform the work under this permit"
-            />
-
-            <div className="p-6">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="px-3 py-2 font-medium">No.</th>
-                      <th className="px-3 py-2 font-medium">Name</th>
-                      <th className="px-3 py-2 font-medium">
-                        {permit.workers.some((w) => w.is_contractor)
-                          ? 'NRIC / Passport'
-                          : 'Employee ID'}
-                      </th>
-                      {permit.workers.some((w) => w.is_contractor) && (
-                        <th className="px-3 py-2 font-medium">Nationality</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {permit.workers.map((worker, index) => (
-                      <tr key={worker.id} className="border-b last:border-0">
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {index + 1}
-                        </td>
-                        <td className="px-3 py-2">{worker.full_name}</td>
-                        <td className="px-3 py-2">{worker.id_number ?? '—'}</td>
-                        {worker.is_contractor && (
-                          <td className="px-3 py-2">
-                            {worker.nationality ?? '—'}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              
+              {/* Progress Indicator */}
+              <div className="w-full lg:w-64">
+                <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Permit Progress</span>
+                    <span className="text-sm font-bold">{completionPercentage}%</span>
+                  </div>
+                  <Progress value={completionPercentage} className="h-2 bg-white/20" />
+                  <p className="mt-2 text-xs text-white/70">
+                    {getProgressMessage(permit.status)}
+                  </p>
+                </div>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Only workers listed and authorised under this permit may
-                perform the work / enter the designated work area.
-              </p>
             </div>
-          </section>
-        )}
-
-        {/* Work Period */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Work Period"
-            subtitle="Scheduled start and end of the work"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Planned Start"
-              value={formatDate(permit.planned_start)}
-            />
-
-            <InfoItem
-              label="Planned End"
-              value={formatDate(permit.planned_end)}
-            />
-
           </div>
-        </section>
-
-        {/* JHA / JSA */}
-        <JhaSection
-          permitId={permit.id}
-          canAdd={canAddSafetyDocs}
-          canVerify={canVerifySafetyDocs}
-          initialJhas={permit.jhas ?? []}
-          initialHirarc={permit.hirarc_documents ?? []}
-        />
-
-        {/* Safety Controls */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Safety Controls"
-            subtitle="Safety controls required or selected for this permit"
-          />
-
-          <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
-            {permit.safety_controls?.length ? (
-              permit.safety_controls.map((control) => (
-                <Requirement
-                  key={control.id}
-                  label={
-                    control.safety_control?.name ??
-                    'Safety Control'
-                  }
-                  required={control.is_required}
-                  status={control.status}
-                  permitId={permit.id}
-                  controlId={control.id}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No safety controls configured for this permit.
-              </p>
-            )}
+          
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 gap-4 border-t border-gray-200 bg-gray-50 p-4 sm:grid-cols-4 dark:border-gray-700 dark:bg-gray-800">
+            <QuickStat icon={User} label="Requester" value={permit.requester?.full_name} />
+            <QuickStat icon={Users} label="Workers" value={`${permit.workers?.length ?? 0}`} />
+            <QuickStat icon={Shield} label="Safety Controls" value={`${permit.safety_controls?.filter(c => c.is_required).length ?? 0} required`} />
+            <QuickStat icon={Activity} label="Status" value={formatStatus(permit.status)} />
           </div>
+        </Card>
 
-          <div className="px-6 pb-6">
-            <AddSafetyControlButton
-              permitId={permit.id}
-              canAdd={canPerformSafetyVerification}
-            />
-          </div>
-        </section>
+        {/* Main Content with Tabs */}
+        <Tabs defaultValue="overview" className="mt-6">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              <span className="hidden sm:inline">Overview</span>
+              <span className="sm:hidden">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="safety" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Safety</span>
+              <span className="sm:hidden">Safety</span>
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="flex items-center gap-2">
+              <Paperclip className="h-4 w-4" />
+              <span className="hidden sm:inline">Documents</span>
+              <span className="sm:hidden">Docs</span>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">History</span>
+              <span className="sm:hidden">History</span>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Recommended Controls */}
-        {permit.recommended_controls &&
-          permit.recommended_controls.filter(
-            (item) => item.is_selected && item.safety_control
-          ).length > 0 && (
-            <section className="mt-6 rounded-xl border bg-background">
-              <SectionHeader
-                title="Recommended Controls"
-                subtitle="Additional controls selected for this permit"
-              />
-
-              <div className="flex flex-wrap gap-2 p-6">
-                {permit.recommended_controls
-                  .filter(
-                    (item) => item.is_selected && item.safety_control
-                  )
-                  .map((item) => (
-                    <span
-                      key={item.safety_control_id}
-                      className="rounded-full border px-3 py-1 text-sm"
-                    >
-                      {item.safety_control?.name}
-                    </span>
-                  ))}
-              </div>
-            </section>
-          )}
-
-        {/* PPE Requirements */}
-        {(permit.permit_ppe && permit.permit_ppe.length > 0) ||
-        permit.ppe_other ? (
-          <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader
-              title="PPE Requirements"
-              subtitle="Personal protective equipment required for this work"
-            />
-
-            <div className="p-6">
-              {(() => {
-                const categories: string[] = []
-                const selectedPpe = (permit.permit_ppe ?? [])
-                  .filter((item) => item.is_selected)
-                  .filter((item) => item.ppe_item)
-                for (const item of selectedPpe) {
-                  const category = item.ppe_item?.category ?? 'Other'
-                  if (!categories.includes(category)) {
-                    categories.push(category)
-                  }
-                }
-                return (
-                  <div className="space-y-4">
-                    {categories.map((category) => (
-                      <div key={category}>
-                        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          {category}
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {selectedPpe
-                            .filter(
-                              (item) =>
-                                (item.ppe_item?.category ?? 'Other') ===
-                                category
-                            )
-                            .map((item) => (
-                              <span
-                                key={item.ppe_item_id}
-                                className="rounded-full border px-3 py-1 text-sm"
-                              >
-                                {item.ppe_item?.name}
-                              </span>
-                            ))}
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="mt-6 space-y-6">
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Main Information Column */}
+              <div className="space-y-6 lg:col-span-2">
+                {/* Work Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      Work Information
+                    </CardTitle>
+                    <CardDescription>
+                      Permit type, location and equipment details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <InfoItem icon={FileText} label="Work Title" value={permit.work_title} />
+                      <InfoItem icon={MapPin} label="Work Location" value={permit.work_location} />
+                      <InfoItem icon={HardHat} label="Permit Type" value={permit.permit_type?.name} />
+                      <InfoItem icon={MapPin} label="Area" value={permit.area?.name} />
+                      <InfoItem icon={Wrench} label="Equipment" value={permit.equipment ? `${permit.equipment.name}${permit.equipment.equipment_no ? ` (${permit.equipment.equipment_no})` : ''}` : null} />
+                      <InfoItem icon={Building2} label="Contractor" value={permit.contractor?.company_name} />
+                    </div>
+                    <Separator />
+                    <div>
+                      <h4 className="mb-2 font-medium text-gray-900 dark:text-gray-100">Work Description</h4>
+                      <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">
+                        {permit.work_description || '—'}
+                      </p>
+                    </div>
+                    {permit.work_method && (
+                      <>
+                        <Separator />
+                        <div>
+                          <h4 className="mb-2 font-medium text-gray-900 dark:text-gray-100">Work Method / Sequence</h4>
+                          <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">
+                            {permit.work_method}
+                          </p>
                         </div>
-                      </div>
-                    ))}
-                    {permit.ppe_other && (
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Workers Table */}
+                {permit.workers && permit.workers.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <Users className="h-5 w-5 text-blue-600" />
+                          Workers / Authorised Personnel
+                        </span>
+                        <Badge variant="secondary">{permit.workers.length} workers</Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Personnel authorised to perform the work under this permit
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[300px]">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                            <tr className="border-b text-left">
+                              <th className="px-4 py-3 font-medium">No.</th>
+                              <th className="px-4 py-3 font-medium">Name</th>
+                              <th className="px-4 py-3 font-medium">ID Number</th>
+                              {permit.workers.some((w) => w.is_contractor) && (
+                                <th className="px-4 py-3 font-medium">Nationality</th>
+                              )}
+                              <th className="px-4 py-3 font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {permit.workers.map((worker, index) => (
+                              <tr key={worker.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="px-4 py-3 text-gray-500">{index + 1}</td>
+                                <td className="px-4 py-3 font-medium">{worker.full_name}</td>
+                                <td className="px-4 py-3">{worker.id_number ?? '—'}</td>
+                                {worker.is_contractor && (
+                                  <td className="px-4 py-3">{worker.nationality ?? '—'}</td>
+                                )}
+                                <td className="px-4 py-3">
+                                  <WorkerStatusBadge worker={worker} />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </ScrollArea>
+                      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        <Info className="mr-1 inline h-3 w-3" />
+                        Only workers listed and authorised under this permit may perform the work / enter the designated work area.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Specialised Permit Details */}
+                <SpecialisedPermitSection
+                  permitId={permit.id}
+                  code={permit.permit_type?.code ?? null}
+                  initialDetails={permit.special_details ?? null}
+                  initialWorkers={(permit.workers ?? []).map((worker) => ({
+                    id: worker.id,
+                    full_name: worker.full_name,
+                  }))}
+                  initialPersonnel={(permit.cse_personnel ?? []).map(
+                    (assignment) => ({
+                      id: assignment.id,
+                      worker_id: assignment.worker_id,
+                      responsibility: assignment.responsibility,
+                    })
+                  )}
+                  canEdit={canAddSafetyDocs}
+                />
+              </div>
+
+              {/* Right Column - Timeline & Quick Info */}
+              <div className="space-y-6">
+                {/* Work Period Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                      Work Period
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          Other
-                        </p>
-                        <p className="mt-1 text-sm">
-                          {permit.ppe_other}
-                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Planned Start</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(permit.planned_start)}</p>
                       </div>
+                      <ArrowLeft className="h-4 w-4 text-gray-400 rotate-180" />
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Planned End</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(permit.planned_end)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Workflow Status */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                      Workflow Status
+                    </CardTitle>
+                    <CardDescription>
+                      Current progress through the approval process
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <WorkflowTimeline permit={permit} />
+                  </CardContent>
+                </Card>
+
+                {/* Requester Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-blue-600" />
+                      Requester Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <InfoItem label="Name" value={permit.requester?.full_name} />
+                    <InfoItem label="Employee No." value={permit.requester?.employee_no} />
+                    <InfoItem label="Department" value={permit.requester?.department} />
+                    <InfoItem label="Position" value={permit.requester?.position} />
+                  </CardContent>
+                </Card>
+
+                {/* Applicant Declaration */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                      Applicant Declaration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ApplicantDeclarationConfirm
+                      permitId={permit.id}
+                      initiallyConfirmed={Boolean(permit.declaration_confirmed_at)}
+                      editable={canConfirmDeclaration}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Safety Tab */}
+          <TabsContent value="safety" className="mt-6 space-y-6">
+            {/* Safety Verification Section */}
+            {permit.status === 'pending_approval' || permit.status === 'draft' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    Safety Verification Readiness
+                  </CardTitle>
+                  <CardDescription>
+                    Complete all safety verification requirements before approval
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SafetyVerificationPanel
+                    permitId={permit.id}
+                    permitNo={permit.permit_no}
+                    canApprove={
+                      permit.status === 'pending_approval' &&
+                      permit.workflow_stage === 'safety_approval' &&
+                      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')
+                    }
+                  />
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <JhaSection
+                permitId={permit.id}
+                canAdd={canAddSafetyDocs}
+                canVerify={canVerifySafetyDocs}
+                initialJhas={permit.jhas ?? []}
+                initialHirarc={permit.hirarc_documents ?? []}
+              />
+              
+              <div className="space-y-6">
+                <LotoSection
+                  permitId={permit.id}
+                  canAdd={canAddSafetyDocs}
+                  canVerify={canVerifySafetyDocs}
+                  initialPoints={permit.loto_points ?? []}
+                />
+                
+                <GasTestSection
+                  permitId={permit.id}
+                  canAdd={canAddSafetyDocs}
+                  canVerify={canVerifySafetyDocs}
+                  initialTests={permit.gas_tests ?? []}
+                />
+              </div>
+            </div>
+
+            {/* Safety Controls */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    Safety Controls
+                  </span>
+                  <AddSafetyControlButton
+                    permitId={permit.id}
+                    canAdd={canPerformSafetyVerification}
+                  />
+                </CardTitle>
+                <CardDescription>
+                  Required and selected safety controls for this permit
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {permit.safety_controls?.length ? (
+                    permit.safety_controls.map((control) => (
+                      <Requirement
+                        key={control.id}
+                        label={control.safety_control?.name ?? 'Safety Control'}
+                        required={control.is_required}
+                        status={control.status}
+                        permitId={permit.id}
+                        controlId={control.id}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground col-span-full">
+                      No safety controls configured for this permit.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recommended Controls */}
+            {permit.recommended_controls &&
+              permit.recommended_controls.filter(
+                (item) => item.is_selected && item.safety_control
+              ).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recommended Controls</CardTitle>
+                    <CardDescription>
+                      Additional controls selected for this permit
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {permit.recommended_controls
+                        .filter((item) => item.is_selected && item.safety_control)
+                        .map((item) => (
+                          <Badge key={item.safety_control_id} variant="secondary">
+                            {item.safety_control?.name}
+                          </Badge>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+            {/* PPE Requirements */}
+            {(permit.permit_ppe && permit.permit_ppe.length > 0) || permit.ppe_other ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <HardHat className="h-5 w-5 text-blue-600" />
+                    PPE Requirements
+                  </CardTitle>
+                  <CardDescription>
+                    Personal protective equipment required for this work
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PpeDisplay permit={permit} />
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {/* Site Verification */}
+            {permit.permit_type?.requires_site_verification !== false && (
+              <SiteVerificationSection
+                permitId={permit.id}
+                canEdit={canPerformSafetyVerification}
+                template={siteChecklistTemplate}
+                initialRecord={permit.site_verification as SiteVerificationRecord | null}
+              />
+            )}
+
+            {/* PPE Verification */}
+            <PpeVerificationSection
+              permitId={permit.id}
+              canEdit={canPerformSafetyVerification}
+              initialItems={ppeVerificationItems}
+            />
+
+            {/* Emergency Arrangements */}
+            {permit.permit_type?.requires_emergency_arrangements && (
+              <EmergencyArrangementsSection
+                permitId={permit.id}
+                canEdit={canPerformSafetyVerification}
+                initialRecord={permit.emergency_arrangements as EmergencyArrangementsRecord | null}
+              />
+            )}
+
+            {/* Worker Briefing */}
+            {(permit.workers && permit.workers.length > 0) || permit.permit_type?.requires_worker_briefing ? (
+              <WorkerBriefingSection
+                permitId={permit.id}
+                canEdit={canPerformSafetyVerification}
+                requiresLoto={permit.permit_type?.requires_loto ?? false}
+                requiresGas={permit.permit_type?.requires_gas_test ?? false}
+                initialRecord={permit.worker_briefing as WorkerBriefingRecord | null}
+                initialWorkers={(permit.workers ?? []).map((worker) => ({
+                  id: worker.id,
+                  full_name: worker.full_name,
+                  briefed: worker.briefed,
+                  acknowledged: worker.acknowledged,
+                }))}
+              />
+            ) : null}
+          </TabsContent>
+
+          {/* Documents Tab */}
+          <TabsContent value="documents" className="mt-6 space-y-6">
+            <AttachmentsSection
+              permitId={permit.id}
+              canUpload={permit.status !== 'closed' && permit.status !== 'cancelled'}
+              canDelete={currentUserRole === 'safety_manager' || currentUserRole === 'platform_admin'}
+              initialAttachments={permit.attachments ?? []}
+            />
+          </TabsContent>
+
+          {/* History Tab */}
+          <TabsContent value="history" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5 text-blue-600" />
+                  Permit History
+                </CardTitle>
+                <CardDescription>
+                  Chronological record of actions taken on this permit
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-4">
+                    {permit.approvals?.length ? (
+                      [...permit.approvals]
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map((approval, index) => (
+                          <TimelineItem
+                            key={approval.id}
+                            approval={approval}
+                            isLast={index === permit.approvals.length - 1}
+                          />
+                        ))
+                    ) : (
+                      <p className="text-center text-sm text-muted-foreground py-8">
+                        No approval history available.
+                      </p>
                     )}
                   </div>
-                )
-              })()}
-            </div>
-          </section>
-        ) : null}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-        {/* Specialised Permit Details (Phase E) */}
-        <SpecialisedPermitSection
-          permitId={permit.id}
-          code={permit.permit_type?.code ?? null}
-          initialDetails={permit.special_details ?? null}
-          initialWorkers={(permit.workers ?? []).map((worker) => ({
-            id: worker.id,
-            full_name: worker.full_name,
-          }))}
-          initialPersonnel={(permit.cse_personnel ?? []).map(
-            (assignment) => ({
-              id: assignment.id,
-              worker_id: assignment.worker_id,
-              responsibility: assignment.responsibility,
-            })
-          )}
-          canEdit={canAddSafetyDocs}
-        />
-
-        {/* LOTO */}
-        <LotoSection
-          permitId={permit.id}
-          canAdd={canAddSafetyDocs}
-          canVerify={canVerifySafetyDocs}
-          initialPoints={permit.loto_points ?? []}
-        />
-
-        {/* Gas Testing */}
-        <GasTestSection
-          permitId={permit.id}
-          canAdd={canAddSafetyDocs}
-          canVerify={canVerifySafetyDocs}
-          initialTests={permit.gas_tests ?? []}
-        />
-
-        {/* Applicant Declaration */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Applicant Declaration"
-            subtitle="Declaration made by the applicant for this permit application"
-          />
-
-          <div className="p-6">
-            <ApplicantDeclarationConfirm
-              permitId={permit.id}
-              initiallyConfirmed={Boolean(
-                permit.declaration_confirmed_at
-              )}
-              editable={canConfirmDeclaration}
-            />
-          </div>
-        </section>
-
-        {/* ── Divider: SAFETY PERSONNEL VERIFICATION ──────── */}
-        <div className="mt-8 rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-foreground">SAFETY PERSONNEL VERIFICATION</div>
-
-        {/* Site / Work-Area Verification (Phase D) */}
-        {permit.permit_type?.requires_site_verification !== false && (
-          <SiteVerificationSection
+        {/* Lifecycle Panel */}
+        <CollapsibleSection title="Permit Lifecycle">
+          <LifecyclePanel
             permitId={permit.id}
-            canEdit={canPerformSafetyVerification}
-            template={siteChecklistTemplate}
-            initialRecord={
-              (permit.site_verification ?? null) as
-                | SiteVerificationRecord
-                | null
-            }
-          />
-        )}
-
-        {/* PPE Verification (Phase D) */}
-        <PpeVerificationSection
-          permitId={permit.id}
-          canEdit={canPerformSafetyVerification}
-          initialItems={ppeVerificationItems}
-        />
-
-        {/* Emergency Arrangements (Phase D) */}
-        {permit.permit_type?.requires_emergency_arrangements && (
-          <EmergencyArrangementsSection
-            permitId={permit.id}
-            canEdit={canPerformSafetyVerification}
-            initialRecord={
-              (permit.emergency_arrangements ?? null) as
-                | EmergencyArrangementsRecord
-                | null
-            }
-          />
-        )}
-
-        {/* Worker Briefing / Toolbox Talk (Phase D) */}
-        {(permit.workers && permit.workers.length > 0) ||
-        permit.permit_type?.requires_worker_briefing ? (
-          <WorkerBriefingSection
-            permitId={permit.id}
-            canEdit={canPerformSafetyVerification}
-            requiresLoto={
-              permit.permit_type?.requires_loto ?? false
-            }
-            requiresGas={
-              permit.permit_type?.requires_gas_test ?? false
-            }
-            initialRecord={
-              (permit.worker_briefing ?? null) as
-                | WorkerBriefingRecord
-                | null
-            }
-            initialWorkers={(permit.workers ?? []).map(
-              (worker) => ({
-                id: worker.id,
-                full_name: worker.full_name,
-                briefed: worker.briefed,
-                acknowledged: worker.acknowledged,
-              })
-            )}
-          />
-        ) : null}
-
-        {/* Safety Verification readiness panel (Phase D) */}
-        {permit.status === 'pending_approval' ||
-        permit.status === 'draft' ? (
-          <SafetyVerificationPanel
-            permitId={permit.id}
+            status={permit.status}
             permitNo={permit.permit_no}
-            canApprove={
-              permit.status === 'pending_approval' &&
-              permit.workflow_stage === 'safety_approval' &&
-              (currentUserRole === 'safety_coordinator' ||
-                currentUserRole === 'safety_manager')
-            }
+            canAct={currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator'}
           />
-        ) : null}
+        </CollapsibleSection>
 
-        {/* Permit Lifecycle panel (Phase F): validity + resume/complete/close */}
-        <LifecyclePanel
-          permitId={permit.id}
-          status={permit.status}
-          permitNo={permit.permit_no}
-          canAct={
-            currentUserRole === 'safety_manager' ||
-            currentUserRole === 'safety_coordinator'
-          }
-        />
-
-        {/* Supporting Documents */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <div className="p-6">
-            <p className="text-sm text-muted-foreground">
-              Supporting Documents — you can attach documents such as
-              drawings, method statements and certificates below.
-            </p>
-          </div>
-        </section>
-
-        {/* Attachments */}
-        <AttachmentsSection
-          permitId={permit.id}
-          canUpload={
-            permit.status !== 'closed' &&
-            permit.status !== 'cancelled'
-          }
-          canDelete={
-            currentUserRole === 'safety_manager' ||
-            currentUserRole === 'platform_admin'
-          }
-          initialAttachments={permit.attachments ?? []}
-        />
-
-        {/* Remarks */}
+        {/* Remarks Section */}
         {permit.remarks && (
-          <section className="mt-6 rounded-xl border bg-background">
-            <SectionHeader
-              title="Remarks"
-              subtitle="Additional notes recorded on this permit"
-            />
-
-            <div className="p-6">
-              <p className="whitespace-pre-wrap text-sm">
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-blue-600" />
+                Remarks
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">
                 {permit.remarks}
               </p>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
         )}
-
-        {/* Permit History */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Permit History"
-            subtitle="Chronological record of actions taken on this permit"
-          />
-
-          <div className="divide-y">
-            {permit.approvals?.length ? (
-              [...permit.approvals]
-                .sort(
-                  (a, b) =>
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime()
-                )
-                .map((approval) => (
-                  <div
-                    key={approval.id}
-                    className="p-6"
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-
-                      <div>
-                        <p className="font-medium uppercase">
-                          {formatAction(approval.action)}
-                        </p>
-
-                        <p className="text-sm text-muted-foreground">
-                          {approval.performer
-                            ? `${approval.performer.full_name} · ${formatAction(approval.performer.role)}`
-                            : 'Unknown user'}
-                        </p>
-                      </div>
-
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(approval.created_at)}
-                      </p>
-
-                    </div>
-
-                    {approval.remarks && (
-                      <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm">
-                        {approval.remarks}
-                      </div>
-                    )}
-                  </div>
-                ))
-            ) : (
-              <div className="p-6 text-sm text-muted-foreground">
-                No approval history available.
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Requester */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Requester"
-            subtitle="Details of the person who requested this permit"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Name"
-              value={permit.requester?.full_name}
-            />
-
-            <InfoItem
-              label="Employee No."
-              value={permit.requester?.employee_no}
-            />
-
-            <InfoItem
-              label="Department"
-              value={permit.requester?.department}
-            />
-
-            <InfoItem
-              label="Position"
-              value={permit.requester?.position}
-            />
-
-          </div>
-        </section>
-
-        {/* Record Information */}
-        <section className="mt-6 rounded-xl border bg-background">
-          <SectionHeader
-            title="Record Information"
-            subtitle="System metadata for this permit record"
-          />
-
-          <div className="grid gap-6 p-6 md:grid-cols-2">
-
-            <InfoItem
-              label="Created"
-              value={formatDate(permit.created_at)}
-            />
-
-            <InfoItem
-              label="Permit Status"
-              value={permit.status.toUpperCase()}
-            />
-
-          </div>
-        </section>
-
       </div>
     </DashboardShell>
   )
 }
 
 /* =========================================================
-   COMPONENTS
+   HELPER FUNCTIONS
    ========================================================= */
 
-function SectionHeader({
-  title,
-  subtitle,
-}: {
-  title: string
-  subtitle?: string
-}) {
-  return (
-    <div className="border-b px-6 py-4">
-      <h2 className="font-semibold">
-        {title}
-      </h2>
+function renderActionButtons(permit: Permit, currentUserRole: string | null, user: any) {
+  const buttons = []
 
-      {subtitle && (
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {subtitle}
-        </p>
+  if (permit.status === 'draft' && permit.initiation_mode === 'internal') {
+    buttons.push(
+      <SubmitPermitButton key="submit" permitId={permit.id} permitNo={permit.permit_no} />
+    )
+  }
+
+  if (permit.status === 'draft' && permit.initiation_mode === 'contractor_direct') {
+    buttons.push(
+      <SubmitPermitButton key="submit" permitId={permit.id} permitNo={permit.permit_no} />
+    )
+  }
+
+  if (permit.status === 'draft' && user?.id === permit.requester?.id) {
+    buttons.push(
+      <Link
+        key="edit"
+        href={`/permits/${permit.id}/edit`}
+        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        Edit Permit
+      </Link>
+    )
+  }
+
+  if (permit.status === 'rejected' && user?.id === permit.requester?.id) {
+    buttons.push(
+      <Link
+        key="revise"
+        href={`/permits/${permit.id}/edit`}
+        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        Revise Permit
+      </Link>,
+      <ResubmitPermitButton key="resubmit" permitId={permit.id} permitNo={permit.permit_no} />
+    )
+  }
+
+  if (permit.status === 'pending_approval' && permit.workflow_stage === 'safety_approval' && 
+      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')) {
+    buttons.push(
+      <RejectPermitButton key="reject" permitId={permit.id} permitNo={permit.permit_no} />
+    )
+  }
+
+  if (permit.status === 'active' && (currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
+    buttons.push(
+      <SuspendPermitButton key="suspend" permitId={permit.id} permitNo={permit.permit_no} />
+    )
+  }
+
+  if (['draft', 'pending_approval', 'rejected', 'approved', 'issued', 'suspended'].includes(permit.status) &&
+      (user?.id === permit.requester?.id || currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
+    buttons.push(
+      <CancelPermitButton key="cancel" permitId={permit.id} permitNo={permit.permit_no} />
+    )
+  }
+
+  return buttons
+}
+
+function calculateCompletionPercentage(permit: Permit): number {
+  const steps = [
+    !!permit.work_title,
+    !!permit.work_description,
+    !!permit.work_location,
+    !!permit.planned_start,
+    !!permit.planned_end,
+    permit.safety_controls?.some(c => c.is_required && c.status === 'verified'),
+    permit.permit_type?.requires_jha ? permit.jhas?.some(j => j.status === 'verified') : true,
+    permit.permit_type?.requires_loto ? permit.loto_points?.some(l => l.status === 'verified') : true,
+    permit.permit_type?.requires_gas_test ? permit.gas_tests?.some(g => g.status === 'verified') : true,
+    !!permit.declaration_confirmed_at,
+  ]
+
+  const completed = steps.filter(Boolean).length
+  return Math.round((completed / steps.length) * 100)
+}
+
+function getProgressMessage(status: string): string {
+  const messages: Record<string, string> = {
+    draft: 'Permit is being drafted',
+    pending_approval: 'Awaiting approval',
+    approved: 'Permit has been approved',
+    issued: 'Permit has been issued',
+    active: 'Work is in progress',
+    suspended: 'Work has been suspended',
+    completed: 'Work completed',
+    closed: 'Permit closed',
+    cancelled: 'Permit cancelled',
+    rejected: 'Permit rejected',
+  }
+  return messages[status] || 'Status unknown'
+}
+
+/* =========================================================
+   ENHANCED COMPONENTS
+   ========================================================= */
+
+function QuickStat({ icon: Icon, label, value }: { icon: any; label: string; value?: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
+        <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+      </div>
+      <div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{value || '—'}</p>
+      </div>
+    </div>
+  )
+}
+
+function WorkflowTimeline({ permit }: { permit: Permit }) {
+  const steps = [
+    { label: 'Created', date: permit.created_at, icon: FileText, completed: true },
+    { label: 'Submitted', date: permit.submitted_at, icon: CheckCircle2, completed: !!permit.submitted_at },
+    { label: 'Work Verified', date: permit.work_verified_at, icon: Shield, completed: !!permit.work_verified_at },
+    { label: 'Approved', date: permit.approved_at, icon: CheckCircle2, completed: !!permit.approved_at },
+    { label: 'Active', date: permit.status === 'active' ? permit.approved_at : null, icon: Activity, completed: ['active', 'completed', 'closed'].includes(permit.status) },
+    { label: 'Completed', date: permit.completed_at, icon: CheckCircle2, completed: !!permit.completed_at },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {steps.map((step, index) => (
+        <div key={step.label} className="flex items-start gap-3">
+          <div className="flex flex-col items-center">
+            <div className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors",
+              step.completed 
+                ? "border-green-500 bg-green-50 dark:bg-green-900/50" 
+                : "border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800"
+            )}>
+              <step.icon className={cn(
+                "h-4 w-4",
+                step.completed ? "text-green-500" : "text-gray-400"
+              )} />
+            </div>
+            {index < steps.length - 1 && (
+              <div className={cn(
+                "w-0.5 flex-1 min-h-[2rem]",
+                step.completed ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
+              )} />
+            )}
+          </div>
+          <div className="flex-1 pb-4">
+            <p className={cn(
+              "text-sm font-medium",
+              step.completed ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
+            )}>
+              {step.label}
+            </p>
+            {step.date && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {formatDate(step.date)}
+              </p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TimelineItem({ approval, isLast }: { approval: PermitApproval; isLast: boolean }) {
+  const actionIcons: Record<string, any> = {
+    submitted: CheckCircle2,
+    verified: Shield,
+    approved: CheckCircle2,
+    rejected: XCircle,
+    suspended: PauseCircle,
+    resumed: PlayCircle,
+    completed: CheckCircle2,
+    closed: CheckCircle2,
+    cancelled: XCircle,
+  }
+
+  const actionColors: Record<string, string> = {
+    submitted: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50',
+    verified: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50',
+    approved: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50',
+    rejected: 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/50',
+    suspended: 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/50',
+    resumed: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50',
+    completed: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50',
+    closed: 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-900/50',
+    cancelled: 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/50',
+  }
+
+  const Icon = actionIcons[approval.action] || AlertTriangle
+  const colorClass = actionColors[approval.action] || 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-900/50'
+
+  return (
+    <div className="flex gap-4">
+      <div className="flex flex-col items-center">
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-full", colorClass)}>
+          <Icon className="h-5 w-5" />
+        </div>
+        {!isLast && <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700" />}
+      </div>
+      <div className="flex-1 pb-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-medium text-gray-900 dark:text-gray-100">
+              {formatAction(approval.action)}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {approval.performer ? `${approval.performer.full_name} · ${formatAction(approval.performer.role)}` : 'Unknown user'}
+            </p>
+          </div>
+          <time className="text-xs text-gray-500 dark:text-gray-400">
+            {formatDate(approval.created_at)}
+          </time>
+        </div>
+        {approval.remarks && (
+          <div className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            {approval.remarks}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(true)
+
+  return (
+    <Card className="mt-6">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger className="flex w-full items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-800">
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-blue-600" />
+            {title}
+          </CardTitle>
+          {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="px-6 pb-6">
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  )
+}
+
+function PpeDisplay({ permit }: { permit: Permit }) {
+  const categories: string[] = []
+  const selectedPpe = (permit.permit_ppe ?? [])
+    .filter((item) => item.is_selected)
+    .filter((item) => item.ppe_item)
+
+  for (const item of selectedPpe) {
+    const category = item.ppe_item?.category ?? 'Other'
+    if (!categories.includes(category)) {
+      categories.push(category)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {categories.map((category) => (
+        <div key={category}>
+          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
+            {category}
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {selectedPpe
+              .filter((item) => (item.ppe_item?.category ?? 'Other') === category)
+              .map((item) => (
+                <Badge key={item.ppe_item_id} variant="secondary">
+                  {item.ppe_item?.name}
+                </Badge>
+              ))}
+          </div>
+        </div>
+      ))}
+      {permit.ppe_other && (
+        <div>
+          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
+            Other
+          </h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{permit.ppe_other}</p>
+        </div>
       )}
     </div>
   )
 }
 
-function InfoItem({
-  label,
-  value,
-}: {
-  label: string
-  value?: string | null
-}) {
-  return (
-    <div>
-      <p className="text-sm text-muted-foreground">
-        {label}
-      </p>
-
-      <p className="mt-1 whitespace-pre-wrap text-sm font-medium">
-        {value || '—'}
-      </p>
-    </div>
-  )
-}
-
-function Requirement({
-  label,
-  required,
-  status,
-  permitId,
-  controlId,
-}: {
+function Requirement({ label, required, status, permitId, controlId }: {
   label: string
   required: boolean
   status?: string
@@ -1667,54 +1563,95 @@ function Requirement({
   const isVerified = status === 'verified'
 
   return (
-    <div className="rounded-lg border p-4">
-      <p className="text-sm font-medium">
-        {label}
-      </p>
-
-      <p
-        className={`mt-1 text-sm ${
-          required
-            ? 'text-destructive'
-            : 'text-muted-foreground'
-        }`}
-      >
-        {required ? 'Required' : 'Not required'}
-      </p>
-
-      {status && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Status: {status.replaceAll('_', ' ')}
-        </p>
-      )}
-
-      {isPending &&
-        permitId &&
-        controlId && (
-          <VerifySafetyControlButton
-            permitId={permitId}
-            controlId={controlId}
-          />
+    <div className={cn(
+      "rounded-lg border p-4 transition-colors",
+      isVerified && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20",
+      isPending && "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20"
+    )}>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
+          <p className={cn(
+            "mt-1 text-sm",
+            required ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"
+          )}>
+            {required ? 'Required' : 'Not required'}
+          </p>
+        </div>
+        {status && (
+          <Badge variant={isVerified ? "success" : isPending ? "warning" : "secondary"}>
+            {status.replaceAll('_', ' ')}
+          </Badge>
         )}
-
-      {isVerified && (
-        <p className="mt-3 text-xs font-medium text-green-600">
-          ✓ Verified
-        </p>
+      </div>
+      {isPending && permitId && controlId && (
+        <div className="mt-3">
+          <VerifySafetyControlButton permitId={permitId} controlId={controlId} />
+        </div>
       )}
     </div>
   )
 }
 
-function StatusBadge({
-  status,
-}: {
-  status: string
-}) {
+function StatusBadge({ status }: { status: string }) {
+  const statusConfig: Record<string, { variant: string; label: string }> = {
+    draft: { variant: 'secondary', label: 'Draft' },
+    pending_approval: { variant: 'warning', label: 'Pending Approval' },
+    approved: { variant: 'info', label: 'Approved' },
+    issued: { variant: 'info', label: 'Issued' },
+    active: { variant: 'success', label: 'Active' },
+    suspended: { variant: 'warning', label: 'Suspended' },
+    completed: { variant: 'success', label: 'Completed' },
+    closed: { variant: 'secondary', label: 'Closed' },
+    cancelled: { variant: 'destructive', label: 'Cancelled' },
+    rejected: { variant: 'destructive', label: 'Rejected' },
+  }
+
+  const config = statusConfig[status] || statusConfig.draft
+
   return (
-    <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase">
-      {status.replaceAll('_', ' ')}
-    </span>
+    <Badge variant={config.variant as any}>
+      {config.label}
+    </Badge>
+  )
+}
+
+function WorkerStatusBadge({ worker }: { worker: { briefed: boolean; acknowledged: boolean } }) {
+  if (worker.acknowledged) {
+    return <Badge variant="success">Acknowledged</Badge>
+  }
+  if (worker.briefed) {
+    return <Badge variant="info">Briefed</Badge>
+  }
+  return <Badge variant="secondary">Not Briefed</Badge>
+}
+
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="border-b px-6 py-4">
+      <h2 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+      {subtitle && (
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+      )}
+    </div>
+  )
+}
+
+function InfoItem({ label, value, icon: Icon }: { label: string; value?: string | null; icon?: any }) {
+  return (
+    <div className="flex items-start gap-3">
+      {Icon && (
+        <div className="mt-0.5 rounded-lg bg-gray-100 p-1.5 dark:bg-gray-800">
+          <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+        </div>
+      )}
+      <div className="flex-1">
+        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+        <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-gray-900 dark:text-gray-100">
+          {value || '—'}
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -1725,7 +1662,9 @@ function formatDate(value?: string | null) {
 function formatAction(value: string) {
   return value
     .replaceAll('_', ' ')
-    .replace(/\b\w/g, (char) =>
-      char.toUpperCase()
-    )
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function formatStatus(status: string) {
+  return status.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }
