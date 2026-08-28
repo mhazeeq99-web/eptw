@@ -996,32 +996,6 @@ export default async function PermitDetailsPage({
 
           {/* Safety Tab */}
           <TabsContent value="safety" className="mt-6 space-y-6">
-            {/* Safety Verification Section */}
-            {permit.status === 'pending_approval' || permit.status === 'draft' ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-blue-600" />
-                    Safety Verification Readiness
-                  </CardTitle>
-                  <CardDescription>
-                    Complete all safety verification requirements before approval
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <SafetyVerificationPanel
-                    permitId={permit.id}
-                    permitNo={permit.permit_no}
-                    canApprove={
-                      permit.status === 'pending_approval' &&
-                      permit.workflow_stage === 'safety_approval' &&
-                      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')
-                    }
-                  />
-                </CardContent>
-              </Card>
-            ) : null}
-
             {/* JHA / HIRARC gets full width — its hazards table is wide */}
             <JhaSection
               permitId={permit.id}
@@ -1178,6 +1152,32 @@ export default async function PermitDetailsPage({
                   acknowledged: worker.acknowledged,
                 }))}
               />
+            ) : null}
+
+            {/* Safety Verification Readiness — final section before lifecycle */}
+            {permit.status === 'pending_approval' || permit.status === 'draft' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    Safety Verification Readiness
+                  </CardTitle>
+                  <CardDescription>
+                    Complete all safety verification requirements before approval
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SafetyVerificationPanel
+                    permitId={permit.id}
+                    permitNo={permit.permit_no}
+                    canApprove={
+                      permit.status === 'pending_approval' &&
+                      permit.workflow_stage === 'safety_approval' &&
+                      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')
+                    }
+                  />
+                </CardContent>
+              </Card>
             ) : null}
           </TabsContent>
 
