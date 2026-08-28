@@ -55,11 +55,13 @@ export function LotoSection({
   canAdd,
   canVerify,
   initialPoints,
+  embedded,
 }: {
   permitId: number
   canAdd: boolean
   canVerify: boolean
   initialPoints: LotoPoint[]
+  embedded?: boolean
 }) {
   const router = useRouter()
 
@@ -131,7 +133,7 @@ export function LotoSection({
   }
 
   return (
-    <section className="mt-6 rounded-xl border bg-background">
+    <section className={embedded ? '' : 'mt-6 rounded-xl border bg-background'}>
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
           <h2 className="font-semibold">LOTO — Isolation Points</h2>

@@ -23,11 +23,13 @@ export function AttachmentsSection({
   canUpload,
   canDelete,
   initialAttachments,
+  embedded,
 }: {
   permitId: number
   canUpload: boolean
   canDelete: boolean
   initialAttachments: Attachment[]
+  embedded?: boolean
 }) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -198,7 +200,7 @@ export function AttachmentsSection({
   }
 
   return (
-    <section className="mt-6 rounded-xl border bg-background">
+    <section className={embedded ? '' : 'mt-6 rounded-xl border bg-background'}>
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
           <h2 className="font-semibold">Attachments</h2>

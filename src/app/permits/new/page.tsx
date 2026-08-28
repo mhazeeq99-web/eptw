@@ -228,6 +228,9 @@ function NewPermitWorkspace() {
   // Guards the bootstrap effect so it auto-creates exactly once per
   // (company, permit type) selection (also survives StrictMode re-runs).
   const bootstrapKeyRef = useRef('')
+  // Set by JhaSection so the in-progress JHA is persisted automatically
+  // when the user presses Save Draft or Submit Permit.
+  const jhaSaveRef = useRef<(() => Promise<boolean>) | null>(null)
 
   const [companyId, setCompanyId] = useState('')
   const [companyOption, setCompanyOption] =
@@ -1226,6 +1229,10 @@ function NewPermitWorkspace() {
         return
       }
 
+      // 1b. Persist any in-progress JHA so the user does not need a separate
+      // "Save JHA" step — it is saved together with Save Draft / Submit.
+      await jhaSaveRef.current?.()
+
       // 2. Persist all applicant scalar fields onto the draft permit.
       const patchBody: Record<
         string,
@@ -1826,16 +1833,28 @@ function NewPermitWorkspace() {
                 </div>
               </CollapsibleSection>
 
-              {/* Section 5: JHA */}
-              <JhaSection
-                permitId={draftPermitId}
-                canAdd={true}
-                canVerify={false}
-                initialJhas={editPermitData?.jhas ?? EMPTY_JHAS}
-                initialHirarc={
-                  editPermitData?.hirarc_documents ?? EMPTY_HIRARC
-                }
-              />
+              {/* Section 5: JHA / HIRARC */}
+              <CollapsibleSection
+                id="jha"
+                title="JHA / HIRARC"
+                description="Assess hazards and attach the risk assessment for this work."
+                icon={AlertTriangle}
+                isOpen={openSections.has('jha')}
+                onToggle={() => toggleSection('jha')}
+                isComplete={(editPermitData?.jhas?.length ?? 0) > 0}
+              >
+                <JhaSection
+                  permitId={draftPermitId}
+                  canAdd={true}
+                  canVerify={false}
+                  initialJhas={editPermitData?.jhas ?? EMPTY_JHAS}
+                  initialHirarc={
+                    editPermitData?.hirarc_documents ?? EMPTY_HIRARC
+                  }
+                  embedded
+                  saveRef={jhaSaveRef}
+                />
+              </CollapsibleSection>
 
               {/* Section 6: Safety Controls */}
               {selectedPermitType && (
@@ -1983,37 +2002,70 @@ function NewPermitWorkspace() {
 
               {/* LOTO */}
               {selectedPermitType?.requires_loto && (
-                <LotoSection
-                  permitId={draftPermitId}
-                  canAdd={true}
-                  canVerify={false}
-                  initialPoints={
-                    editPermitData?.loto_points ?? EMPTY_LOTO_POINTS
-                  }
-                />
+                <CollapsibleSection
+                  id="loto"
+                  title="LOTO — Isolation Points"
+                  description="Lock-out / tag-out isolation points required for this work."
+                  icon={Lock}
+                  isOpen={openSections.has('loto')}
+                  onToggle={() => toggleSection('loto')}
+                  isComplete={(editPermitData?.loto_points?.length ?? 0) > 0}
+                >
+                  <LotoSection
+                    permitId={draftPermitId}
+                    canAdd={true}
+                    canVerify={false}
+                    initialPoints={
+                      editPermitData?.loto_points ?? EMPTY_LOTO_POINTS
+                    }
+                    embedded
+                  />
+                </CollapsibleSection>
               )}
 
               {/* Gas Testing */}
               {selectedPermitType?.requires_gas_test && (
-                <GasTestSection
-                  permitId={draftPermitId}
-                  canAdd={true}
-                  canVerify={false}
-                  initialTests={
-                    editPermitData?.gas_tests ?? EMPTY_GAS_TESTS
-                  }
-                />
+                <CollapsibleSection
+                  id="gas-testing"
+                  title="Gas Testing"
+                  description="Record atmospheric gas test results for this work."
+                  icon={Shield}
+                  isOpen={openSections.has('gas-testing')}
+                  onToggle={() => toggleSection('gas-testing')}
+                  isComplete={(editPermitData?.gas_tests?.length ?? 0) > 0}
+                >
+                  <GasTestSection
+                    permitId={draftPermitId}
+                    canAdd={true}
+                    canVerify={false}
+                    initialTests={
+                      editPermitData?.gas_tests ?? EMPTY_GAS_TESTS
+                    }
+                    embedded
+                  />
+                </CollapsibleSection>
               )}
 
               {/* Attachments */}
-              <AttachmentsSection
-                permitId={draftPermitId}
-                canUpload={true}
-                canDelete={false}
-                initialAttachments={
-                  editPermitData?.attachments ?? EMPTY_ATTACHMENTS
-                }
-              />
+              <CollapsibleSection
+                id="attachments"
+                title="Attachments"
+                description="Upload supporting documents and photos for this permit."
+                icon={Paperclip}
+                isOpen={openSections.has('attachments')}
+                onToggle={() => toggleSection('attachments')}
+                isComplete={(editPermitData?.attachments?.length ?? 0) > 0}
+              >
+                <AttachmentsSection
+                  permitId={draftPermitId}
+                  canUpload={true}
+                  canDelete={false}
+                  initialAttachments={
+                    editPermitData?.attachments ?? EMPTY_ATTACHMENTS
+                  }
+                  embedded
+                />
+              </CollapsibleSection>
 
               {/* Declaration */}
               <CollapsibleSection

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Trash2 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
@@ -140,12 +140,20 @@ export function JhaSection({
   canVerify,
   initialJhas,
   initialHirarc,
+  embedded,
+  saveRef,
 }: {
   permitId: number
   canAdd: boolean
   canVerify: boolean
   initialJhas: Jha[]
   initialHirarc: HirarcDocument[]
+  /** Render without the outer card so the parent can wrap it in a section. */
+  embedded?: boolean
+  /** The parent can set this to auto-save the in-progress JHA on form submit. */
+  saveRef?: React.MutableRefObject<
+    (() => Promise<boolean>) | null
+  >
 }) {
   const router = useRouter()
 
@@ -386,12 +394,14 @@ export function JhaSection({
     )
   }
 
-  async function handleCreate() {
+  async function handleCreate(): Promise<boolean> {
     setError('')
 
     if (!title.trim()) {
-      setError('JHA title is required.')
-      return
+      if (!embedded) {
+        setError('JHA title is required.')
+      }
+      return false
     }
 
     const structuredHazards = hazards
@@ -417,10 +427,12 @@ export function JhaSection({
       }))
 
     if (structuredHazards.length === 0) {
-      setError(
-        'Add at least one hazard with a description.'
-      )
-      return
+      if (!embedded) {
+        setError(
+          'Add at least one hazard with a description.'
+        )
+      }
+      return false
     }
 
     setSaving(true)
@@ -444,10 +456,12 @@ export function JhaSection({
       const result = await response.json()
 
       if (!response.ok) {
-        setError(
-          result.error || 'Unable to add JHA.'
-        )
-        return
+        if (!embedded) {
+          setError(
+            result.error || 'Unable to add JHA.'
+          )
+        }
+        return false
       }
 
       const created = result.jha
@@ -460,8 +474,12 @@ export function JhaSection({
       }
       notifyPermitChanged()
       router.refresh()
+      return true
     } catch {
-      setError('Unable to add JHA.')
+      if (!embedded) {
+        setError('Unable to add JHA.')
+      }
+      return false
     } finally {
       setSaving(false)
     }
@@ -502,8 +520,16 @@ export function JhaSection({
     }
   }
 
+  // Expose the in-progress JHA save so the parent form can persist it as
+  // part of Save Draft / Submit Permit (no separate "Save JHA" click needed).
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = handleCreate
+    }
+  })
+
   return (
-    <section className="mt-6 rounded-xl border bg-background">
+    <section className={embedded ? '' : 'mt-6 rounded-xl border bg-background'}>
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
           <h2 className="font-semibold">JHA / HIRARC</h2>
@@ -955,14 +981,16 @@ export function JhaSection({
               Cancel
             </button>
 
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={saving}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save JHA'}
-            </button>
+            {!embedded && (
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={saving}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save JHA'}
+              </button>
+            )}
           </div>
         </div>
       )}

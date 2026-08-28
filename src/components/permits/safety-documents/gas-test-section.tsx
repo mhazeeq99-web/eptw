@@ -57,11 +57,13 @@ export function GasTestSection({
   canAdd,
   canVerify,
   initialTests,
+  embedded,
 }: {
   permitId: number
   canAdd: boolean
   canVerify: boolean
   initialTests: GasTest[]
+  embedded?: boolean
 }) {
   const router = useRouter()
 
@@ -181,7 +183,7 @@ export function GasTestSection({
   }
 
   return (
-    <section className="mt-6 rounded-xl border bg-background">
+    <section className={embedded ? '' : 'mt-6 rounded-xl border bg-background'}>
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
           <h2 className="font-semibold">Gas Testing</h2>
