@@ -1022,16 +1022,18 @@ export default async function PermitDetailsPage({
               </Card>
             ) : null}
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <JhaSection
-                permitId={permit.id}
-                canAdd={canAddSafetyDocs}
-                canVerify={canVerifySafetyDocs}
-                initialJhas={permit.jhas ?? []}
-                initialHirarc={permit.hirarc_documents ?? []}
-              />
-              
-              <div className="space-y-6">
+            {/* JHA / HIRARC gets full width — its hazards table is wide */}
+            <JhaSection
+              permitId={permit.id}
+              canAdd={canAddSafetyDocs}
+              canVerify={canVerifySafetyDocs}
+              initialJhas={permit.jhas ?? []}
+              initialHirarc={permit.hirarc_documents ?? []}
+            />
+
+            {(permit.permit_type?.requires_loto ||
+              permit.permit_type?.requires_gas_test) && (
+              <div className="grid gap-6 lg:grid-cols-2">
                 {permit.permit_type?.requires_loto && (
                   <LotoSection
                     permitId={permit.id}
@@ -1050,7 +1052,7 @@ export default async function PermitDetailsPage({
                   />
                 )}
               </div>
-            </div>
+            )}
 
             {/* Safety Controls */}
             <Card>
