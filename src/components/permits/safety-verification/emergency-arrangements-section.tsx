@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 export type EmergencyArrangementsRecord = {
   id: number
@@ -106,6 +107,7 @@ export function EmergencyArrangementsSection({
         return
       }
 
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to save emergency arrangements.')

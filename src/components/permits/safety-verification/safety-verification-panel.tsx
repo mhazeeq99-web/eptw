@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ActionSuccessDialog } from '../action-success-dialog'
+import { PERMIT_CHANGED_EVENT } from '@/lib/permit-changed'
 
 export type ReadinessItemData = {
   key: string
@@ -63,6 +64,17 @@ export function SafetyVerificationPanel({
 
   useEffect(() => {
     loadReadiness()
+
+    // Re-fetch readiness whenever a sibling safety-document section mutates
+    // the permit (JHA / LOTO / gas / site / PPE / briefing / emergency /
+    // safety controls), so the panel stays live without a manual refresh.
+    const handleChange = () => {
+      loadReadiness()
+    }
+    window.addEventListener(PERMIT_CHANGED_EVENT, handleChange)
+    return () => {
+      window.removeEventListener(PERMIT_CHANGED_EVENT, handleChange)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permitId])
 

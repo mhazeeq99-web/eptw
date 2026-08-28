@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 import {
   SpecialisedDetailsFields,
   type SpecialDetailsState,
@@ -88,6 +89,7 @@ export function SpecialisedPermitSection({
         return
       }
       setEditMode(false)
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to save specialised details.')
@@ -130,6 +132,7 @@ export function SpecialisedPermitSection({
         return
       }
       setEditMode(false)
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to save CSE personnel.')

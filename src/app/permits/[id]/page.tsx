@@ -1032,19 +1032,23 @@ export default async function PermitDetailsPage({
               />
               
               <div className="space-y-6">
-                <LotoSection
-                  permitId={permit.id}
-                  canAdd={canAddSafetyDocs}
-                  canVerify={canVerifySafetyDocs}
-                  initialPoints={permit.loto_points ?? []}
-                />
-                
-                <GasTestSection
-                  permitId={permit.id}
-                  canAdd={canAddSafetyDocs}
-                  canVerify={canVerifySafetyDocs}
-                  initialTests={permit.gas_tests ?? []}
-                />
+                {permit.permit_type?.requires_loto && (
+                  <LotoSection
+                    permitId={permit.id}
+                    canAdd={canAddSafetyDocs}
+                    canVerify={canVerifySafetyDocs}
+                    initialPoints={permit.loto_points ?? []}
+                  />
+                )}
+
+                {permit.permit_type?.requires_gas_test && (
+                  <GasTestSection
+                    permitId={permit.id}
+                    canAdd={canAddSafetyDocs}
+                    canVerify={canVerifySafetyDocs}
+                    initialTests={permit.gas_tests ?? []}
+                  />
+                )}
               </div>
             </div>
 

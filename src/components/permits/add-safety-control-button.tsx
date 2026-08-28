@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 type CatalogueControl = {
   id: number
@@ -78,6 +79,7 @@ export function AddSafetyControlButton({
         return
       }
       setOpen(false)
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to add the safety control.')

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { VerifySafetyDocButton } from './verify-button'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 export type LotoPoint = {
   id: number
@@ -120,6 +121,7 @@ export function LotoSection({
       setIsolationMethod('')
       setRemarks('')
       setShowForm(false)
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to add isolation point.')

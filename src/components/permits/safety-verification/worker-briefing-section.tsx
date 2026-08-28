@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 export type BriefingWorker = {
   id: number
@@ -131,6 +132,7 @@ export function WorkerBriefingSection({
         return
       }
 
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to save worker briefing.')
@@ -167,6 +169,7 @@ export function WorkerBriefingSection({
         return
       }
 
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to update acknowledgement.')

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 export type SiteChecklistTemplateItem = {
   item_key: string
@@ -117,6 +118,7 @@ export function SiteVerificationSection({
       }
 
       setStatus(nextStatus)
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to save site verification.')

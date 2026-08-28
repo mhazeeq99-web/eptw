@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 export type PpeVerificationItem = {
   ppe_item_id: number
@@ -61,6 +62,7 @@ export function PpeVerificationSection({
         return
       }
 
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to update PPE verification.')

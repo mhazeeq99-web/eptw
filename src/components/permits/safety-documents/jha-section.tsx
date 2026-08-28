@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Trash2 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 /**
  * 5x5 likelihood x severity risk matrix adopted by the company
@@ -263,6 +264,7 @@ export function JhaSection({
         recordResult.document,
         ...current,
       ])
+      notifyPermitChanged()
       router.refresh()
     } catch (uploadError) {
       setUploadError(
@@ -334,6 +336,7 @@ export function JhaSection({
       setHirarc((current) =>
         current.filter((item) => item.id !== document.id)
       )
+      notifyPermitChanged()
       router.refresh()
     } catch (deleteError) {
       setUploadError(
@@ -445,6 +448,7 @@ export function JhaSection({
       setDescription('')
       setHazards([emptyHazard()])
       setShowForm(false)
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to add JHA.')
@@ -472,6 +476,7 @@ export function JhaSection({
         return
       }
 
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to mark JHA as completed.')

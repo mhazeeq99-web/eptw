@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { notifyPermitChanged } from '@/lib/permit-changed'
 
 export function VerifySafetyDocButton({
   permitId,
@@ -54,6 +55,7 @@ export function VerifySafetyDocButton({
         return
       }
 
+      notifyPermitChanged()
       router.refresh()
     } catch {
       setError('Unable to verify.')
