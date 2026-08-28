@@ -1,5 +1,25 @@
 import Link from 'next/link'
-import { Plus, FileText, SearchX, TriangleAlert, X } from 'lucide-react'
+import { 
+  Plus, 
+  FileText, 
+  SearchX, 
+  TriangleAlert, 
+  X,
+  Clock,
+  MapPin,
+  User,
+  Wrench,
+  Calendar,
+  ChevronRight,
+  Filter,
+  TrendingUp,
+  Activity,
+  CheckCircle2,
+  AlertCircle,
+  Building2,
+  HardHat,
+  Users
+} from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { PermitFilters } from '@/components/permits/permit-filters'
@@ -8,6 +28,9 @@ import {
   getExpiryState,
 } from '@/components/permits/status-badge'
 import { formatDateTimeMY } from '@/lib/dates'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 type Permit = {
   id: number
@@ -196,6 +219,17 @@ export default async function PermitsPage({
       params.expiry
   )
 
+  // Calculate statistics
+  const stats = {
+    total: filteredPermits.length,
+    active: filteredPermits.filter(p => p.status === 'active').length,
+    pending: filteredPermits.filter(p => p.status === 'pending_approval').length,
+    expiringSoon: filteredPermits.filter(p => {
+      const state = getExpiryState(p.status, p.valid_until, p.planned_end)
+      return state === 'expiring_soon'
+    }).length,
+  }
+
   // Filter options (scoped to the user's company)
   const companyScope = profile?.company_id
     ? { company_id: profile.company_id }
@@ -221,27 +255,60 @@ export default async function PermitsPage({
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-
+      <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Permits
-            </h1>
-
-            <p className="mt-2 text-muted-foreground">
-              Manage permit-to-work applications.
-            </p>
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Permits
+                </h1>
+                <p className="mt-1 text-muted-foreground">
+                  Manage permit-to-work applications
+                </p>
+              </div>
+            </div>
           </div>
 
           <Link
             href="/permits/new"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-blue-700/30"
           >
             <Plus className="h-4 w-4" />
             Create Permit
           </Link>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            icon={FileText}
+            label="Total Permits"
+            value={stats.total}
+            color="blue"
+          />
+          <StatCard
+            icon={Activity}
+            label="Active"
+            value={stats.active}
+            color="green"
+          />
+          <StatCard
+            icon={Clock}
+            label="Pending"
+            value={stats.pending}
+            color="yellow"
+          />
+          <StatCard
+            icon={AlertCircle}
+            label="Expiring Soon"
+            value={stats.expiringSoon}
+            color="orange"
+          />
         </div>
 
         {/* Filters */}
@@ -254,180 +321,226 @@ export default async function PermitsPage({
         />
 
         {/* Permit count */}
-        <div className="text-sm text-muted-foreground">
-          {filteredPermits.length} permit
-          {filteredPermits.length === 1 ? '' : 's'}
-          {hasActiveFilters ? ' (filtered)' : ''}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Badge variant="secondary">
+            {filteredPermits.length} permit{filteredPermits.length === 1 ? '' : 's'}
+          </Badge>
+          {hasActiveFilters && (
+            <span className="inline-flex items-center gap-1">
+              <Filter className="h-3 w-3" />
+              Filtered
+            </span>
+          )}
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-xl border bg-background">
-
-          {error ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <TriangleAlert className="h-10 w-10 text-destructive" />
-
-              <h2 className="mt-4 font-semibold">
-                Couldn&apos;t load permits
+        {error ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="rounded-full bg-red-100 p-4 dark:bg-red-900/50">
+                <TriangleAlert className="h-12 w-12 text-red-600 dark:text-red-400" />
+              </div>
+              <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                Couldn't Load Permits
               </h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Something went wrong while loading your permits. Please try
-                again.
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Something went wrong while loading your permits. Please try again.
               </p>
-            </div>
-          ) : filteredPermits.length === 0 ? (
-            hasActiveFilters ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center">
-                <SearchX className="h-10 w-10 text-muted-foreground" />
-
-                <h2 className="mt-4 font-semibold">
-                  No permits match your filters
+            </CardContent>
+          </Card>
+        ) : filteredPermits.length === 0 ? (
+          hasActiveFilters ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-800">
+                  <SearchX className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                </div>
+                <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                  No Permits Match Your Filters
                 </h2>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Try adjusting or clearing the filters above to see more
-                  permits.
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Try adjusting or clearing the filters above to see more permits.
                 </p>
-
                 <Link
                   href="/permits"
-                  className="mt-4 inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                  className="mt-6 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   <X className="h-4 w-4" />
-                  Clear filters
+                  Clear Filters
                 </Link>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-12 text-center">
-                <FileText className="h-10 w-10 text-muted-foreground" />
-
-                <h2 className="mt-4 font-semibold">
-                  No permits yet
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-800">
+                  <FileText className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                </div>
+                <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                  No Permits Yet
                 </h2>
-
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                   Create your first permit-to-work application to get started.
                 </p>
-
                 <Link
                   href="/permits/new"
-                  className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
                 >
                   <Plus className="h-4 w-4" />
-                  Create Permit
+                  Create Your First Permit
                 </Link>
-              </div>
-            )
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] text-sm">
-
-                <thead className="border-b bg-muted/40">
-                  <tr>
-                    <th className="px-6 py-3 text-left font-medium">
-                      Permit
-                    </th>
-
-                    <th className="px-6 py-3 text-left font-medium">
-                      Work
-                    </th>
-
-                    <th className="px-6 py-3 text-left font-medium">
-                      Type
-                    </th>
-
-                    <th className="px-6 py-3 text-left font-medium">
-                      Area
-                    </th>
-
-                    <th className="px-6 py-3 text-left font-medium">
-                      Requester
-                    </th>
-
-                    <th className="px-6 py-3 text-left font-medium">
-                      Status
-                    </th>
-
-                    <th className="px-6 py-3 text-right font-medium">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y">
-                  {filteredPermits.map((permit) => (
-                    <tr
-                      key={permit.id}
-                      className="transition-colors hover:bg-muted/40"
-                    >
-                      <td className="px-6 py-4">
-                        <Link
-                          href={`/permits/${permit.id}`}
-                          className="font-medium text-primary hover:underline"
+              </CardContent>
+            </Card>
+          )
+        ) : (
+          <Card>
+            <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+              <CardTitle>Permit List</CardTitle>
+              <CardDescription>
+                View and manage all permit-to-work applications
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[600px]">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[680px] text-sm">
+                    <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Permit</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Work</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Type</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Area</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Requester</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
+                        <th className="px-6 py-4 text-right font-medium text-gray-500 dark:text-gray-400">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredPermits.map((permit) => (
+                        <tr 
+                          key={permit.id} 
+                          className="group transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
                         >
-                          {permit.permit_no}
-                        </Link>
+                          <td className="px-6 py-4">
+                            <Link
+                              href={`/permits/${permit.id}`}
+                              className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                              {permit.permit_no}
+                            </Link>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              #{permit.id}
+                            </p>
+                          </td>
 
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          #{permit.id}
-                        </p>
-                      </td>
+                          <td className="px-6 py-4">
+                            <div className="max-w-[200px]">
+                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                                {permit.work_title}
+                              </p>
+                              {permit.planned_start && (
+                                <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                  <Calendar className="h-3 w-3" />
+                                  {formatDateTimeMY(permit.planned_start)}
+                                </p>
+                              )}
+                            </div>
+                          </td>
 
-                      <td className="px-6 py-4">
-                        <p className="font-medium">
-                          {permit.work_title}
-                        </p>
+                          <td className="px-6 py-4">
+                            <Badge variant="secondary">
+                              <Wrench className="mr-1 h-3 w-3" />
+                              {permit.permit_type?.name ?? '—'}
+                            </Badge>
+                          </td>
 
-                        {permit.planned_start && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {formatDateTimeMY(permit.planned_start)}
-                          </p>
-                        )}
-                      </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {permit.area?.name ?? '—'}
+                            </div>
+                          </td>
 
-                      <td className="px-6 py-4">
-                        {permit.permit_type?.name ?? '—'}
-                      </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                              <User className="h-3.5 w-3.5" />
+                              {permit.requester?.full_name ?? '—'}
+                            </div>
+                          </td>
 
-                      <td className="px-6 py-4">
-                        {permit.area?.name ?? '—'}
-                      </td>
+                          <td className="px-6 py-4">
+                            <StatusBadge
+                              status={permit.status}
+                              expiry={getExpiryState(
+                                permit.status,
+                                permit.valid_until,
+                                permit.planned_end
+                              )}
+                            />
+                          </td>
 
-                      <td className="px-6 py-4">
-                        {permit.requester?.full_name ?? '—'}
-                      </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                              <Link
+                                href={`/permits/${permit.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                View
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
 
-                      <td className="px-6 py-4">
-                        <StatusBadge
-                          status={permit.status}
-                          expiry={getExpiryState(
-                            permit.status,
-                            permit.valid_until,
-                            permit.planned_end
-                          )}
-                        />
-                      </td>
-
-                      <td className="px-6 py-4 text-right">
-                        <Link
-                          href={`/permits/${permit.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-
-              </table>
+        {/* Help Note */}
+        {filteredPermits.length > 0 && (
+          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Tip
+              </p>
+              <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                Click on any permit to view detailed information, including safety verifications, approvals, and attachments.
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </DashboardShell>
+  )
+}
+
+function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: number; color: 'blue' | 'green' | 'yellow' | 'orange' }) {
+  const colorClasses = {
+    blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400",
+    green: "bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400",
+    yellow: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400",
+    orange: "bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400",
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center gap-3">
+          <div className={`rounded-lg p-2 ${colorClasses[color]}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

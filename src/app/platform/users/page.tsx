@@ -6,6 +6,18 @@ import {
   TriangleAlert,
   Users,
   X,
+  Search,
+  User,
+  Mail,
+  Building2,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Shield,
+  Filter,
+  UserPlus,
+  Activity
 } from 'lucide-react'
 
 import { DashboardShell } from '@/components/layout/dashboard-shell'
@@ -13,6 +25,9 @@ import { BackButton } from '@/components/ui/back-button'
 import { UserStatusButton } from '@/components/platform/user-status-button'
 import { createClient } from '@/lib/supabase/server'
 import { formatDateMY } from '@/lib/dates'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 type SearchParams = {
   q?: string
@@ -37,15 +52,6 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 type AccountStatus = 'INVITED' | 'ACTIVE' | 'DISABLED'
-
-const STATUS_STYLES: Record<AccountStatus, string> = {
-  INVITED:
-    'inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700',
-  ACTIVE:
-    'inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700',
-  DISABLED:
-    'inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
-}
 
 type PlatformUser = {
   id: string
@@ -100,137 +106,131 @@ export default async function PlatformUsersPage({
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-
+      <div className="mx-auto max-w-7xl space-y-6">
         <BackButton href="/dashboard" label="Back to Platform" />
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Users
-          </h1>
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Users
+                </h1>
+                <p className="mt-1 text-muted-foreground">
+                  All platform users
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <p className="mt-2 text-muted-foreground">
-            All platform users.
-          </p>
+          <Badge variant="secondary" className="self-start">
+            <Activity className="mr-1 h-3 w-3" />
+            Platform Users
+          </Badge>
         </div>
 
-        <UserFilters
-          params={params}
-          hasActiveFilters={hasActiveFilters}
-        />
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <form method="GET" action="/platform/users" className="grid gap-4 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <label htmlFor="user-search" className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <Search className="h-3.5 w-3.5 text-gray-400" />
+                  Search
+                </label>
+                <input
+                  id="user-search"
+                  name="q"
+                  type="search"
+                  defaultValue={params.q ?? ''}
+                  placeholder="Name, email or employee no."
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="user-role" className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <Shield className="h-3.5 w-3.5 text-gray-400" />
+                  Role
+                </label>
+                <select
+                  id="user-role"
+                  name="role"
+                  defaultValue={params.role ?? ''}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <option value="">All roles</option>
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {ROLE_LABELS[role]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="user-status" className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <Activity className="h-3.5 w-3.5 text-gray-400" />
+                  Status
+                </label>
+                <select
+                  id="user-status"
+                  name="status"
+                  defaultValue={params.status ?? ''}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <option value="">All statuses</option>
+                  <option value="INVITED">Invited</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="DISABLED">Disabled</option>
+                </select>
+              </div>
+
+              <div className="flex items-end gap-2">
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+                >
+                  <Filter className="h-4 w-4" />
+                  Filter
+                </button>
+
+                {hasActiveFilters && (
+                  <Link
+                    href="/platform/users"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Link>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         <Suspense fallback={<UsersLoading />}>
           <UsersTable params={params} />
         </Suspense>
-
       </div>
     </DashboardShell>
   )
 }
 
-function UserFilters({
-  params,
-  hasActiveFilters,
-}: {
-  params: SearchParams
-  hasActiveFilters: boolean
-}) {
-  return (
-    <form
-      method="GET"
-      action="/platform/users"
-      className="flex flex-col gap-3 rounded-xl border bg-background p-4 lg:flex-row lg:items-end"
-    >
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <label
-          htmlFor="user-search"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Search
-        </label>
-
-        <input
-          id="user-search"
-          name="q"
-          type="search"
-          defaultValue={params.q ?? ''}
-          placeholder="Name, email or employee no."
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <label
-          htmlFor="user-role"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Role
-        </label>
-
-        <select
-          id="user-role"
-          name="role"
-          defaultValue={params.role ?? ''}
-          className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">All roles</option>
-
-          {ROLES.map((role) => (
-            <option key={role} value={role}>
-              {ROLE_LABELS[role]}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-1.5">
-        <label
-          htmlFor="user-status"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Status
-        </label>
-
-        <select
-          id="user-status"
-          name="status"
-          defaultValue={params.status ?? ''}
-          className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">All statuses</option>
-          <option value="INVITED">Invited</option>
-          <option value="ACTIVE">Active</option>
-          <option value="DISABLED">Disabled</option>
-        </select>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Filter
-        </button>
-
-        {hasActiveFilters && (
-          <Link
-            href="/platform/users"
-            className="inline-flex items-center gap-1.5 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-          >
-            <X className="h-4 w-4" />
-            Clear
-          </Link>
-        )}
-      </div>
-    </form>
-  )
-}
-
 function UsersLoading() {
   return (
-    <div className="rounded-xl border bg-background p-8 text-center text-sm text-muted-foreground">
-      Loading users...
-    </div>
+    <Card>
+      <CardContent className="p-8">
+        <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+          <p className="text-sm">Loading users...</p>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -291,176 +291,187 @@ async function UsersTable({ params }: { params: SearchParams }) {
   )
 
   return (
-    <div className="space-y-2">
-
-      <div className="text-sm text-muted-foreground">
-        {users.length} user{users.length === 1 ? '' : 's'}
-        {hasFilters ? ' (filtered)' : ''}
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary">
+          {users.length} user{users.length === 1 ? '' : 's'}
+        </Badge>
+        {hasFilters && (
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            (filtered)
+          </span>
+        )}
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-background">
-
-        {error ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center">
-            <TriangleAlert className="h-10 w-10 text-destructive" />
-
-            <h2 className="mt-4 font-semibold">
-              Couldn&apos;t load users
+      {error ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+            <div className="rounded-full bg-red-100 p-4 dark:bg-red-900/50">
+              <TriangleAlert className="h-12 w-12 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+              Couldn't Load Users
             </h2>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Something went wrong while loading platform users.
-              Please try again.
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Something went wrong while loading platform users. Please try again.
             </p>
-          </div>
-        ) : users.length === 0 ? (
-          hasFilters ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <SearchX className="h-10 w-10 text-muted-foreground" />
-
-              <h2 className="mt-4 font-semibold">
-                No users match your filters
+          </CardContent>
+        </Card>
+      ) : users.length === 0 ? (
+        hasFilters ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-800">
+                <SearchX className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                No Users Match Your Filters
               </h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Try adjusting or clearing the filters above to see
-                more users.
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Try adjusting or clearing the filters above to see more users.
               </p>
-
               <Link
                 href="/platform/users"
-                className="mt-4 inline-flex items-center gap-1.5 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                className="mt-6 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <X className="h-4 w-4" />
-                Clear filters
+                Clear Filters
               </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <Users className="h-10 w-10 text-muted-foreground" />
-
-              <h2 className="mt-4 font-semibold">
-                No users yet
-              </h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Platform users will appear here once accounts are
-                created.
-              </p>
-            </div>
-          )
+            </CardContent>
+          </Card>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-sm">
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-800">
+                <Users className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                No Users Yet
+              </h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Platform users will appear here once accounts are created.
+              </p>
+            </CardContent>
+          </Card>
+        )
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[600px]">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-sm">
+                  <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="px-5 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Name</th>
+                      <th className="px-5 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Email</th>
+                      <th className="px-5 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Company</th>
+                      <th className="px-5 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Role</th>
+                      <th className="px-5 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
+                      <th className="px-5 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Created</th>
+                      <th className="px-5 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Invitation</th>
+                      <th className="px-5 py-4 text-right font-medium text-gray-500 dark:text-gray-400">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {users.map((user) => (
+                      <tr key={user.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="rounded-full bg-gray-100 p-2 dark:bg-gray-800">
+                              <User className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">{user.full_name}</p>
+                              {user.employee_no && (
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{user.employee_no}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
 
-              <thead className="border-b bg-muted/40">
-                <tr>
-                  <th className="px-5 py-3 text-left font-medium">
-                    Name
-                  </th>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                            <Mail className="h-3.5 w-3.5" />
+                            {user.email}
+                          </div>
+                        </td>
 
-                  <th className="px-5 py-3 text-left font-medium">
-                    Email
-                  </th>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                            <Building2 className="h-3.5 w-3.5" />
+                            {user.company?.name ?? '—'}
+                          </div>
+                        </td>
 
-                  <th className="px-5 py-3 text-left font-medium">
-                    Company
-                  </th>
+                        <td className="px-5 py-4">
+                          <Badge variant="secondary">
+                            {ROLE_LABELS[user.role] ?? user.role}
+                          </Badge>
+                        </td>
 
-                  <th className="px-5 py-3 text-left font-medium">
-                    Role
-                  </th>
+                        <td className="px-5 py-4">
+                          <StatusBadge status={getAccountStatus(user)} />
+                        </td>
 
-                  <th className="px-5 py-3 text-left font-medium">
-                    Status
-                  </th>
+                        <td className="whitespace-nowrap px-5 py-4">
+                          <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {formatDateMY(user.created_at)}
+                          </div>
+                        </td>
 
-                  <th className="px-5 py-3 text-left font-medium">
-                    Created
-                  </th>
+                        <td className="px-5 py-4">
+                          {user.invitation_sent_at ? (
+                            <Badge variant="warning">
+                              <Clock className="mr-1 h-3 w-3" />
+                              INVITED
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-600">—</span>
+                          )}
+                        </td>
 
-                  <th className="px-5 py-3 text-left font-medium">
-                    Invitation
-                  </th>
-
-                  <th className="px-5 py-3 text-right font-medium">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y">
-                {users.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="transition-colors hover:bg-muted/40"
-                  >
-                    <td className="px-5 py-4">
-                      <p className="font-medium">
-                        {user.full_name}
-                      </p>
-
-                      {user.employee_no && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {user.employee_no}
-                        </p>
-                      )}
-                    </td>
-
-                    <td className="px-5 py-4 text-muted-foreground">
-                      {user.email}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {user.company?.name ?? '—'}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {ROLE_LABELS[user.role] ?? user.role}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span
-                        className={
-                          STATUS_STYLES[getAccountStatus(user)]
-                        }
-                      >
-                        {getAccountStatus(user)}
-                      </span>
-                    </td>
-
-                    <td className="whitespace-nowrap px-5 py-4 text-muted-foreground">
-                      {formatDateMY(user.created_at)}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {user.invitation_sent_at ? (
-                        <span
-                          className={STATUS_STYLES.INVITED}
-                        >
-                          INVITED
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    <td className="px-5 py-4 text-right">
-                      <UserStatusButton
-                        userId={user.id}
-                        isActive={user.is_active}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-
-            </table>
-          </div>
-        )}
-
-      </div>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center justify-end">
+                            <UserStatusButton
+                              userId={user.id}
+                              isActive={user.is_active}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
     </div>
+  )
+}
+
+function StatusBadge({ status }: { status: AccountStatus }) {
+  const variants: Record<AccountStatus, any> = {
+    INVITED: 'warning',
+    ACTIVE: 'success',
+    DISABLED: 'secondary',
+  }
+
+  const icons: Record<AccountStatus, any> = {
+    INVITED: Clock,
+    ACTIVE: CheckCircle2,
+    DISABLED: AlertTriangle,
+  }
+
+  const Icon = icons[status]
+
+  return (
+    <Badge variant={variants[status]}>
+      <Icon className="mr-1 h-3 w-3" />
+      {status}
+    </Badge>
   )
 }
 

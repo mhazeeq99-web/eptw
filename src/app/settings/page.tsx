@@ -1,9 +1,24 @@
 import Link from 'next/link'
-import { UserRound, ShieldCheck } from 'lucide-react'
+import { 
+  UserRound, 
+  ShieldCheck,
+  Settings,
+  Building2,
+  Bell,
+  ChevronRight,
+  Info,
+  Mail,
+  BadgeCheck,
+  Users,
+  Wrench,
+  Layers
+} from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { SettingsManager } from '@/components/company/settings-manager'
 import { NotificationPreferences } from '@/components/settings/notification-preferences'
 import { createClient } from '@/lib/supabase/server'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
 /**
  * Role-aware Settings page.
@@ -37,76 +52,156 @@ export default async function SettingsPage() {
   return (
     <DashboardShell>
       {isPlatformAdmin ? (
-        <div className="mx-auto max-w-3xl space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Settings
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Platform administrator account settings.
-            </p>
+        <div className="mx-auto max-w-4xl space-y-6">
+          {/* Header */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                  <Settings className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    Settings
+                  </h1>
+                  <p className="mt-1 text-muted-foreground">
+                    Platform administrator account settings
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Badge variant="secondary" className="self-start">
+              <ShieldCheck className="mr-1 h-3 w-3" />
+              Platform Admin
+            </Badge>
           </div>
 
-          {/* Account */}
-          <section className="rounded-xl border bg-background">
-            <div className="flex items-center gap-3 border-b px-6 py-4">
-              <UserRound className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <h2 className="font-semibold">Account</h2>
-                <p className="text-sm text-muted-foreground">
-                  Your platform administrator identity.
-                </p>
+          {/* Account Card */}
+          <Card>
+            <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+              <CardTitle className="flex items-center gap-2">
+                <UserRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                Account
+              </CardTitle>
+              <CardDescription>
+                Your platform administrator identity
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-800">
+                      <UserRound className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Display Name</p>
+                  </div>
+                  <p className="text-sm text-gray-900 dark:text-white">
+                    {profile?.full_name ?? '—'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-800">
+                      <Mail className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</p>
+                  </div>
+                  <p className="text-sm text-gray-900 dark:text-white">
+                    {profile?.email ?? '—'}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-800">
+                      <BadgeCheck className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</p>
+                  </div>
+                  <Badge variant="info">
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    Platform Admin
+                  </Badge>
+                </div>
               </div>
-            </div>
-            <div className="divide-y">
-              <div className="flex items-center justify-between px-6 py-4">
-                <p className="text-sm font-medium">Display Name</p>
-                <p className="text-sm text-muted-foreground">
-                  {profile?.full_name ?? '—'}
-                </p>
-              </div>
-              <div className="flex items-center justify-between px-6 py-4">
-                <p className="text-sm font-medium">Email</p>
-                <p className="text-sm text-muted-foreground">
-                  {profile?.email ?? '—'}
-                </p>
-              </div>
-              <div className="flex items-center justify-between px-6 py-4">
-                <p className="text-sm font-medium">Role</p>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Platform Admin
-                </span>
-              </div>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
-          {/* Platform administration link */}
-          <section className="flex flex-col gap-3 rounded-xl border bg-background p-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-semibold">
-                Platform Administration
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Manage the ePTW SaaS platform from the Platform
-                Control Centre.
-              </p>
-            </div>
-            <Link
-              href="/dashboard"
-              className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              Open Platform Dashboard
-            </Link>
-          </section>
+          {/* Platform Administration Link */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/50">
+                    <Layers className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-gray-900 dark:text-white">
+                      Platform Administration
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                      Manage the ePTW SaaS platform from the Platform Control Centre.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+                >
+                  Open Platform Dashboard
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Account-level notification preferences */}
+          {/* Notification Preferences */}
           <NotificationPreferences />
         </div>
       ) : (
         <div className="mx-auto max-w-5xl space-y-6">
-          {/* Company settings for company users (scoped to their own company). */}
+          {/* Header */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                  <Settings className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    Settings
+                  </h1>
+                  <p className="mt-1 text-muted-foreground">
+                    Company configuration and preferences
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Badge variant="secondary" className="self-start">
+              <Building2 className="mr-1 h-3 w-3" />
+              Company Settings
+            </Badge>
+          </div>
+
+          {/* Info Notice */}
+          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Company Configuration
+              </p>
+              <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                Manage your company's operational settings, including permit types, areas, equipment, and safety configurations.
+              </p>
+            </div>
+          </div>
+
+          {/* Company Settings */}
           <SettingsManager />
+
+          {/* Notification Preferences */}
           <NotificationPreferences />
         </div>
       )}

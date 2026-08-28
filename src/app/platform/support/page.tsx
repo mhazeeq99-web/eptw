@@ -7,6 +7,17 @@ import {
   Search,
   SearchX,
   ShieldCheck,
+  Info,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Clock,
+  Mail,
+  User,
+  Calendar,
+  MapPin,
+  HardHat,
+  ChevronRight
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { BackButton } from '@/components/ui/back-button'
@@ -16,6 +27,9 @@ import {
   getExpiryState,
 } from '@/components/permits/status-badge'
 import { formatDateTimeMY, formatDateMY } from '@/lib/dates'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 /**
  * Platform Admin — READ-ONLY support lookup.
@@ -27,9 +41,9 @@ import { formatDateTimeMY, formatDateMY } from '@/lib/dates'
  */
 
 const TABS = [
-  { id: 'company', label: 'Company Lookup', icon: Building2 },
-  { id: 'user', label: 'User Lookup', icon: Users },
-  { id: 'permit', label: 'Permit Lookup', icon: FileText },
+  { id: 'company', label: 'Company Lookup', icon: Building2, description: 'Search companies by name, code or SSM' },
+  { id: 'user', label: 'User Lookup', icon: Users, description: 'Search users by email or name' },
+  { id: 'permit', label: 'Permit Lookup', icon: FileText, description: 'Search permits by number, title or company' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -318,91 +332,136 @@ export default async function PlatformSupportPage({
 
   const resultCount =
     tab === 'company'
-      ? `${companyRows.length} compan${companyRows.length === 1 ? 'y' : 'ies'}`
+      ? companyRows.length
       : tab === 'user'
-        ? `${userRows.length} user${userRows.length === 1 ? '' : 's'}`
-        : `${permitRows.length} permit${permitRows.length === 1 ? '' : 's'}`
+        ? userRows.length
+        : permitRows.length
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-        <div>
-          <BackButton href="/dashboard" label="Back to Platform" />
+      <div className="mx-auto max-w-7xl space-y-6">
+        <BackButton href="/dashboard" label="Back to Platform" />
+
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                <Search className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Platform Support
+                </h1>
+                <p className="mt-1 text-muted-foreground">
+                  Read-only lookup of companies, users and permits
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Badge variant="secondary" className="self-start">
+            <ShieldCheck className="mr-1 h-3 w-3" />
+            Support Mode
+          </Badge>
         </div>
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Platform Support
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Read-only lookup of companies, users and permits for
-            customer support.
-          </p>
-        </div>
-
-        {/* READ-ONLY notice */}
-        <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+        {/* Read-only Notice */}
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
-
           <div>
             <p className="font-semibold text-amber-800 dark:text-amber-300">
-              READ-ONLY SUPPORT MODE — Operational actions are
-              disabled.
+              READ-ONLY SUPPORT MODE
             </p>
-
             <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-              This page only displays data. Approve, activate,
-              resume, suspend, complete, close and verify actions are
-              not available here.
+              This page only displays data. Approve, activate, resume, suspend, complete, close and verify actions are not available here.
             </p>
           </div>
         </div>
 
-        <TabBar active={tab} q={q} />
+        {/* Tabs */}
+        <Card>
+          <CardContent className="p-2">
+            <div className="grid gap-2 sm:grid-cols-3">
+              {TABS.map((tabItem) => {
+                const Icon = tabItem.icon
+                const isActive = tabItem.id === tab
+                const query = q
+                  ? `?tab=${tabItem.id}&q=${encodeURIComponent(q)}`
+                  : `?tab=${tabItem.id}`
+
+                return (
+                  <Link
+                    key={tabItem.id}
+                    href={`/platform/support${query}`}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                    <div>
+                      <p className="font-medium">{tabItem.label}</p>
+                      <p className={`text-xs ${isActive ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {tabItem.description}
+                      </p>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Search */}
-        <form
-          action="/platform/support"
-          method="get"
-          className="flex flex-col gap-2 sm:flex-row"
-        >
-          <input type="hidden" name="tab" value={tab} />
+        <Card>
+          <CardContent className="p-4">
+            <form action="/platform/support" method="get" className="flex flex-col gap-2 sm:flex-row">
+              <input type="hidden" name="tab" value={tab} />
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q}
+                  placeholder={SEARCH_PLACEHOLDERS[tab]}
+                  className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+              >
+                <Search className="h-4 w-4" />
+                Search
+              </button>
+              {q && (
+                <Link
+                  href={`/platform/support?tab=${tab}`}
+                  className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  Clear
+                </Link>
+              )}
+            </form>
+          </CardContent>
+        </Card>
 
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder={SEARCH_PLACEHOLDERS[tab]}
-              className="w-full rounded-md border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Search className="h-4 w-4" />
-            Search
-          </button>
-
+        {/* Results Count */}
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            {resultCount} result{resultCount === 1 ? '' : 's'}
+          </Badge>
           {q && (
-            <Link
-              href={`/platform/support?tab=${tab}`}
-              className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-            >
-              Clear
-            </Link>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              (filtered)
+            </span>
           )}
-        </form>
-
-        <div className="text-sm text-muted-foreground">
-          {resultCount}
-          {q ? ' (filtered)' : ''}
         </div>
 
+        {/* Tab Content */}
         {tab === 'company' && (
           <CompanyTable
             rows={companyRows}
@@ -418,41 +477,6 @@ export default async function PlatformSupportPage({
         {tab === 'permit' && <PermitTable rows={permitRows} q={q} />}
       </div>
     </DashboardShell>
-  )
-}
-
-// ----------------------------------------------------------------------
-// Tab bar — links driven by `?tab=`; preserves the active search `q`.
-// Plain links, so it works from this Server Component with zero client JS.
-// ----------------------------------------------------------------------
-
-function TabBar({ active, q }: { active: TabId; q: string }) {
-  return (
-    <div className="flex flex-wrap gap-1 rounded-xl border bg-background p-1">
-      {TABS.map((tab) => {
-        const Icon = tab.icon
-        const isActive = tab.id === active
-        const query = q
-          ? `?tab=${tab.id}&q=${encodeURIComponent(q)}`
-          : `?tab=${tab.id}`
-
-        return (
-          <Link
-            key={tab.id}
-            href={`/platform/support${query}`}
-            aria-current={isActive ? 'page' : undefined}
-            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {tab.label}
-          </Link>
-        )
-      })}
-    </div>
   )
 }
 
@@ -477,88 +501,74 @@ function CompanyTable({
     return (
       <EmptyState
         title={q ? 'No companies match your search' : 'No companies found'}
-        detail={
-          q
-            ? 'Try a different name, company code or SSM registration number.'
-            : 'There are no companies registered yet.'
-        }
+        detail={q ? 'Try a different name, company code or SSM registration number.' : 'There are no companies registered yet.'}
       />
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-background">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
-          <thead className="border-b bg-muted/40">
-            <tr>
-              <th className="px-6 py-3 text-left font-medium">
-                Company
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Plan
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Subscription
-              </th>
-              <th className="px-6 py-3 text-right font-medium">
-                Users
-              </th>
-              <th className="px-6 py-3 text-right font-medium">
-                Permits
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Account
-              </th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y">
-            {rows.map((company) => {
-              const sub = subscriptions.get(company.id)
-
-              return (
-                <tr
-                  key={company.id}
-                  className="transition-colors hover:bg-muted/40"
-                >
-                  <td className="px-6 py-4">
-                    <p className="font-medium">{company.name}</p>
-
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {company.code ?? '—'}
-                      {company.ssm_registration_no
-                        ? ` · SSM ${company.ssm_registration_no}`
-                        : ''}
-                    </p>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <PlanPill sub={sub} />
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <SubscriptionPill sub={sub} />
-                  </td>
-
-                  <td className="px-6 py-4 text-right">
-                    {userCounts.get(company.id) ?? 0}
-                  </td>
-
-                  <td className="px-6 py-4 text-right">
-                    {permitCounts.get(company.id) ?? 0}
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <AccountPill active={company.is_active} />
-                  </td>
+    <Card>
+      <CardContent className="p-0">
+        <ScrollArea className="h-[600px]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Company</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Plan</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Subscription</th>
+                  <th className="px-6 py-4 text-right font-medium text-gray-500 dark:text-gray-400">Users</th>
+                  <th className="px-6 py-4 text-right font-medium text-gray-500 dark:text-gray-400">Permits</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Account</th>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {rows.map((company) => {
+                  const sub = subscriptions.get(company.id)
+                  return (
+                    <tr key={company.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-gray-400" />
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">{company.name}</p>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              {company.code ?? '—'}
+                              {company.ssm_registration_no ? ` · SSM ${company.ssm_registration_no}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <PlanPill sub={sub} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <SubscriptionPill sub={sub} />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 text-gray-900 dark:text-white">
+                          <Users className="h-3.5 w-3.5 text-gray-400" />
+                          {userCounts.get(company.id) ?? 0}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 text-gray-900 dark:text-white">
+                          <FileText className="h-3.5 w-3.5 text-gray-400" />
+                          {permitCounts.get(company.id) ?? 0}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <AccountPill active={company.is_active} />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -571,85 +581,70 @@ function UserTable({ rows, q }: { rows: UserRow[]; q: string }) {
     return (
       <EmptyState
         title={q ? 'No users match your search' : 'No users found'}
-        detail={
-          q
-            ? 'Try a different email address or name.'
-            : 'There are no user profiles yet.'
-        }
+        detail={q ? 'Try a different email address or name.' : 'There are no user profiles yet.'}
       />
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-background">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
-          <thead className="border-b bg-muted/40">
-            <tr>
-              <th className="px-6 py-3 text-left font-medium">
-                User
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Company
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Role
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Account
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Invitation
-              </th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y">
-            {rows.map((user) => (
-              <tr
-                key={user.id}
-                className="transition-colors hover:bg-muted/40"
-              >
-                <td className="px-6 py-4">
-                  <p className="font-medium">
-                    {user.full_name || '—'}
-                  </p>
-
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {user.email}
-                  </p>
-                </td>
-
-                <td className="px-6 py-4">
-                  {user.company?.name ?? '—'}
-                </td>
-
-                <td className="px-6 py-4">
-                  {ROLE_LABELS[user.role] ?? user.role}
-                </td>
-
-                <td className="px-6 py-4">
-                  <AccountPill active={user.is_active} />
-                </td>
-
-                <td className="px-6 py-4">
-                  {user.invitation_sent_at ? (
-                    <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                      Invited ·{' '}
-                      {formatDateMY(user.invitation_sent_at)}
-                    </span>
-                  ) : (
-                    <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                      Not invited
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <Card>
+      <CardContent className="p-0">
+        <ScrollArea className="h-[600px]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">User</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Company</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Role</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Account</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Invitation</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {rows.map((user) => (
+                  <tr key={user.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-400" />
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">{user.full_name || '—'}</p>
+                          <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            <Mail className="h-3 w-3" />
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                      {user.company?.name ?? '—'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant="secondary">
+                        {ROLE_LABELS[user.role] ?? user.role}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <AccountPill active={user.is_active} />
+                    </td>
+                    <td className="px-6 py-4">
+                      {user.invitation_sent_at ? (
+                        <Badge variant="warning">
+                          <Clock className="mr-1 h-3 w-3" />
+                          Invited · {formatDateMY(user.invitation_sent_at)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Not invited</Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -662,102 +657,82 @@ function PermitTable({ rows, q }: { rows: PermitRow[]; q: string }) {
     return (
       <EmptyState
         title={q ? 'No permits match your search' : 'No permits found'}
-        detail={
-          q
-            ? 'Try a different permit number, work title or company name.'
-            : 'There are no permits yet.'
-        }
+        detail={q ? 'Try a different permit number, work title or company name.' : 'There are no permits yet.'}
       />
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-background">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] text-sm">
-          <thead className="border-b bg-muted/40">
-            <tr>
-              <th className="px-6 py-3 text-left font-medium">
-                Permit
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Work
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Company
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Type
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left font-medium">
-                Dates
-              </th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y">
-            {rows.map((permit) => (
-              <tr
-                key={permit.id}
-                className="transition-colors hover:bg-muted/40"
-              >
-                <td className="px-6 py-4">
-                  <p className="font-medium">{permit.permit_no}</p>
-
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    #{permit.id}
-                  </p>
-                </td>
-
-                <td className="px-6 py-4 font-medium">
-                  {permit.work_title}
-                </td>
-
-                <td className="px-6 py-4">
-                  {permit.company?.name ?? '—'}
-                </td>
-
-                <td className="px-6 py-4">
-                  {permit.permit_type?.name ?? '—'}
-                </td>
-
-                <td className="px-6 py-4">
-                  <StatusBadge
-                    status={permit.status}
-                    expiry={getExpiryState(
-                      permit.status,
-                      permit.valid_until,
-                      permit.planned_end
-                    )}
-                  />
-                </td>
-
-                <td className="px-6 py-4">
-                  <p className="text-xs text-muted-foreground">
-                    {permit.planned_start
-                      ? formatDateTimeMY(permit.planned_start)
-                      : '—'}
-                    {permit.planned_end
-                      ? ` → ${formatDateTimeMY(permit.planned_end)}`
-                      : ''}
-                  </p>
-
-                  {permit.valid_until && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Valid until{' '}
-                      {formatDateTimeMY(permit.valid_until)}
-                    </p>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <Card>
+      <CardContent className="p-0">
+        <ScrollArea className="h-[600px]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[920px] text-sm">
+              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Permit</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Work</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Company</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Type</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Status</th>
+                  <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Dates</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {rows.map((permit) => (
+                  <tr key={permit.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-6 py-4">
+                      <span className="font-medium text-blue-600 dark:text-blue-400">{permit.permit_no}</span>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">#{permit.id}</p>
+                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      {permit.work_title}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                        <Building2 className="h-3.5 w-3.5" />
+                        {permit.company?.name ?? '—'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant="secondary">
+                        <HardHat className="mr-1 h-3 w-3" />
+                        {permit.permit_type?.name ?? '—'}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <StatusBadge
+                        status={permit.status}
+                        expiry={getExpiryState(
+                          permit.status,
+                          permit.valid_until,
+                          permit.planned_end
+                        )}
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                        <p className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {permit.planned_start ? formatDateTimeMY(permit.planned_start) : '—'}
+                          {permit.planned_end ? ` → ${formatDateTimeMY(permit.planned_end)}` : ''}
+                        </p>
+                        {permit.valid_until && (
+                          <p className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Valid until {formatDateTimeMY(permit.valid_until)}
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -765,83 +740,60 @@ function PermitTable({ rows, q }: { rows: PermitRow[]; q: string }) {
 // Small shared bits
 // ----------------------------------------------------------------------
 
-function EmptyState({
-  title,
-  detail,
-}: {
-  title: string
-  detail: string
-}) {
+function EmptyState({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border bg-background p-12 text-center">
-      <SearchX className="h-10 w-10 text-muted-foreground" />
-
-      <h2 className="mt-4 font-semibold">{title}</h2>
-
-      <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
-    </div>
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+        <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-800">
+          <SearchX className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+        </div>
+        <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{detail}</p>
+      </CardContent>
+    </Card>
   )
 }
 
 function AccountPill({ active }: { active: boolean }) {
   return active ? (
-    <span className="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
-      ACTIVE
-    </span>
+    <Badge variant="success">
+      <CheckCircle2 className="mr-1 h-3 w-3" />
+      Active
+    </Badge>
   ) : (
-    <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-      DISABLED
-    </span>
+    <Badge variant="secondary">
+      <XCircle className="mr-1 h-3 w-3" />
+      Disabled
+    </Badge>
   )
 }
 
 function PlanPill({ sub }: { sub: SubscriptionView | undefined }) {
-  const paid =
-    sub?.statusKey === 'active' || sub?.statusKey === 'pending'
-
+  const paid = sub?.statusKey === 'active' || sub?.statusKey === 'pending'
   return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-        paid
-          ? 'bg-primary/10 text-primary'
-          : 'bg-muted text-muted-foreground'
-      }`}
-    >
+    <Badge variant={paid ? 'info' : 'secondary'}>
       {sub?.plan ?? 'Free'}
-    </span>
+    </Badge>
   )
 }
 
-function SubscriptionPill({
-  sub,
-}: {
-  sub: SubscriptionView | undefined
-}) {
+function SubscriptionPill({ sub }: { sub: SubscriptionView | undefined }) {
   const key = sub?.statusKey ?? 'none'
-
-  const styles: Record<string, string> = {
-    active:
-      'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-    pending:
-      'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-    ended: 'bg-muted text-muted-foreground',
-    none: 'bg-muted text-muted-foreground',
+  
+  const variants: Record<string, string> = {
+    active: 'success',
+    pending: 'warning',
+    ended: 'secondary',
+    none: 'secondary',
   }
 
   return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[key]}`}
-    >
+    <Badge variant={variants[key] as any}>
       {sub?.status ?? '—'}
-    </span>
+    </Badge>
   )
 }
 
-/**
- * Effective plan/subscription for a company: mirrors the app's
- * "latest subscription row wins" rule (see lib/billing/subscription).
- * A company with no active subscription is effectively on the FREE plan.
- */
 function effectiveSubscription(
   rows: SubscriptionRow[],
   companyId: number

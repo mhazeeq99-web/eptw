@@ -43,6 +43,37 @@ import {
   AttachmentsSection,
   type Attachment,
 } from '@/components/permits/attachments-section'
+import { 
+  FileText, 
+  Users, 
+  Clock, 
+  Shield, 
+  HardHat, 
+  Wrench, 
+  AlertTriangle, 
+  CheckCircle2, 
+  ChevronDown, 
+  ChevronUp,
+  ChevronRight,
+  Save,
+  Send,
+  X,
+  Loader2,
+  Info,
+  Building2,
+  MapPin,
+  Calendar,
+  ClipboardCheck,
+  Paperclip,
+  Lock,
+  User
+} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Progress } from '@/components/ui/progress'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { cn } from '@/lib/utils'
 
 // The live child sections start empty on a brand-new draft; each component
 // manages its own state directly against the draft permit id.
@@ -172,6 +203,11 @@ export default function NewPermitPage() {
     permit_no: string
     status: string
   } | null>(null)
+  
+  // UI state for collapsible sections
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    new Set(['permit-info', 'work-desc'])
+  )
 
   const selectedPermitType = permitTypes.find(
     (type) => type.id === Number(permitTypeId)
@@ -187,6 +223,42 @@ export default function NewPermitPage() {
   const isContractor =
     profile?.role === 'contractor_admin' &&
     profile?.company_id === null
+
+  // Calculate form completion percentage
+  const completionPercentage = calculateCompletion()
+
+  function calculateCompletion(): number {
+    const steps = [
+      !!companyId,
+      !!permitTypeId,
+      !!workTitle,
+      !!workDescription,
+      workers.length > 0,
+      !!plannedStart,
+      !!plannedEnd,
+      declaration,
+    ]
+    
+    // Add conditional steps
+    if (isContractor) {
+      steps.push(!!staffReferenceName)
+    }
+    
+    const completed = steps.filter(Boolean).length
+    return Math.round((completed / steps.length) * 100)
+  }
+
+  function toggleSection(sectionId: string) {
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(sectionId)) {
+        next.delete(sectionId)
+      } else {
+        next.add(sectionId)
+      }
+      return next
+    })
+  }
 
   // ---------------------------------------------------------
   // Customer company search + selection
@@ -1143,9 +1215,10 @@ export default function NewPermitPage() {
         <div className="mb-6">
           <BackButton href="/permits" label="Back to Permits" />
         </div>
-        <p className="text-muted-foreground">
-          Loading permit form...
-        </p>
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <p>Loading permit form...</p>
+        </div>
       </DashboardShell>
     )
   }
@@ -1183,51 +1256,69 @@ export default function NewPermitPage() {
 
   return (
     <DashboardShell>
-      <div className="max-w-4xl">
-
+      <div className="mx-auto max-w-5xl">
         <div className="mb-6">
           <BackButton href="/permits" label="Back to Permits" />
         </div>
 
-        <h1 className="text-3xl font-bold tracking-tight">
-          Create Permit
-        </h1>
-
-        <p className="mt-2 text-muted-foreground">
-          Create a new permit-to-work application.
-        </p>
-
-        {draftPermitNo && (
-          <p className="mt-2 text-sm font-medium text-primary">
-            Draft permit: {draftPermitNo}
-          </p>
-        )}
+        {/* Header with Progress */}
+        <div className="mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                Create Permit
+              </h1>
+              <p className="mt-2 text-muted-foreground">
+                Create a new permit-to-work application.
+              </p>
+              {draftPermitNo && (
+                <div className="mt-2">
+                  <Badge variant="info">
+                    <FileText className="mr-1 h-3 w-3" />
+                    Draft: {draftPermitNo}
+                  </Badge>
+                </div>
+              )}
+            </div>
+            
+            {/* Progress Indicator */}
+            <div className="w-full sm:w-64">
+              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Form Completion
+                  </span>
+                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                    {completionPercentage}%
+                  </span>
+                </div>
+                <Progress value={completionPercentage} className="h-2" />
+              </div>
+            </div>
+          </div>
+        </div>
 
         <form
           onSubmit={(event) =>
             handleSubmit(event, 'draft')
           }
-          className="mt-8 space-y-8"
+          className="space-y-6"
         >
-
-          {/* ------------------------------------------------ */}
-          {/* 1. Permit Information (drives the draft bootstrap) */}
-          {/* ------------------------------------------------ */}
-
-          <section className="rounded-xl border bg-background p-6">
-
-            <SectionHeader
-              title="Permit Information"
-              description="Company, permit type and location for the work to be performed."
-            />
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-
-              {/* Customer Company (contractor) / Company (internal + safety) */}
-
+          {/* Section 1: Permit Information */}
+          <CollapsibleSection
+            id="permit-info"
+            title="Permit Information"
+            description="Company, permit type and location for the work to be performed."
+            icon={Building2}
+            isOpen={openSections.has('permit-info')}
+            onToggle={() => toggleSection('permit-info')}
+            isComplete={!!companyId && !!permitTypeId}
+          >
+            <div className="grid gap-6 sm:grid-cols-2">
               <Field
                 label={isContractor ? 'Customer Company' : 'Company'}
                 required
+                icon={Building2}
               >
                 <SearchableCombobox
                   searchFn={searchCompanies}
@@ -1244,11 +1335,10 @@ export default function NewPermitPage() {
                 />
               </Field>
 
-              {/* Permit Type */}
-
               <Field
                 label="Permit Type"
                 required
+                icon={FileText}
               >
                 <select
                   value={permitTypeId}
@@ -1262,7 +1352,7 @@ export default function NewPermitPage() {
                     !companyId ||
                     permitTypes.length === 0
                   }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="">
                     {!companyId
@@ -1283,9 +1373,7 @@ export default function NewPermitPage() {
                 </select>
               </Field>
 
-              {/* Area */}
-
-              <Field label="Area">
+              <Field label="Area" icon={MapPin}>
                 <select
                   value={areaId}
                   onChange={(event) =>
@@ -1294,7 +1382,7 @@ export default function NewPermitPage() {
                     )
                   }
                   disabled={!companyId}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="">
                     Select area
@@ -1311,9 +1399,7 @@ export default function NewPermitPage() {
                 </select>
               </Field>
 
-              {/* Equipment */}
-
-              <Field label="Equipment">
+              <Field label="Equipment" icon={Wrench}>
                 <select
                   value={equipmentId}
                   onChange={(event) =>
@@ -1322,7 +1408,7 @@ export default function NewPermitPage() {
                     )
                   }
                   disabled={!companyId}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="">
                     Select equipment
@@ -1348,49 +1434,42 @@ export default function NewPermitPage() {
                     ))}
                 </select>
               </Field>
-
             </div>
 
             {isContractor && (
-              <p className="mt-4 text-xs text-muted-foreground">
-                You can only submit permits for
-                companies authorized for your
-                contractor account.
+              <p className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <Info className="h-3 w-3" />
+                You can only submit permits for companies authorized for your contractor account.
               </p>
             )}
+          </CollapsibleSection>
 
-          </section>
-
-          {/* Bootstrap status while the draft permit is being created */}
+          {/* Bootstrap status */}
           {draftCreating && draftPermitId === null && (
-            <p className="text-sm text-muted-foreground">
+            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+              <Loader2 className="h-4 w-4 animate-spin" />
               Creating draft permit...
-            </p>
+            </div>
           )}
 
-          {/* ------------------------------------------------ */}
-          {/* Full applicant PTW workspace (operates on the draft) */}
-          {/* ------------------------------------------------ */}
-
+          {/* Full applicant PTW workspace */}
           {draftPermitId !== null && (
             <>
-
-              {/* ------------------------------------------------ */}
-              {/* 2. Work Description & Method */}
-              {/* ------------------------------------------------ */}
-
-              <section className="rounded-xl border bg-background p-6">
-
-                <SectionHeader
-                  title="Work Description & Method"
-                  description="Describe the scope, location and method of the work to be performed."
-                />
-
-                <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-
+              {/* Section 2: Work Description */}
+              <CollapsibleSection
+                id="work-desc"
+                title="Work Description & Method"
+                description="Describe the scope, location and method of the work to be performed."
+                icon={ClipboardCheck}
+                isOpen={openSections.has('work-desc')}
+                onToggle={() => toggleSection('work-desc')}
+                isComplete={!!workTitle}
+              >
+                <div className="grid gap-6 sm:grid-cols-2">
                   <Field
                     label="Work Title"
                     required
+                    icon={FileText}
                   >
                     <input
                       type="text"
@@ -1402,11 +1481,11 @@ export default function NewPermitPage() {
                       }
                       placeholder="e.g. Welding repair at production machine"
                       required
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                   </Field>
 
-                  <Field label="Work Location">
+                  <Field label="Work Location" icon={MapPin}>
                     <input
                       type="text"
                       value={workLocation}
@@ -1416,15 +1495,13 @@ export default function NewPermitPage() {
                         )
                       }
                       placeholder="Specific work location"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                   </Field>
-
                 </div>
 
                 <div className="mt-6 space-y-6">
-
-                  <Field label="Work Description">
+                  <Field label="Work Description" icon={FileText}>
                     <textarea
                       value={workDescription}
                       onChange={(event) =>
@@ -1434,11 +1511,11 @@ export default function NewPermitPage() {
                       }
                       rows={4}
                       placeholder="Describe the work to be performed..."
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                   </Field>
 
-                  <Field label="Work Method / Sequence">
+                  <Field label="Work Method / Sequence" icon={ClipboardCheck}>
                     <textarea
                       value={workMethod}
                       onChange={(event) =>
@@ -1448,97 +1525,73 @@ export default function NewPermitPage() {
                       }
                       rows={3}
                       placeholder="Step-by-step method / sequence of work (optional)..."
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                   </Field>
-
                 </div>
+              </CollapsibleSection>
 
-              </section>
-
-              {/* ------------------------------------------------ */}
-              {/* 3. Workers / Authorised Personnel */}
-              {/* ------------------------------------------------ */}
-
-              {/* Contractor: worker details + staff reference */}
-              {isContractor && (
-                <>
-                  <section className="rounded-xl border bg-background p-6">
-                    <SectionHeader
-                      title="Workers / Authorised Personnel"
-                      description="List every worker performing this work. At least one worker with a full name and NRIC/passport is required for contractor permits."
-                    />
-
-                    <div className="mt-6">
-                      <WorkerListEditor
-                        mode="contractor"
-                        initial={workers}
-                        onChange={setWorkers}
-                      />
-                    </div>
-                  </section>
-
-                  <section className="rounded-xl border bg-background p-6">
-                    <SectionHeader
-                      title={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
-                      description="Name of the company staff you are liaising with for this work. Required for contractor permits."
-                    />
-
-                    <div className="mt-6">
-                      <Field
-                        label={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
-                        required
-                      >
-                        <input
-                          type="text"
-                          value={staffReferenceName}
-                          onChange={(event) =>
-                            setStaffReferenceName(
-                              event.target.value
-                            )
-                          }
-                          placeholder="e.g. Ahmad bin Ali"
-                          required
-                          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                        />
-                      </Field>
-                    </div>
-                  </section>
-                </>
-              )}
-
-              {/* Internal PTW: worker details */}
-              {!isContractor && (
-                <section className="rounded-xl border bg-background p-6">
-                  <SectionHeader
-                    title="Workers / Authorised Personnel"
-                    description="List the authorised personnel who will perform this work."
-                  />
-
-                  <div className="mt-6">
-                    <WorkerListEditor
-                      mode="internal"
-                      initial={workers}
-                      onChange={setWorkers}
-                    />
-                  </div>
-                </section>
-              )}
-
-              {/* ------------------------------------------------ */}
-              {/* 4. Work Period */}
-              {/* ------------------------------------------------ */}
-
-              <section className="rounded-xl border bg-background p-6">
-
-                <SectionHeader
-                  title="Work Period"
-                  description="Optional planned start and end for the work window."
+              {/* Section 3: Workers */}
+              <CollapsibleSection
+                id="workers"
+                title="Workers / Authorised Personnel"
+                description="List the authorised personnel who will perform this work."
+                icon={Users}
+                isOpen={openSections.has('workers')}
+                onToggle={() => toggleSection('workers')}
+                isComplete={workers.length > 0}
+              >
+                <WorkerListEditor
+                  mode={isContractor ? "contractor" : "internal"}
+                  initial={workers}
+                  onChange={setWorkers}
                 />
+              </CollapsibleSection>
 
-                <div className="mt-6 grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+              {/* Contractor Staff Reference */}
+              {isContractor && (
+                <CollapsibleSection
+                  id="staff-ref"
+                  title={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                  description="Name of the company staff you are liaising with for this work."
+                  icon={User}
+                  isOpen={openSections.has('staff-ref')}
+                  onToggle={() => toggleSection('staff-ref')}
+                  isComplete={!!staffReferenceName}
+                >
+                  <Field
+                    label={`${selectedCompany?.name ?? 'Customer Company'}'s Staff Reference`}
+                    required
+                    icon={User}
+                  >
+                    <input
+                      type="text"
+                      value={staffReferenceName}
+                      onChange={(event) =>
+                        setStaffReferenceName(
+                          event.target.value
+                        )
+                      }
+                      placeholder="e.g. Ahmad bin Ali"
+                      required
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    />
+                  </Field>
+                </CollapsibleSection>
+              )}
 
-                  <Field label="Planned Start">
+              {/* Section 4: Work Period */}
+              <CollapsibleSection
+                id="work-period"
+                title="Work Period"
+                description="Optional planned start and end for the work window."
+                icon={Calendar}
+                isOpen={openSections.has('work-period')}
+                onToggle={() => toggleSection('work-period')}
+                isComplete={!!plannedStart && !!plannedEnd}
+              >
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <Field label="Planned Start" icon={Calendar}>
                     <input
                       type="datetime-local"
                       value={plannedStart}
@@ -1547,11 +1600,11 @@ export default function NewPermitPage() {
                           event.target.value
                         )
                       }
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                   </Field>
 
-                  <Field label="Planned End">
+                  <Field label="Planned End" icon={Calendar}>
                     <input
                       type="datetime-local"
                       value={plannedEnd}
@@ -1560,18 +1613,13 @@ export default function NewPermitPage() {
                           event.target.value
                         )
                       }
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                   </Field>
-
                 </div>
+              </CollapsibleSection>
 
-              </section>
-
-              {/* ------------------------------------------------ */}
-              {/* 5. JHA / HIRARC (live on the draft) */}
-              {/* ------------------------------------------------ */}
-
+              {/* Section 5: JHA */}
               <JhaSection
                 permitId={draftPermitId}
                 canAdd={true}
@@ -1580,20 +1628,18 @@ export default function NewPermitPage() {
                 initialHirarc={EMPTY_HIRARC}
               />
 
-              {/* ------------------------------------------------ */}
-              {/* 6. Safety Controls */}
-              {/* ------------------------------------------------ */}
-
+              {/* Section 6: Safety Controls */}
               {selectedPermitType && (
-                <section className="rounded-xl border bg-background p-6">
-
-                  <SectionHeader
-                    title="Safety Controls"
-                    description="Required controls are enforced before approval. Tick the recommended controls you plan to use."
-                  />
-
-                  <div className="mt-6 grid gap-2 sm:grid-cols-2">
-
+                <CollapsibleSection
+                  id="safety-controls"
+                  title="Safety Controls"
+                  description="Required controls are enforced before approval. Tick the recommended controls you plan to use."
+                  icon={Shield}
+                  isOpen={openSections.has('safety-controls')}
+                  onToggle={() => toggleSection('safety-controls')}
+                  isComplete={safetyControls.filter(c => c.is_required).length > 0}
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {safetyControls.length > 0 ? (
                       safetyControls.map(
                         (control) => {
@@ -1610,7 +1656,11 @@ export default function NewPermitPage() {
                           return (
                             <label
                               key={control.id}
-                              className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                              className={cn(
+                                "flex items-center gap-3 rounded-lg border p-3 text-sm transition-colors",
+                                isRequired && "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20",
+                                !isRequired && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                              )}
                             >
                               <input
                                 type="checkbox"
@@ -1629,79 +1679,68 @@ export default function NewPermitPage() {
                                     next
                                   )
                                 }}
-                                className="h-4 w-4 rounded border"
+                                className="h-4 w-4 rounded border-gray-300"
                               />
-                              <span>{control.name}</span>
+                              <span className="flex-1">{control.name}</span>
                               {isRequired && (
-                                <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                                  REQUIRED
-                                </span>
+                                <Badge variant="destructive">
+                                  <Lock className="mr-1 h-3 w-3" />
+                                  Required
+                                </Badge>
                               )}
                               {isRecommended && (
-                                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                <Badge variant="secondary">
                                   Recommended
-                                </span>
+                                </Badge>
                               )}
                             </label>
                           )
                         }
                       )
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No safety controls are configured for this
-                        permit type.
+                      <p className="col-span-full text-sm text-muted-foreground">
+                        No safety controls are configured for this permit type.
                       </p>
                     )}
-
                   </div>
-
-                </section>
+                </CollapsibleSection>
               )}
 
-              {/* ------------------------------------------------ */}
-              {/* 7. PPE Requirements */}
-              {/* ------------------------------------------------ */}
-
+              {/* Section 7: PPE */}
               {selectedPermitType && (
-                <section className="rounded-xl border bg-background p-6">
-
-                  <SectionHeader
-                    title="PPE Requirements"
-                    description="Recommended PPE is based on the permit type. Adjust the selection for the specific work and hazards."
-                  />
-
-                  <div className="mt-6">
-                    <PpeSelector
-                      items={ppeItems}
-                      recommendationByItemId={
-                        ppeRecommendations
+                <CollapsibleSection
+                  id="ppe"
+                  title="PPE Requirements"
+                  description="Recommended PPE is based on the permit type. Adjust the selection for the specific work and hazards."
+                  icon={HardHat}
+                  isOpen={openSections.has('ppe')}
+                  onToggle={() => toggleSection('ppe')}
+                  isComplete={selectedPpeIds.size > 0}
+                >
+                  <PpeSelector
+                    items={ppeItems}
+                    recommendationByItemId={
+                      ppeRecommendations
+                    }
+                    selectedIds={selectedPpeIds}
+                    onToggle={(id) => {
+                      const next = new Set(
+                        selectedPpeIds
+                      )
+                      if (next.has(id)) {
+                        next.delete(id)
+                      } else {
+                        next.add(id)
                       }
-                      selectedIds={selectedPpeIds}
-                      onToggle={(id) => {
-                        const next = new Set(
-                          selectedPpeIds
-                        )
-                        if (next.has(id)) {
-                          next.delete(id)
-                        } else {
-                          next.add(id)
-                        }
-                        setSelectedPpeIds(next)
-                      }}
-                      ppeOther={ppeOther}
-                      onPpeOtherChange={setPpeOther}
-                    />
-                  </div>
-
-                </section>
+                      setSelectedPpeIds(next)
+                    }}
+                    ppeOther={ppeOther}
+                    onPpeOtherChange={setPpeOther}
+                  />
+                </CollapsibleSection>
               )}
 
-              {/* ------------------------------------------------ */}
-              {/* 8. Permit-Specific Requirements */}
-              {/* ------------------------------------------------ */}
-
-              {/* Only specialised permit types (HOT/CSE/WAH/ELEC) render a
-                  detail section; COLD permits have no specialised section. */}
+              {/* Section 8: Specialised Details */}
               {selectedPermitType &&
                 ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
                   selectedPermitType.code
@@ -1713,31 +1752,27 @@ export default function NewPermitPage() {
                   />
                 )}
 
-              {/* CSE Personnel Responsibilities (Phase E) */}
               {selectedPermitType?.code === 'CSE' && (
-                <section className="rounded-xl border bg-background p-6">
-                  <SectionHeader
-                    title="Confined Space Personnel"
-                    description="Permit-level responsibilities assigned from the workers listed on this permit. No new global roles."
+                <CollapsibleSection
+                  id="cse-personnel"
+                  title="Confined Space Personnel"
+                  description="Permit-level responsibilities assigned from the workers listed on this permit."
+                  icon={Users}
+                  isOpen={openSections.has('cse-personnel')}
+                  onToggle={() => toggleSection('cse-personnel')}
+                >
+                  <CsePersonnelEditor
+                    workers={workers.map((worker, index) => ({
+                      index,
+                      full_name: worker.full_name,
+                    }))}
+                    value={csePersonnel}
+                    onChange={setCsePersonnel}
                   />
-
-                  <div className="mt-6">
-                    <CsePersonnelEditor
-                      workers={workers.map((worker, index) => ({
-                        index,
-                        full_name: worker.full_name,
-                      }))}
-                      value={csePersonnel}
-                      onChange={setCsePersonnel}
-                    />
-                  </div>
-                </section>
+                </CollapsibleSection>
               )}
 
-              {/* ------------------------------------------------ */}
-              {/* LOTO (live on the draft, when the type requires it) */}
-              {/* ------------------------------------------------ */}
-
+              {/* LOTO */}
               {selectedPermitType?.requires_loto && (
                 <LotoSection
                   permitId={draftPermitId}
@@ -1747,10 +1782,7 @@ export default function NewPermitPage() {
                 />
               )}
 
-              {/* ------------------------------------------------ */}
-              {/* Gas Testing (live on the draft, when required) */}
-              {/* ------------------------------------------------ */}
-
+              {/* Gas Testing */}
               {selectedPermitType?.requires_gas_test && (
                 <GasTestSection
                   permitId={draftPermitId}
@@ -1760,10 +1792,7 @@ export default function NewPermitPage() {
                 />
               )}
 
-              {/* ------------------------------------------------ */}
-              {/* 9. Supporting Documents (live uploads on the draft) */}
-              {/* ------------------------------------------------ */}
-
+              {/* Attachments */}
               <AttachmentsSection
                 permitId={draftPermitId}
                 canUpload={true}
@@ -1771,60 +1800,56 @@ export default function NewPermitPage() {
                 initialAttachments={EMPTY_ATTACHMENTS}
               />
 
-              {/* ------------------------------------------------ */}
-              {/* 10. Applicant Declaration */}
-              {/* ------------------------------------------------ */}
-
-              <section className="rounded-xl border bg-background p-6">
-                <SectionHeader
-                  title="Applicant Declaration"
-                  description="Confirm that the information provided in this permit application is accurate and that you are authorised to apply for this permit."
-                />
-
-                <div className="mt-6">
-                  <label className="flex items-start gap-3 rounded-md border px-4 py-3 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={declaration}
-                      onChange={(event) =>
-                        setDeclaration(
-                          event.target.checked
-                        )
-                      }
-                      className="mt-0.5 h-4 w-4 rounded border"
-                    />
-                    <span>
-                      I confirm that the information provided in this permit
-                      application is accurate and that I am authorised to
-                      apply for this permit.{' '}
-                      <span className="text-destructive">*</span>
-                    </span>
-                  </label>
-                </div>
-              </section>
-
+              {/* Declaration */}
+              <CollapsibleSection
+                id="declaration"
+                title="Applicant Declaration"
+                description="Confirm that the information provided in this permit application is accurate."
+                icon={ClipboardCheck}
+                isOpen={openSections.has('declaration')}
+                onToggle={() => toggleSection('declaration')}
+                isComplete={declaration}
+              >
+                <label className="flex items-start gap-3 rounded-lg border border-gray-300 p-4 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={declaration}
+                    onChange={(event) =>
+                      setDeclaration(
+                        event.target.checked
+                      )
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                  />
+                  <span>
+                    I confirm that the information provided in this permit
+                    application is accurate and that I am authorised to
+                    apply for this permit.{' '}
+                    <span className="text-destructive">*</span>
+                  </span>
+                </label>
+              </CollapsibleSection>
             </>
           )}
 
-          {/* ------------------------------------------------ */}
-          {/* Error */}
-          {/* ------------------------------------------------ */}
-
+          {/* Error Messages */}
           {error && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-              {error}
+            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             </div>
           )}
 
           {submissionErrors.length > 0 && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4">
-              <p className="font-medium text-destructive">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+              <p className="flex items-center gap-2 font-medium text-red-700 dark:text-red-300">
+                <AlertTriangle className="h-4 w-4" />
                 Cannot submit permit yet
               </p>
-              <p className="mt-1 text-sm text-destructive/80">
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                 The following items must be completed before submission:
               </p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-destructive/90">
+              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-red-600 dark:text-red-400">
                 {submissionErrors.map((item, index) => (
                   <li key={index}>{item.message}</li>
                 ))}
@@ -1832,97 +1857,169 @@ export default function NewPermitPage() {
             </div>
           )}
 
-          {/* ------------------------------------------------ */}
-          {/* Actions */}
-          {/* ------------------------------------------------ */}
+          {/* Action Buttons */}
+          <div className="sticky bottom-0 -mx-4 mt-8 border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:mx-0 sm:rounded-lg">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => router.push('/permits')}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </button>
 
-          <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={(event) =>
+                  handleSubmit(
+                    event as unknown as React.FormEvent<HTMLFormElement>,
+                    'submit'
+                  )
+                }
+                disabled={
+                  submitting ||
+                  loading ||
+                  draftCreating ||
+                  !companyId ||
+                  !permitTypeId
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Submit Permit
+                  </>
+                )}
+              </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                router.push('/permits')
-              }
-              className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={(event) =>
-                handleSubmit(
-                  event as unknown as React.FormEvent<HTMLFormElement>,
-                  'submit'
-                )
-              }
-              disabled={
-                submitting ||
-                loading ||
-                draftCreating ||
-                !companyId ||
-                !permitTypeId
-              }
-              className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting
-                ? 'Submitting...'
-                : 'Submit Permit'}
-            </button>
-
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                submitting ||
-                draftCreating ||
-                !companyId ||
-                !permitTypeId
-              }
-              className="rounded-md border px-5 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading
-                ? 'Saving...'
-                : 'Save Draft'}
-            </button>
-
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  submitting ||
+                  draftCreating ||
+                  !companyId ||
+                  !permitTypeId
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Save Draft
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-
         </form>
 
+        {/* Success Message */}
         {submittedPermit && (
-          <div className="mt-8 rounded-xl border bg-background p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
-              ✓
-            </div>
-            <h2 className="mt-4 text-2xl font-bold">
-              Permit Submitted
-            </h2>
-            <p className="mt-2 text-lg font-semibold text-primary">
-              {submittedPermit.permit_no}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Status:{' '}
-              <span className="font-medium uppercase">
-                {submittedPermit.status.replaceAll('_', ' ')}
-              </span>
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Submitted by: {profile?.full_name ?? 'You'}
-            </p>
-            <div className="mt-6">
-              <Link
-                href={`/permits/${submittedPermit.id}`}
-                className="inline-flex rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                View Permit
-              </Link>
-            </div>
-          </div>
+          <Card className="mt-8">
+            <CardContent className="p-8 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h2 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
+                Permit Submitted Successfully
+              </h2>
+              <p className="mt-2 text-lg font-semibold text-blue-600 dark:text-blue-400">
+                {submittedPermit.permit_no}
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Badge variant="success">
+                  {submittedPermit.status.replaceAll('_', ' ')}
+                </Badge>
+              </div>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Submitted by: {profile?.full_name ?? 'You'}
+              </p>
+              <div className="mt-6">
+                <Link
+                  href={`/permits/${submittedPermit.id}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+                >
+                  View Permit
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         )}
-
       </div>
     </DashboardShell>
+  )
+}
+
+function CollapsibleSection({
+  id,
+  title,
+  description,
+  icon: Icon,
+  isOpen,
+  onToggle,
+  isComplete,
+  children,
+}: {
+  id: string
+  title: string
+  description?: string
+  icon: any
+  isOpen: boolean
+  onToggle: () => void
+  isComplete?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Card>
+      <Collapsible open={isOpen} onOpenChange={onToggle}>
+        <CollapsibleTrigger className="flex w-full items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "rounded-lg p-2",
+              isComplete 
+                ? "bg-green-100 dark:bg-green-900/50" 
+                : "bg-blue-100 dark:bg-blue-900/50"
+            )}>
+              <Icon className={cn(
+                "h-5 w-5",
+                isComplete 
+                  ? "text-green-600 dark:text-green-400" 
+                  : "text-blue-600 dark:text-blue-400"
+              )} />
+            </div>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                {title}
+                {isComplete && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+              </CardTitle>
+              {description && (
+                <CardDescription>{description}</CardDescription>
+              )}
+            </div>
+          </div>
+          {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="px-6 pb-6">
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   )
 }
 
@@ -1951,27 +2048,24 @@ function SectionHeader({
 function Field({
   label,
   required,
+  icon: Icon,
   children,
 }: {
   label: string
   required?: boolean
+  icon?: any
   children: React.ReactNode
 }) {
   return (
     <div className="space-y-2">
-
-      <label className="text-sm font-medium">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="h-4 w-4 text-gray-400" />}
         {label}
-
         {required && (
-          <span className="ml-1 text-destructive">
-            *
-          </span>
+          <span className="text-red-500">*</span>
         )}
       </label>
-
       {children}
-
     </div>
   )
 }

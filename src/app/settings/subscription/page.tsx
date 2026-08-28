@@ -1,7 +1,21 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { Building2, Gauge, ReceiptText } from 'lucide-react'
+import { 
+  Building2, 
+  Gauge, 
+  ReceiptText,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Star,
+  Zap,
+  ChevronRight,
+  Info,
+  CreditCard,
+  TrendingUp,
+  Shield
+} from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { BillingActions, PaymentStatusNotice } from '@/components/billing/billing-actions'
 import { createClient } from '@/lib/supabase/server'
@@ -13,15 +27,17 @@ import {
 import { getCompanySubscription } from '@/lib/billing'
 import { formatBytes, formatPrice } from '@/lib/entitlements/format'
 import { BackButton } from '@/components/ui/back-button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Progress } from '@/components/ui/progress'
 
 type UsageRow = {
   label: string
   usage: number
   limit: number | null
   detail?: string
-  /** Noun used in limit notes, e.g. "2 permits remaining this month". */
   noun: string
-  /** Optional qualifier appended to the noun in limit notes. */
   scope?: string
 }
 
@@ -63,8 +79,7 @@ function buildUsageRows(entitlements: Entitlements): UsageRow[] {
       usage: usage.sites,
       limit: plan.max_sites,
       noun: 'sites',
-      detail:
-        'Multi-site management is a future feature.',
+      detail: 'Multi-site management is a future feature.',
     },
   ]
 }
@@ -103,13 +118,19 @@ export default async function SubscriptionPage() {
             <BackButton href="/settings" label="Back to Settings" />
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight">
-            Subscription
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Subscriptions belong to companies. Your account is not
-            assigned to a company, so there is no company plan to show.
-          </p>
+          <Card>
+            <CardContent className="p-8 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                <Building2 className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
+                No Company Assigned
+              </h1>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">
+                Subscriptions belong to companies. Your account is not assigned to a company, so there is no company plan to show.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </DashboardShell>
     )
@@ -144,221 +165,268 @@ export default async function SubscriptionPage() {
     (subscription.status === 'cancelled' ||
       subscription.status === 'expired')
 
+  // Calculate usage percentage
+  const totalUsage = rows.reduce((sum, row) => {
+    const percent = barPercent(row)
+    return sum + (percent ?? 0)
+  }, 0)
+  const avgUsage = rows.length > 0 ? Math.round(totalUsage / rows.length) : 0
+
   return (
     <DashboardShell>
-      <div className="max-w-3xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <BackButton href="/settings" label="Back to Settings" />
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Subscription
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Your company&apos;s plan, usage and billing.
-          </p>
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                <CreditCard className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Subscription
+                </h1>
+                <p className="mt-1 text-muted-foreground">
+                  Your company's plan, usage and billing
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Badge variant={isPro ? 'success' : 'secondary'} className="self-start">
+            {isPro && <Star className="mr-1 h-3 w-3" />}
+            {plan.name}
+          </Badge>
         </div>
 
         <Suspense fallback={null}>
           <PaymentStatusNotice />
         </Suspense>
 
-        <div className="rounded-xl border bg-background p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-md border p-2">
-                <Building2 className="h-5 w-5 text-muted-foreground" />
-              </div>
+        {/* Current Plan Card */}
+        <Card className="overflow-hidden">
+          <div className={`bg-gradient-to-r ${isPro ? 'from-blue-600 to-indigo-600' : 'from-gray-600 to-gray-700'} px-6 py-8 text-white`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-semibold">
-                    {plan.name}
-                  </h2>
-                  {isPro && (
-                    <span className="rounded-full bg-emerald-600/10 px-3 py-1 text-xs font-medium text-emerald-700">
-                      Active
-                    </span>
+                <div className="flex items-center gap-3">
+                  {isPro ? (
+                    <Zap className="h-8 w-8" />
+                  ) : (
+                    <Shield className="h-8 w-8" />
                   )}
-                  {pending && (
-                    <span className="rounded-full bg-amber-600/10 px-3 py-1 text-xs font-medium text-amber-700">
-                      Confirming payment…
-                    </span>
-                  )}
-                  {cancelledOrExpired && (
-                    <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                      {subscription?.status}
-                    </span>
-                  )}
+                  <div>
+                    <h2 className="text-2xl font-bold">
+                      {plan.name} Plan
+                    </h2>
+                    <p className="text-lg text-white/90">
+                      {formatPrice(plan.price_monthly, plan.currency)}
+                      <span className="text-sm text-white/70">/month</span>
+                    </p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {formatPrice(plan.price_monthly, plan.currency)}
-                  /month
-                </p>
+
                 {subscription?.current_period_end && isPro && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Next billing date:{' '}
-                    {new Date(
-                      subscription.current_period_end
-                    ).toLocaleDateString()}
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-white/80">
+                    <Clock className="h-4 w-4" />
+                    Next billing: {new Date(subscription.current_period_end).toLocaleDateString()}
                   </p>
                 )}
               </div>
+
+              <BillingActions
+                isPro={isPro}
+                periodEnd={subscription?.current_period_end}
+              />
             </div>
-
-            <BillingActions
-              isPro={isPro}
-              periodEnd={subscription?.current_period_end}
-            />
           </div>
 
-          {pending && (
-            <p className="mt-4 rounded-md border bg-amber-600/5 p-3 text-sm text-muted-foreground">
-              Your payment was submitted and Pro activation is being
-              confirmed by the payment provider. This usually takes a
-              few seconds. Refresh this page to see the latest status.
-            </p>
-          )}
-
-          {!isPro && !pending && (
-            <p className="mt-4 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
-              You&apos;re on the Free plan. Upgrade to Pro for more
-              capacity: more users, unlimited permits and more storage.
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-xl border bg-background">
-          <div className="border-b px-6 py-4">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Gauge className="h-5 w-5 text-muted-foreground" />
-              Usage
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              How your company is using the {plan.name} plan.
-            </p>
-          </div>
-          <div className="divide-y">
-            {rows.map((row) => {
-              const percent = barPercent(row)
-              const note = limitNote(row)
-
-              return (
-                <div key={row.label} className="px-6 py-4">
-                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                    <div className="min-w-0">
-                      <p className="font-medium">{row.label}</p>
-                      {row.detail && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {row.detail}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        {formatUsage(row)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {remainingText(row)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {percent != null && (
-                    <div
-                      className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={row.limit ?? 0}
-                      aria-valuenow={row.usage}
-                      aria-label={row.label}
-                    >
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  )}
-
-                  {note && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {note}
-                    </p>
-                  )}
+          <CardContent className="p-6">
+            {pending && (
+              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Payment Confirmation Pending
+                  </p>
+                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+                    Your payment was submitted and Pro activation is being confirmed. This usually takes a few seconds.
+                  </p>
                 </div>
-              )
-            })}
-          </div>
-        </div>
+              </div>
+            )}
 
-        <div className="rounded-xl border bg-background">
-          <div className="border-b px-6 py-4">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <ReceiptText className="h-5 w-5 text-muted-foreground" />
-              Payment history
-            </h2>
-          </div>
-          {(payments ?? []).length === 0 ? (
-            <p className="px-6 py-4 text-sm text-muted-foreground">
-              No payments yet.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="px-6 py-3 font-medium">Date</th>
-                    <th className="px-6 py-3 font-medium">Amount</th>
-                    <th className="px-6 py-3 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(payments ?? []).map(
-                    (payment: PaymentRow) => (
-                      <tr
-                        key={payment.id}
-                        className="border-b last:border-0"
-                      >
-                        <td className="px-6 py-3">
-                          {new Date(
-                            payment.paid_at ??
-                              payment.created_at
-                          ).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-3">
-                          {payment.currency}{' '}
-                          {Number(payment.amount).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-3">
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                            {payment.status}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
+            {cancelledOrExpired && (
+              <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+                <div>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Subscription {subscription?.status}
+                  </p>
+                  <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+                    Contact support to reactivate your subscription.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!isPro && !pending && !cancelledOrExpired && (
+              <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    You're on the Free Plan
+                  </p>
+                  <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                    Upgrade to Pro for more capacity: more users, unlimited permits and more storage.
+                  </p>
+                  <Link
+                    href="/pricing"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+                  >
+                    View Pricing
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Usage Card */}
+        <Card>
+          <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+            <CardTitle className="flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Usage
+            </CardTitle>
+            <CardDescription>
+              How your company is using the {plan.name} plan
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-6">
+              {rows.map((row) => {
+                const percent = barPercent(row)
+                const note = limitNote(row)
+
+                return (
+                  <div key={row.label}>
+                    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-white">{row.label}</p>
+                        {row.detail && (
+                          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            {row.detail}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {formatUsage(row)}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {remainingText(row)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {percent != null && (
+                      <div className="mt-3">
+                        <Progress 
+                          value={percent} 
+                          className="h-2"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {percent}% used
+                        </p>
+                      </div>
+                    )}
+
+                    {note && (
+                      <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                        {note}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-xl border bg-background p-6 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Plan status</p>
-          <p className="mt-1">
-            {isPro
-              ? 'Pro entitlements are active for this company.'
-              : pending
-                ? 'The Pro checkout is awaiting payment confirmation.'
-                : 'No paid subscription — the Free plan applies. Existing permits, users and records remain fully accessible.'}
-          </p>
-          {!isPro && !pending && (
-            <Link
-              href="/pricing"
-              className="mt-2 inline-block text-sm font-medium text-primary"
-            >
-              Compare plans on the pricing page
-            </Link>
-          )}
-        </div>
+        {/* Payment History Card */}
+        <Card>
+          <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+            <CardTitle className="flex items-center gap-2">
+              <ReceiptText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Payment History
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {(payments ?? []).length === 0 ? (
+              <p className="p-6 text-sm text-gray-600 dark:text-gray-400">
+                No payments yet.
+              </p>
+            ) : (
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {(payments ?? []).map((payment: PaymentRow) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {payment.currency} {Number(payment.amount).toFixed(2)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(payment.paid_at ?? payment.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant={payment.status === 'succeeded' ? 'success' : payment.status === 'failed' ? 'destructive' : 'warning'}>
+                      {payment.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Plan Status Card */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-start gap-3">
+              <div className={`rounded-lg p-2 ${isPro ? 'bg-green-100 dark:bg-green-900/50' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                {isPro ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                ) : (
+                  <Info className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 dark:text-white">Plan Status</p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  {isPro
+                    ? 'Pro entitlements are active for this company.'
+                    : pending
+                      ? 'The Pro checkout is awaiting payment confirmation.'
+                      : 'No paid subscription — the Free plan applies. Existing permits, users and records remain fully accessible.'}
+                </p>
+                {!isPro && !pending && (
+                  <Link
+                    href="/pricing"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Compare plans
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardShell>
   )
@@ -377,16 +445,11 @@ function remainingText(row: UsageRow): string {
   return `${formatBytesIfStorage(row.label, remaining)} remaining`
 }
 
-/** Fill percentage for the progress bar, or null when there is no limit. */
 function barPercent(row: UsageRow): number | null {
   if (row.limit == null || row.limit <= 0) return null
   return Math.min(100, Math.round((row.usage / row.limit) * 100))
 }
 
-/**
- * Subtle note shown only when a limit is near (>= 80% used) or reached.
- * Wording is derived entirely from the row's own usage/limit numbers.
- */
 function limitNote(row: UsageRow): string | null {
   const { label, usage, limit, noun, scope } = row
   if (limit == null || limit <= 0) return null

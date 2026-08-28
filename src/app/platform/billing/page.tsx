@@ -6,6 +6,14 @@ import {
   CreditCard,
   Receipt,
   type LucideIcon,
+  Info,
+  DollarSign,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+  Building2,
+  Layers,
+  Star
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { BackButton } from '@/components/ui/back-button'
@@ -15,6 +23,9 @@ import {
   formatLimit,
   formatPrice,
 } from '@/lib/entitlements/format'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 /**
  * Platform billing — read-only management view for platform admins.
@@ -76,24 +87,28 @@ const TABS: Array<{
   label: string
   href: string
   icon: LucideIcon
+  description: string
 }> = [
   {
     id: 'plans',
     label: 'Plans',
     href: '/platform/billing?tab=plans',
     icon: CreditCard,
+    description: 'Pricing and entitlements',
   },
   {
     id: 'subscriptions',
     label: 'Subscriptions',
     href: '/platform/billing?tab=subscriptions',
     icon: Receipt,
+    description: 'Company subscription status',
   },
   {
     id: 'payments',
     label: 'Payments',
     href: '/platform/billing?tab=payments',
     icon: BarChart3,
+    description: 'Payment history',
   },
 ]
 
@@ -156,19 +171,84 @@ export default async function PlatformBillingPage({
 
   return (
     <DashboardShell>
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <BackButton href="/dashboard" label="Back to Platform" />
 
-        <header>
-          <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
-          <p className="mt-2 text-muted-foreground">
-            Read-only platform view of plans, company subscriptions and
-            payments.
-          </p>
-        </header>
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                <CreditCard className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Billing
+                </h1>
+                <p className="mt-1 text-muted-foreground">
+                  Read-only platform view of plans, subscriptions and payments
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <TabBar active={tab} />
+          <Badge variant="secondary" className="self-start">
+            <DollarSign className="mr-1 h-3 w-3" />
+            Platform Billing
+          </Badge>
+        </div>
 
+        {/* Info Notice */}
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+          <div>
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+              Read-Only View
+            </p>
+            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+              All data is read-only. No payment provider credentials, card numbers or secrets are displayed here.
+            </p>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <Card>
+          <CardContent className="p-2">
+            <div
+              role="tablist"
+              aria-label="Billing sections"
+              className="grid gap-2 sm:grid-cols-3"
+            >
+              {TABS.map((tabItem) => {
+                const Icon = tabItem.icon
+                const isActive = tabItem.id === tab
+                return (
+                  <Link
+                    key={tabItem.id}
+                    href={tabItem.href}
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                    <div>
+                      <p className="font-medium">{tabItem.label}</p>
+                      <p className={`text-xs ${isActive ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {tabItem.description}
+                      </p>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tab Content */}
         {tab === 'plans' && <PlansSection supabase={supabase} />}
         {tab === 'subscriptions' && (
           <SubscriptionsSection supabase={supabase} />
@@ -179,48 +259,11 @@ export default async function PlatformBillingPage({
   )
 }
 
-/**
- * Tab bar driven by the `?tab=` query param. Rendered as `next/link`s
- * (server-compatible — no client JS required), active state derived from
- * the awaited searchParams.
- */
-function TabBar({ active }: { active: BillingTab }) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Billing sections"
-      className="inline-flex flex-wrap items-center gap-1 rounded-xl border bg-background p-1"
-    >
-      {TABS.map((tab) => {
-        const Icon = tab.icon
-        const isActive = tab.id === active
-        return (
-          <Link
-            key={tab.id}
-            href={tab.href}
-            role="tab"
-            aria-selected={isActive}
-            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {tab.label}
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
 async function PlansSection({
   supabase,
 }: {
   supabase: SupabaseClient
 }) {
-  // Pricing and limits come from the database — never hardcoded here.
   const { data: plans } = await supabase
     .from('plans')
     .select(
@@ -231,94 +274,97 @@ async function PlansSection({
   const rows = (plans ?? []) as PlanRow[]
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-background">
-      <div className="border-b px-6 py-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <CreditCard className="h-5 w-5 text-muted-foreground" />
+    <Card>
+      <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           Plans
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pricing and entitlements, as configured in the database.
-        </p>
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="px-6 py-4 text-sm text-muted-foreground">
-          No plans found.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="px-6 py-3 font-medium">Code</th>
-                <th className="px-6 py-3 font-medium">Name</th>
-                <th className="px-6 py-3 font-medium">Price / month</th>
-                <th className="px-6 py-3 font-medium">Currency</th>
-                <th className="px-6 py-3 font-medium">Status</th>
-                <th className="px-6 py-3 font-medium">Max sites</th>
-                <th className="px-6 py-3 font-medium">Max users</th>
-                <th className="px-6 py-3 font-medium">Monthly permits</th>
-                <th className="px-6 py-3 font-medium">Active permits</th>
-                <th className="px-6 py-3 font-medium">Storage</th>
-                <th className="px-6 py-3 font-medium">Features</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((plan) => {
-                const features = enabledFeatures(plan)
-                return (
-                  <tr
-                    key={plan.code}
-                    className="border-b last:border-0"
-                  >
-                    <td className="px-6 py-3 font-mono text-xs">
-                      {plan.code}
-                    </td>
-                    <td className="px-6 py-3 font-medium">
-                      {plan.name}
-                    </td>
-                    <td className="px-6 py-3">
-                      {formatPrice(plan.price_monthly, plan.currency)}
-                    </td>
-                    <td className="px-6 py-3">{plan.currency}</td>
-                    <td className="px-6 py-3">
-                      <StatusBadge
-                        tone={plan.is_active ? 'emerald' : 'muted'}
-                        status={plan.is_active ? 'Active' : 'Inactive'}
-                      />
-                    </td>
-                    <td className="px-6 py-3">
-                      {formatLimit(plan.max_sites)}
-                    </td>
-                    <td className="px-6 py-3">
-                      {formatLimit(plan.max_total_users)}
-                    </td>
-                    <td className="px-6 py-3">
-                      {formatLimit(plan.max_monthly_permits)}
-                    </td>
-                    <td className="px-6 py-3">
-                      {formatLimit(plan.max_active_permits)}
-                    </td>
-                    <td className="px-6 py-3">
-                      {formatBytes(Number(plan.max_storage_bytes))}
-                    </td>
-                    <td className="px-6 py-3">
-                      <span
-                        className="block max-w-[280px] truncate text-xs text-muted-foreground"
-                        title={features.join(' · ')}
-                      >
-                        {features.join(' · ') || '—'}
-                      </span>
-                    </td>
+        </CardTitle>
+        <CardDescription>
+          Pricing and entitlements, as configured in the database
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <p className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+            No plans found.
+          </p>
+        ) : (
+          <ScrollArea className="h-[600px]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                  <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Code</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Name</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Price / month</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Currency</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Status</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Max sites</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Max users</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Monthly permits</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Active permits</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Storage</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Features</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {rows.map((plan) => {
+                    const features = enabledFeatures(plan)
+                    return (
+                      <tr
+                        key={plan.code}
+                        className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        <td className="px-6 py-4 font-mono text-xs text-gray-900 dark:text-white">
+                          {plan.code}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                          {plan.name}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                          {formatPrice(plan.price_monthly, plan.currency)}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{plan.currency}</td>
+                        <td className="px-6 py-4">
+                          <StatusBadge
+                            tone={plan.is_active ? 'emerald' : 'muted'}
+                            status={plan.is_active ? 'Active' : 'Inactive'}
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-gray-900 dark:text-white">
+                          {formatLimit(plan.max_sites)}
+                        </td>
+                        <td className="px-6 py-4 text-gray-900 dark:text-white">
+                          {formatLimit(plan.max_total_users)}
+                        </td>
+                        <td className="px-6 py-4 text-gray-900 dark:text-white">
+                          {formatLimit(plan.max_monthly_permits)}
+                        </td>
+                        <td className="px-6 py-4 text-gray-900 dark:text-white">
+                          {formatLimit(plan.max_active_permits)}
+                        </td>
+                        <td className="px-6 py-4 text-gray-900 dark:text-white">
+                          {formatBytes(Number(plan.max_storage_bytes))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className="block max-w-[280px] truncate text-xs text-gray-500 dark:text-gray-400"
+                            title={features.join(' · ')}
+                          >
+                            {features.join(' · ') || '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -338,78 +384,89 @@ async function SubscriptionsSection({
   const rows = (subscriptions ?? []) as unknown as SubscriptionRow[]
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-background">
-      <div className="border-b px-6 py-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Receipt className="h-5 w-5 text-muted-foreground" />
+    <Card>
+      <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+        <CardTitle className="flex items-center gap-2">
+          <Receipt className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           Subscriptions
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Company subscriptions with their plan and billing period.
-        </p>
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="px-6 py-4 text-sm text-muted-foreground">
-          No subscriptions yet.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="px-6 py-3 font-medium">Company</th>
-                <th className="px-6 py-3 font-medium">Plan</th>
-                <th className="px-6 py-3 font-medium">Status</th>
-                <th className="px-6 py-3 font-medium">Period start</th>
-                <th className="px-6 py-3 font-medium">Period end</th>
-                <th className="px-6 py-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((subscription) => (
-                <tr
-                  key={subscription.id}
-                  className="border-b last:border-0"
-                >
-                  <td className="px-6 py-3">
-                    <span className="block font-medium">
-                      {subscription.companies?.name ?? '—'}
-                    </span>
-                    {subscription.companies?.code && (
-                      <span className="block font-mono text-xs text-muted-foreground">
-                        {subscription.companies.code}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-3 font-mono text-xs">
-                    {subscription.plans?.code ?? '—'}
-                  </td>
-                  <td className="px-6 py-3">
-                    <StatusBadge
-                      tone={
-                        SUBSCRIPTION_TONES[subscription.status] ??
-                        'muted'
-                      }
-                      status={subscription.status}
-                    />
-                  </td>
-                  <td className="px-6 py-3">
-                    {formatDate(subscription.current_period_start)}
-                  </td>
-                  <td className="px-6 py-3">
-                    {formatDate(subscription.current_period_end)}
-                  </td>
-                  <td className="px-6 py-3">
-                    {formatDate(subscription.created_at)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+        </CardTitle>
+        <CardDescription>
+          Company subscriptions with their plan and billing period
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <p className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+            No subscriptions yet.
+          </p>
+        ) : (
+          <ScrollArea className="h-[600px]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                  <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Company</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Plan</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Status</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Period start</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Period end</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {rows.map((subscription) => (
+                    <tr
+                      key={subscription.id}
+                      className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-gray-400" />
+                          <div>
+                            <span className="block font-medium text-gray-900 dark:text-white">
+                              {subscription.companies?.name ?? '—'}
+                            </span>
+                            {subscription.companies?.code && (
+                              <span className="block font-mono text-xs text-gray-500 dark:text-gray-400">
+                                {subscription.companies.code}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant="secondary">
+                          <Star className="mr-1 h-3 w-3" />
+                          {subscription.plans?.code ?? '—'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge
+                          tone={
+                            SUBSCRIPTION_TONES[subscription.status] ??
+                            'muted'
+                          }
+                          status={subscription.status}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {formatDate(subscription.current_period_start)}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {formatDate(subscription.current_period_end)}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {formatDate(subscription.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -429,75 +486,83 @@ async function PaymentsSection({
   const rows = (payments ?? []) as unknown as PaymentRow[]
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-background">
-      <div className="border-b px-6 py-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <BarChart3 className="h-5 w-5 text-muted-foreground" />
+    <Card>
+      <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           Payments
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Payment history per company. Failed payments are highlighted.
-        </p>
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="px-6 py-4 text-sm text-muted-foreground">
-          No payments yet.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="px-6 py-3 font-medium">Company</th>
-                <th className="px-6 py-3 font-medium">Amount</th>
-                <th className="px-6 py-3 font-medium">Currency</th>
-                <th className="px-6 py-3 font-medium">Status</th>
-                <th className="px-6 py-3 font-medium">Provider payment ID</th>
-                <th className="px-6 py-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((payment) => (
-                <tr
-                  key={payment.id}
-                  className={`border-b last:border-0 ${
-                    payment.status === 'failed' ? 'bg-red-500/5' : ''
-                  }`}
-                >
-                  <td className="px-6 py-3">
-                    <span className="block font-medium">
-                      {payment.companies?.name ?? '—'}
-                    </span>
-                    {payment.companies?.code && (
-                      <span className="block font-mono text-xs text-muted-foreground">
-                        {payment.companies.code}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-3 font-medium">
-                    {Number(payment.amount).toFixed(2)}
-                  </td>
-                  <td className="px-6 py-3">{payment.currency}</td>
-                  <td className="px-6 py-3">
-                    <StatusBadge
-                      tone={PAYMENT_TONES[payment.status] ?? 'muted'}
-                      status={payment.status}
-                    />
-                  </td>
-                  <td className="px-6 py-3 font-mono text-xs text-muted-foreground">
-                    {payment.provider_payment_id ?? '—'}
-                  </td>
-                  <td className="px-6 py-3">
-                    {formatDate(payment.created_at)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+        </CardTitle>
+        <CardDescription>
+          Payment history per company. Failed payments are highlighted
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <p className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+            No payments yet.
+          </p>
+        ) : (
+          <ScrollArea className="h-[600px]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                  <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Company</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Amount</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Currency</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Status</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Provider payment ID</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {rows.map((payment) => (
+                    <tr
+                      key={payment.id}
+                      className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
+                        payment.status === 'failed' ? 'bg-red-50/50 dark:bg-red-900/10' : ''
+                      }`}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-gray-400" />
+                          <div>
+                            <span className="block font-medium text-gray-900 dark:text-white">
+                              {payment.companies?.name ?? '—'}
+                            </span>
+                            {payment.companies?.code && (
+                              <span className="block font-mono text-xs text-gray-500 dark:text-gray-400">
+                                {payment.companies.code}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                        {Number(payment.amount).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{payment.currency}</td>
+                      <td className="px-6 py-4">
+                        <StatusBadge
+                          tone={PAYMENT_TONES[payment.status] ?? 'muted'}
+                          status={payment.status}
+                        />
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-gray-500 dark:text-gray-400">
+                        {payment.provider_payment_id ?? '—'}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {formatDate(payment.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -509,15 +574,26 @@ function StatusBadge({
   tone: BadgeTone
 }) {
   const tones: Record<BadgeTone, string> = {
-    emerald: 'bg-emerald-600/10 text-emerald-700',
-    amber: 'bg-amber-600/10 text-amber-700',
-    red: 'bg-red-600/10 text-red-700',
-    muted: 'bg-muted text-muted-foreground',
+    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+    amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+    red: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+    muted: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
   }
+  
+  const icons = {
+    emerald: CheckCircle2,
+    amber: AlertTriangle,
+    red: AlertTriangle,
+    muted: Info,
+  }
+  
+  const Icon = icons[tone]
+  
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${tones[tone]}`}
     >
+      <Icon className="h-3 w-3" />
       {status}
     </span>
   )

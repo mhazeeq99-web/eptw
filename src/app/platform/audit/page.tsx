@@ -5,11 +5,30 @@ import {
   SearchX,
   ShieldCheck,
   X,
+  Search,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Download,
+  Activity,
+  Building2,
+  Users,
+  FileText,
+  CreditCard,
+  AlertTriangle,
+  Info,
+  Clock,
+  User
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { BackButton } from '@/components/ui/back-button'
 import { createClient } from '@/lib/supabase/server'
 import { formatDateTimeMY } from '@/lib/dates'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 
 /**
  * Platform Audit — a read-only, platform-wide audit view.
@@ -374,116 +393,178 @@ export default async function PlatformAuditPage({
   const perHref = (p: number) =>
     `/platform/audit?${[filterBase, `per=${p}`].filter(Boolean).join('&')}`
 
+  // Calculate statistics
+  const stats = {
+    total: events.length,
+    filtered: filtered.length,
+    companyEvents: events.filter(e => e.action === 'Company created').length,
+    permitEvents: events.filter(e => e.action.includes('Permit')).length,
+    userEvents: events.filter(e => e.action === 'User created').length,
+    subscriptionEvents: events.filter(e => e.action.includes('Subscription')).length,
+  }
+
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <BackButton href="/dashboard" label="Back to Platform" />
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Platform Audit
-          </h1>
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-blue-100 p-3 dark:bg-blue-900/50">
+                <ScrollText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Platform Audit
+                </h1>
+                <p className="mt-1 text-muted-foreground">
+                  Read-only audit trail of platform activity
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <p className="mt-2 text-muted-foreground">
-            Read-only audit trail of platform activity, derived from
-            application data.
-          </p>
+          <Badge variant="secondary" className="self-start">
+            <Activity className="mr-1 h-3 w-3" />
+            {stats.total} Events
+          </Badge>
         </div>
 
-        <div className="flex items-start gap-3 rounded-xl border bg-background p-4 text-sm text-muted-foreground">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        {/* Info Notice */}
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+          <div>
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+              Read-Only Audit Trail
+            </p>
+            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+              Events are derived from existing application tables. Failed authorization attempts are not logged. No passwords, tokens or secrets are ever displayed.
+            </p>
+          </div>
+        </div>
 
-          <p>
-            Events are derived from existing application tables (companies,
-            profiles, permits, permit approvals and subscriptions). Failed
-            authorization attempts are not logged in-app and cannot be shown
-            here. This view is strictly read-only — no passwords, tokens or
-            secrets are ever displayed.
-          </p>
+        {/* Statistics Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            icon={Building2}
+            label="Company Events"
+            value={stats.companyEvents}
+            color="blue"
+          />
+          <StatCard
+            icon={FileText}
+            label="Permit Events"
+            value={stats.permitEvents}
+            color="green"
+          />
+          <StatCard
+            icon={Users}
+            label="User Events"
+            value={stats.userEvents}
+            color="purple"
+          />
+          <StatCard
+            icon={CreditCard}
+            label="Subscription Events"
+            value={stats.subscriptionEvents}
+            color="orange"
+          />
         </div>
 
         {/* Filters */}
-        <form
-          method="get"
-          action="/platform/audit"
-          className="rounded-xl border bg-background p-4"
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                Search
-              </span>
-              <input
-                type="text"
-                name="q"
-                defaultValue={params.q ?? ''}
-                placeholder="Actor, company, action, resource…"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </label>
+        <Card>
+          <CardContent className="p-6">
+            <form method="get" action="/platform/audit">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Search className="h-4 w-4 text-gray-400" />
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    name="q"
+                    defaultValue={params.q ?? ''}
+                    placeholder="Actor, company, action..."
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                </div>
 
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                From
-              </span>
-              <input
-                type="date"
-                name="from"
-                defaultValue={params.from ?? ''}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </label>
+                <div>
+                  <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    name="from"
+                    defaultValue={params.from ?? ''}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                </div>
 
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                To
-              </span>
-              <input
-                type="date"
-                name="to"
-                defaultValue={params.to ?? ''}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </label>
+                <div>
+                  <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    name="to"
+                    defaultValue={params.to ?? ''}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                </div>
 
-            <div className="flex items-end gap-2">
-              <button
-                type="submit"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Apply
-              </button>
+                <div className="flex items-end gap-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Apply Filters
+                  </button>
 
-              {hasActiveFilters && (
-                <Link
-                  href="/platform/audit"
-                  className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Clear
-                </Link>
-              )}
-            </div>
-          </div>
-        </form>
+                  {hasActiveFilters && (
+                    <Link
+                      href="/platform/audit"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      <X className="h-4 w-4" />
+                      Clear
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
-        {/* Count + rows-per-page */}
+        {/* Results Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-muted-foreground">
-            {total} event{total === 1 ? '' : 's'}
-            {hasActiveFilters ? ' (filtered)' : ''}
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">
+              {filtered.length} event{filtered.length === 1 ? '' : 's'}
+            </Badge>
+            {hasActiveFilters && (
+              <span className="text-sm text-muted-foreground">
+                (filtered from {stats.total} total)
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Rows/page</span>
+            <span className="text-muted-foreground">Rows per page:</span>
             {PER_OPTIONS.map((opt) => (
               <Link
                 key={opt}
                 href={perHref(opt)}
-                className={`rounded-md border px-2 py-1 ${
+                className={`rounded-md border px-2.5 py-1 ${
                   per === opt
-                    ? 'bg-muted font-medium'
-                    : 'hover:bg-muted'
+                    ? 'bg-blue-600 font-medium text-white'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                 }`}
               >
                 {opt}
@@ -492,143 +573,168 @@ export default async function PlatformAuditPage({
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-hidden rounded-xl border bg-background">
-          {shown.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <SearchX className="h-10 w-10 text-muted-foreground" />
+        {/* Audit Table */}
+        <Card>
+          <CardContent className="p-0">
+            {shown.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-800">
+                  <SearchX className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                </div>
+                <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                  {hasActiveFilters
+                    ? 'No Events Match Your Filters'
+                    : 'No Audit Events Yet'}
+                </h2>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  {hasActiveFilters
+                    ? 'Try adjusting or clearing the filters above.'
+                    : 'Platform activity will appear here as it is recorded.'}
+                </p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[600px]">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] text-sm">
+                    <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Timestamp</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Actor</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Company</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Action</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Resource</th>
+                        <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {shown.map((event) => (
+                        <tr
+                          key={event.key}
+                          className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        >
+                          <td className="whitespace-nowrap px-6 py-4 text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5" />
+                              {formatDateTimeMY(event.timestamp)}
+                            </div>
+                          </td>
 
-              <h2 className="mt-4 font-semibold">
-                {hasActiveFilters
-                  ? 'No audit events match your filters'
-                  : 'No audit events yet'}
-              </h2>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5">
+                              <User className="h-3.5 w-3.5 text-gray-400" />
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                {event.actor}
+                              </span>
+                            </div>
+                          </td>
 
-              <p className="mt-1 text-sm text-muted-foreground">
-                {hasActiveFilters
-                  ? 'Try adjusting or clearing the filters above.'
-                  : 'Platform activity will appear here as it is recorded.'}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-sm">
-                <thead className="border-b bg-muted/40">
-                  <tr>
-                    <th className="px-6 py-3 text-left font-medium">
-                      Timestamp
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium">
-                      Actor
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium">
-                      Company
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium">
-                      Action
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium">
-                      Resource
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium">
-                      Result
-                    </th>
-                  </tr>
-                </thead>
+                          <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                            {event.company}
+                          </td>
 
-                <tbody className="divide-y">
-                  {shown.map((event) => (
-                    <tr
-                      key={event.key}
-                      className="transition-colors hover:bg-muted/40"
-                    >
-                      <td className="whitespace-nowrap px-6 py-4 text-muted-foreground">
-                        {formatDateTimeMY(event.timestamp)}
-                      </td>
+                          <td className="px-6 py-4 text-gray-900 dark:text-white">
+                            {event.action}
+                          </td>
 
-                      <td className="px-6 py-4 font-medium">
-                        {event.actor}
-                      </td>
+                          <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                            {event.resource}
+                          </td>
 
-                      <td className="px-6 py-4">
-                        {event.company}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {event.action}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {event.resource}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <ResultBadge result={event.result} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                          <td className="px-6 py-4">
+                            <ResultBadge result={event.result} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Pagination */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 text-sm">
-          <span className="text-muted-foreground">
-            {total === 0
-              ? 'Showing 0'
-              : `Showing ${start + 1}–${Math.min(
-                  start + per,
-                  total
-                )} of ${total}`}
-          </span>
+        {totalPages > 1 && (
+          <Card>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <span className="text-sm text-muted-foreground">
+                Showing {start + 1}–{Math.min(start + per, total)} of {total}
+              </span>
 
-          <div className="flex items-center gap-1">
-            {safePage > 1 && (
-              <Link
-                href={pageHref(safePage - 1)}
-                className="rounded-md border px-3 py-1 hover:bg-muted"
-              >
-                Previous
-              </Link>
-            )}
+              <div className="flex items-center gap-1">
+                {safePage > 1 && (
+                  <Link
+                    href={pageHref(safePage - 1)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Link>
+                )}
 
-            {Array.from(
-              { length: totalPages },
-              (_, i) => i + 1
-            ).map((p) => (
-              <Link
-                key={p}
-                href={pageHref(p)}
-                className={`rounded-md border px-3 py-1 ${
-                  p === safePage
-                    ? 'bg-primary font-medium text-primary-foreground'
-                    : 'hover:bg-muted'
-                }`}
-              >
-                {p}
-              </Link>
-            ))}
+                {Array.from(
+                  { length: totalPages },
+                  (_, i) => i + 1
+                ).map((p) => (
+                  <Link
+                    key={p}
+                    href={pageHref(p)}
+                    className={`rounded-lg border px-3 py-2 text-sm ${
+                      p === safePage
+                        ? 'bg-blue-600 font-medium text-white'
+                        : 'border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {p}
+                  </Link>
+                ))}
 
-            {safePage < totalPages && (
-              <Link
-                href={pageHref(safePage + 1)}
-                className="rounded-md border px-3 py-1 hover:bg-muted"
-              >
-                Next
-              </Link>
-            )}
-          </div>
-        </div>
+                {safePage < totalPages && (
+                  <Link
+                    href={pageHref(safePage + 1)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <ScrollText className="h-3.5 w-3.5" />
-          Derived audit view — timestamps are the creation/update timestamps
-          recorded by the application.
+        {/* Footer Note */}
+        <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+          <Info className="h-3.5 w-3.5" />
+          Derived audit view — timestamps are the creation/update timestamps recorded by the application.
         </p>
       </div>
     </DashboardShell>
+  )
+}
+
+function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: number; color: 'blue' | 'green' | 'purple' | 'orange' }) {
+  const colorClasses = {
+    blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400",
+    green: "bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400",
+    purple: "bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400",
+    orange: "bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400",
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center gap-3">
+          <div className={`rounded-lg p-2 ${colorClasses[color]}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

@@ -3,6 +3,23 @@ import { notFound } from 'next/navigation'
 import QRCode from 'qrcode'
 import { createClient } from '@/lib/supabase/server'
 import { PrintPermitButton } from '@/components/permits/print-permit-button'
+import { 
+  Printer, 
+  ArrowLeft, 
+  Building2, 
+  MapPin, 
+  User, 
+  Users, 
+  Shield, 
+  FileText, 
+  HardHat, 
+  Wrench,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Download,
+  Loader2
+} from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +38,19 @@ export default async function PrintPermitPage({
 
   if (!user) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6">
-        <p className="text-sm">Please sign in to view this permit.</p>
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6 dark:bg-gray-900">
+        <div className="text-center">
+          <FileText className="mx-auto h-12 w-12 text-gray-400" />
+          <p className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+            Please sign in to view this permit
+          </p>
+          <Link
+            href="/login"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Sign In
+          </Link>
+        </div>
       </main>
     )
   }
@@ -215,514 +243,560 @@ export default async function PrintPermitPage({
   })
 
   return (
-    <main className="min-h-screen bg-white p-8 text-black print:p-0">
+    <main className="min-h-screen bg-gray-100 p-4 print:bg-white print:p-0 sm:p-8">
       <div className="mx-auto max-w-4xl">
         {/* Toolbar (hidden when printing) */}
-        <div className="mb-6 flex items-center justify-between print:hidden">
+        <div className="mb-6 flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm print:hidden dark:border-gray-700 dark:bg-gray-800">
           <Link
             href={`/permits/${permit.id}`}
-            className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           >
-            ← Back to Permit
+            <ArrowLeft className="h-4 w-4" />
+            Back to Permit
           </Link>
 
-          <PrintPermitButton />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-start justify-between border-b-2 border-black pb-6">
-          <div>
-            <h1 className="text-2xl font-bold uppercase">
-              Permit to Work
-            </h1>
-            <p className="mt-1 text-sm">
-              {permit.company?.name ?? '—'}
-              {permit.company?.code
-                ? ` (${permit.company.code})`
-                : ''}
-            </p>
-          </div>
-
-          <div className="text-right">
-            <p className="text-lg font-bold">
-              {permit.permit_no}
-            </p>
-            <p className="mt-1 text-sm">
-              {permit.permit_type?.name ?? 'Permit'}
-            </p>
-            <p className="mt-1 inline-block rounded border border-black px-2 py-0.5 text-xs font-semibold uppercase">
-              {permit.status.replaceAll('_', ' ')}
-            </p>
-            {permit.workflow_stage && (
-              <p className="mt-1 text-xs">
-                Stage: {permit.workflow_stage.replaceAll('_', ' ')}
-              </p>
-            )}
+          <div className="flex items-center gap-2">
+            <PrintPermitButton />
           </div>
         </div>
 
-        {/* Work details */}
-        <Section title="Work Details">
-          <Grid>
-            <Item label="Work Title" value={permit.work_title} />
-            <Item label="Work Location" value={permit.work_location} />
-            <Item label="Area" value={permit.area?.name} />
-            <Item
-              label="Equipment"
-              value={
-                permit.equipment
-                  ? `${permit.equipment.name}${
-                      permit.equipment.equipment_no
-                        ? ` (${permit.equipment.equipment_no})`
-                        : ''
-                    }`
-                  : null
-              }
-            />
-            <Item label="Contractor" value={permit.contractor?.company_name} />
-            <Item label="Requester" value={permit.requester?.full_name} />
-            <Item label="Department" value={permit.requester?.department} />
-            {permit.staff_reference_name && (
-              <Item
-                label="Customer Staff Reference"
-                value={permit.staff_reference_name}
-              />
-            )}
-            <Item label="Planned Start" value={formatDate(permit.planned_start)} />
-            <Item label="Planned End" value={formatDate(permit.planned_end)} />
-            {/* Authoritative validity window (Phase F/2e). */}
-            <Item label="Valid From" value={formatDate(permit.valid_from)} />
-            <Item label="Valid Until" value={formatDate(permit.valid_until)} />
-          </Grid>
+        {/* Permit Document */}
+        <div className="overflow-hidden rounded-lg bg-white shadow-lg print:rounded-none print:shadow-none dark:bg-gray-900">
+          {/* Header */}
+          <div className="border-b-4 border-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 sm:p-8 dark:from-gray-800 dark:to-gray-800">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-blue-600 p-2">
+                    <FileText className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold uppercase tracking-tight text-gray-900 dark:text-white">
+                      Permit to Work
+                    </h1>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                      {permit.company?.name ?? '—'}
+                      {permit.company?.code
+                        ? ` (${permit.company.code})`
+                        : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          {permit.work_method && (
-            <div className="mt-4">
-              <p className="text-xs font-semibold uppercase text-gray-600">
-                Work Method / Sequence
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm">
-                {permit.work_method}
-              </p>
-            </div>
-          )}
-
-          {permit.work_description && (
-            <div className="mt-4">
-              <p className="text-xs font-semibold uppercase text-gray-600">
-                Description
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm">
-                {permit.work_description}
-              </p>
-            </div>
-          )}
-        </Section>
-
-        {/* Workers / authorised personnel */}
-        <Section title="Workers / Authorised Personnel">
-          {permit.workers && permit.workers.length > 0 ? (
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Name
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    {permit.workers.some((w) => w.is_contractor)
-                      ? 'NRIC / Passport'
-                      : 'Employee ID'}
-                  </th>
-                  {permit.workers.some((w) => w.is_contractor) && (
-                    <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                      Nationality
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {permit.workers.map((worker) => (
-                  <tr key={worker.id}>
-                    <td className="border border-black px-3 py-1.5">
-                      {worker.full_name}
-                    </td>
-                    <td className="border border-black px-3 py-1.5">
-                      {worker.id_number ?? '—'}
-                    </td>
-                    {worker.is_contractor && (
-                      <td className="border border-black px-3 py-1.5">
-                        {worker.nationality ?? '—'}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-sm">No workers listed.</p>
-          )}
-        </Section>
-
-        {/* PPE selected */}
-        <Section title="PPE Requirements">
-          {permit.permit_ppe?.some((p) => p.is_selected) ? (
-            <div className="flex flex-wrap gap-2 text-sm">
-              {permit.permit_ppe
-                .filter((p) => p.is_selected && p.ppe_item)
-                .map((p) => (
-                  <span
-                    key={p.ppe_item?.name}
-                    className="rounded border border-black px-2 py-0.5"
-                  >
-                    {p.ppe_item?.name}
-                    {p.verified ? ' (Verified)' : ''}
-                  </span>
-                ))}
-            </div>
-          ) : (
-            <p className="text-sm">No PPE selected.</p>
-          )}
-        </Section>
-
-        {/* CSE personnel (permit-level responsibilities) */}
-        {permit.permit_type?.code === 'CSE' &&
-          permit.cse_personnel?.length ? (
-          <Section title="Confined Space Personnel">
-            <Grid>
-              {permit.cse_personnel
-                .filter((p) => p.responsibility === 'entry_supervisor')
-                .map((p) => (
-                  <Item
-                    key={`sup-${p.worker_id}`}
-                    label="Entry Supervisor"
-                    value={p.worker?.full_name}
-                  />
-                ))}
-              {permit.cse_personnel
-                .filter((p) => p.responsibility === 'standby_attendant')
-                .map((p) => (
-                  <Item
-                    key={`std-${p.worker_id}`}
-                    label="Standby / Attendant"
-                    value={p.worker?.full_name}
-                  />
-                ))}
-              {permit.cse_personnel
-                .filter((p) => p.responsibility === 'authorised_entrant')
-                .length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase text-gray-600">
-                    Authorised Entrants
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  {permit.permit_no}
+                </p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  {permit.permit_type?.name ?? 'Permit'}
+                </p>
+                <p className="mt-2 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                  {permit.status.replaceAll('_', ' ')}
+                </p>
+                {permit.workflow_stage && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Stage: {permit.workflow_stage.replaceAll('_', ' ')}
                   </p>
-                  <p className="mt-0.5 text-sm font-medium">
-                    {permit.cse_personnel
-                      .filter((p) => p.responsibility === 'authorised_entrant')
-                      .map((p) => p.worker?.full_name ?? '')
-                      .filter(Boolean)
-                      .join(', ')}
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 sm:p-8">
+            {/* Work details */}
+            <Section title="Work Details" icon={FileText}>
+              <Grid>
+                <Item label="Work Title" value={permit.work_title} />
+                <Item label="Work Location" value={permit.work_location} />
+                <Item label="Area" value={permit.area?.name} />
+                <Item
+                  label="Equipment"
+                  value={
+                    permit.equipment
+                      ? `${permit.equipment.name}${
+                          permit.equipment.equipment_no
+                            ? ` (${permit.equipment.equipment_no})`
+                            : ''
+                        }`
+                      : null
+                  }
+                />
+                <Item label="Contractor" value={permit.contractor?.company_name} />
+                <Item label="Requester" value={permit.requester?.full_name} />
+                <Item label="Department" value={permit.requester?.department} />
+                {permit.staff_reference_name && (
+                  <Item
+                    label="Customer Staff Reference"
+                    value={permit.staff_reference_name}
+                  />
+                )}
+                <Item label="Planned Start" value={formatDate(permit.planned_start)} />
+                <Item label="Planned End" value={formatDate(permit.planned_end)} />
+                <Item label="Valid From" value={formatDate(permit.valid_from)} />
+                <Item label="Valid Until" value={formatDate(permit.valid_until)} />
+              </Grid>
+
+              {permit.work_method && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                    Work Method / Sequence
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900 dark:text-gray-100">
+                    {permit.work_method}
                   </p>
                 </div>
               )}
-            </Grid>
-          </Section>
-        ) : null}
 
-        {/* Safety controls */}
-        <Section title="Safety Controls">
-          {permit.safety_controls?.length ? (
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Control
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Required
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {permit.safety_controls.map((control) => (
-                  <tr key={control.id}>
-                    <td className="border border-black px-3 py-1.5">
-                      {control.safety_control?.name ?? 'Control'}
-                    </td>
-                    <td className="border border-black px-3 py-1.5">
-                      {control.is_required ? 'Yes' : 'No'}
-                    </td>
-                    <td className="border border-black px-3 py-1.5 uppercase">
-                      {control.status.replaceAll('_', ' ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-sm">No safety controls configured.</p>
-          )}
-        </Section>
+              {permit.work_description && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                    Description
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900 dark:text-gray-100">
+                    {permit.work_description}
+                  </p>
+                </div>
+              )}
+            </Section>
 
-        {/* JHA / LOTO / Gas */}
-        <Section title="JHA / LOTO / Gas Testing">
-          <Grid>
-            <Item
-              label="JHA / JSA"
-              value={
-                permit.jhas?.length
-                  ? permit.jhas
-                      .map((jha) => `${jha.title} (${jha.status})`)
-                      .join(', ')
-                  : 'Not recorded'
-              }
-            />
-            <Item
-              label="LOTO Isolation Points"
-              value={
-                permit.loto_points?.length
-                  ? permit.loto_points
-                      .map(
-                        (point) =>
-                          `${point.description}${point.tag_number ? ` [${point.tag_number}]` : ''} (${point.status})`
-                      )
-                      .join('; ')
-                  : 'Not recorded'
-              }
-            />
-          </Grid>
-
-          {permit.gas_tests?.length ? (
-            <table className="mt-4 w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Tested At
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    O₂ %
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    LEL %
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    H₂S ppm
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    CO ppm
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {permit.gas_tests.map((test) => (
-                  <tr key={test.id}>
-                    <td className="border border-black px-3 py-1.5">
-                      {formatDate(test.tested_at)}
-                    </td>
-                    <td className="border border-black px-3 py-1.5">
-                      {test.o2 ?? '—'}
-                    </td>
-                    <td className="border border-black px-3 py-1.5">
-                      {test.lel ?? '—'}
-                    </td>
-                    <td className="border border-black px-3 py-1.5">
-                      {test.h2s ?? '—'}
-                    </td>
-                    <td className="border border-black px-3 py-1.5">
-                      {test.co ?? '—'}
-                    </td>
-                    <td className="border border-black px-3 py-1.5 uppercase">
-                      {test.status.replaceAll('_', ' ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="mt-4 text-sm">No gas tests recorded.</p>
-          )}
-        </Section>
-
-        {/* Site verification / Worker briefing / Emergency arrangements */}
-        <Section title="Site Verification &amp; Readiness">
-          <Grid>
-            <Item
-              label="Site Verification"
-              value={
-                permit.site_verification
-                  ? permit.site_verification.status.replaceAll('_', ' ')
-                  : 'Not recorded'
-              }
-            />
-            <Item
-              label="Worker Briefing"
-              value={
-                permit.worker_briefing
-                  ? permit.worker_briefing.status.replaceAll('_', ' ')
-                  : 'Not recorded'
-              }
-            />
-            <Item
-              label="Emergency Arrangements"
-              value={
-                permit.emergency_arrangements
-                  ? permit.emergency_arrangements.status.replaceAll('_', ' ')
-                  : 'Not recorded'
-              }
-            />
-            {permit.emergency_arrangements && (
-              <>
-                <Item
-                  label="Emergency Contact"
-                  value={permit.emergency_arrangements.emergency_contact}
-                />
-                <Item
-                  label="Muster Point"
-                  value={permit.emergency_arrangements.muster_point}
-                />
-                <Item
-                  label="First Aid Available"
-                  value={
-                    permit.emergency_arrangements.first_aid_available
-                      ? 'Yes'
-                      : 'No'
-                  }
-                />
-                <Item
-                  label="Fire Response Available"
-                  value={
-                    permit.emergency_arrangements.fire_response_available
-                      ? 'Yes'
-                      : 'No'
-                  }
-                />
-                <Item
-                  label="Rescue"
-                  value={
-                    permit.emergency_arrangements.rescue_required
-                      ? permit.emergency_arrangements.rescue_available
-                        ? 'Required - Available'
-                        : 'Required - NOT available'
-                      : 'Not required'
-                  }
-                />
-              </>
-            )}
-          </Grid>
-        </Section>
-
-        {/* Approval */}
-        <Section title="Approval &amp; Sign-off">
-          <Grid>
-            <Item label="Status" value={permit.status.toUpperCase()} />
-            <Item
-              label="Approved By"
-              value={permit.approved_by_profile?.full_name}
-            />
-            <Item label="Approved At" value={formatDate(permit.approved_at)} />
-            <Item label="Work Started" value={formatDate(permit.actual_start)} />
-            <Item label="Completed By" value={permit.completed_by} />
-            <Item label="Completed At" value={formatDate(permit.completed_at)} />
-            <Item label="Closed By" value={permit.closed_by} />
-            <Item label="Closed At" value={formatDate(permit.closed_at)} />
-          </Grid>
-
-          {permit.remarks && (
-            <div className="mt-4">
-              <p className="text-xs font-semibold uppercase text-gray-600">
-                Remarks
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm">
-                {permit.remarks}
-              </p>
-            </div>
-          )}
-        </Section>
-
-        {/* History */}
-        <Section title="Permit History">
-          {permit.approvals?.length ? (
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Action
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Performed By
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Remarks
-                  </th>
-                  <th className="border border-black px-3 py-1.5 text-left text-xs font-semibold uppercase">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...permit.approvals]
-                  .sort(
-                    (a, b) =>
-                      new Date(a.created_at).getTime() -
-                      new Date(b.created_at).getTime()
-                  )
-                  .map((approval) => (
-                    <tr key={approval.id}>
-                      <td className="border border-black px-3 py-1.5 uppercase">
-                        {approval.action.replaceAll('_', ' ')}
-                      </td>
-                      <td className="border border-black px-3 py-1.5">
-                        {approval.performer?.full_name ?? '—'}
-                      </td>
-                      <td className="border border-black px-3 py-1.5">
-                        {approval.remarks ?? '—'}
-                      </td>
-                      <td className="border border-black px-3 py-1.5">
-                        {formatDate(approval.created_at)}
-                      </td>
+            {/* Workers */}
+            <Section title="Workers / Authorised Personnel" icon={Users}>
+              {permit.workers && permit.workers.length > 0 ? (
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800">
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Name
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        {permit.workers.some((w) => w.is_contractor)
+                          ? 'NRIC / Passport'
+                          : 'Employee ID'}
+                      </th>
+                      {permit.workers.some((w) => w.is_contractor) && (
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                          Nationality
+                        </th>
+                      )}
                     </tr>
-                  ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-sm">No history recorded.</p>
-          )}
-        </Section>
+                  </thead>
+                  <tbody>
+                    {permit.workers.map((worker) => (
+                      <tr key={worker.id}>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {worker.full_name}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {worker.id_number ?? '—'}
+                        </td>
+                        {worker.is_contractor && (
+                          <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                            {worker.nationality ?? '—'}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">No workers listed.</p>
+              )}
+            </Section>
 
-        {/* Footer with QR */}
-        <div className="mt-8 flex items-end justify-between border-t-2 border-black pt-6">
-          <div className="text-xs text-gray-600">
-            <p>
-              Generated on{' '}
-              {new Intl.DateTimeFormat('en-MY', {
-                dateStyle: 'long',
-                timeStyle: 'short',
-              }).format(new Date())}
-            </p>
-            <p className="mt-1">
-              ePTW — Electronic Permit to Work
-            </p>
-          </div>
+            {/* PPE */}
+            <Section title="PPE Requirements" icon={HardHat}>
+              {permit.permit_ppe?.some((p) => p.is_selected) ? (
+                <div className="flex flex-wrap gap-2">
+                  {permit.permit_ppe
+                    .filter((p) => p.is_selected && p.ppe_item)
+                    .map((p) => (
+                      <span
+                        key={p.ppe_item?.name}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 dark:border-gray-600 dark:text-gray-300"
+                      >
+                        {p.ppe_item?.name}
+                        {p.verified && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        )}
+                      </span>
+                    ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">No PPE selected.</p>
+              )}
+            </Section>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right text-xs text-gray-600">
-              <p>Scan to view permit</p>
-              <p className="mt-1 font-mono">{permit.permit_no}</p>
+            {/* CSE Personnel */}
+            {permit.permit_type?.code === 'CSE' &&
+              permit.cse_personnel?.length ? (
+              <Section title="Confined Space Personnel" icon={Users}>
+                <Grid>
+                  {permit.cse_personnel
+                    .filter((p) => p.responsibility === 'entry_supervisor')
+                    .map((p) => (
+                      <Item
+                        key={`sup-${p.worker_id}`}
+                        label="Entry Supervisor"
+                        value={p.worker?.full_name}
+                      />
+                    ))}
+                  {permit.cse_personnel
+                    .filter((p) => p.responsibility === 'standby_attendant')
+                    .map((p) => (
+                      <Item
+                        key={`std-${p.worker_id}`}
+                        label="Standby / Attendant"
+                        value={p.worker?.full_name}
+                      />
+                    ))}
+                  {permit.cse_personnel
+                    .filter((p) => p.responsibility === 'authorised_entrant')
+                    .length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        Authorised Entrants
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {permit.cse_personnel
+                          .filter((p) => p.responsibility === 'authorised_entrant')
+                          .map((p) => p.worker?.full_name ?? '')
+                          .filter(Boolean)
+                          .join(', ')}
+                      </p>
+                    </div>
+                  )}
+                </Grid>
+              </Section>
+            ) : null}
+
+            {/* Safety Controls */}
+            <Section title="Safety Controls" icon={Shield}>
+              {permit.safety_controls?.length ? (
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800">
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Control
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Required
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permit.safety_controls.map((control) => (
+                      <tr key={control.id}>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {control.safety_control?.name ?? 'Control'}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {control.is_required ? 'Yes' : 'No'}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 uppercase text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {control.status.replaceAll('_', ' ')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">No safety controls configured.</p>
+              )}
+            </Section>
+
+            {/* JHA / LOTO / Gas */}
+            <Section title="JHA / LOTO / Gas Testing" icon={Wrench}>
+              <Grid>
+                <Item
+                  label="JHA / JSA"
+                  value={
+                    permit.jhas?.length
+                      ? permit.jhas
+                          .map((jha) => `${jha.title} (${jha.status})`)
+                          .join(', ')
+                      : 'Not recorded'
+                  }
+                />
+                <Item
+                  label="LOTO Isolation Points"
+                  value={
+                    permit.loto_points?.length
+                      ? permit.loto_points
+                          .map(
+                            (point) =>
+                              `${point.description}${point.tag_number ? ` [${point.tag_number}]` : ''} (${point.status})`
+                          )
+                          .join('; ')
+                      : 'Not recorded'
+                  }
+                />
+              </Grid>
+
+              {permit.gas_tests?.length ? (
+                <table className="mt-4 w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800">
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Tested At
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        O₂ %
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        LEL %
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        H₂S ppm
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        CO ppm
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permit.gas_tests.map((test) => (
+                      <tr key={test.id}>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {formatDate(test.tested_at)}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {test.o2 ?? '—'}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {test.lel ?? '—'}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {test.h2s ?? '—'}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {test.co ?? '—'}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 uppercase text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                          {test.status.replaceAll('_', ' ')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">No gas tests recorded.</p>
+              )}
+            </Section>
+
+            {/* Site verification */}
+            <Section title="Site Verification & Readiness" icon={CheckCircle2}>
+              <Grid>
+                <Item
+                  label="Site Verification"
+                  value={
+                    permit.site_verification
+                      ? permit.site_verification.status.replaceAll('_', ' ')
+                      : 'Not recorded'
+                  }
+                />
+                <Item
+                  label="Worker Briefing"
+                  value={
+                    permit.worker_briefing
+                      ? permit.worker_briefing.status.replaceAll('_', ' ')
+                      : 'Not recorded'
+                  }
+                />
+                <Item
+                  label="Emergency Arrangements"
+                  value={
+                    permit.emergency_arrangements
+                      ? permit.emergency_arrangements.status.replaceAll('_', ' ')
+                      : 'Not recorded'
+                  }
+                />
+                {permit.emergency_arrangements && (
+                  <>
+                    <Item
+                      label="Emergency Contact"
+                      value={permit.emergency_arrangements.emergency_contact}
+                    />
+                    <Item
+                      label="Muster Point"
+                      value={permit.emergency_arrangements.muster_point}
+                    />
+                    <Item
+                      label="First Aid Available"
+                      value={
+                        permit.emergency_arrangements.first_aid_available
+                          ? 'Yes'
+                          : 'No'
+                      }
+                    />
+                    <Item
+                      label="Fire Response Available"
+                      value={
+                        permit.emergency_arrangements.fire_response_available
+                          ? 'Yes'
+                          : 'No'
+                      }
+                    />
+                    <Item
+                      label="Rescue"
+                      value={
+                        permit.emergency_arrangements.rescue_required
+                          ? permit.emergency_arrangements.rescue_available
+                            ? 'Required - Available'
+                            : 'Required - NOT available'
+                          : 'Not required'
+                      }
+                    />
+                  </>
+                )}
+              </Grid>
+            </Section>
+
+            {/* Approval */}
+            <Section title="Approval & Sign-off" icon={CheckCircle2}>
+              <Grid>
+                <Item label="Status" value={permit.status.toUpperCase()} />
+                <Item
+                  label="Approved By"
+                  value={permit.approved_by_profile?.full_name}
+                />
+                <Item label="Approved At" value={formatDate(permit.approved_at)} />
+                <Item label="Work Started" value={formatDate(permit.actual_start)} />
+                <Item label="Completed By" value={permit.completed_by} />
+                <Item label="Completed At" value={formatDate(permit.completed_at)} />
+                <Item label="Closed By" value={permit.closed_by} />
+                <Item label="Closed At" value={formatDate(permit.closed_at)} />
+              </Grid>
+
+              {permit.remarks && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                    Remarks
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900 dark:text-gray-100">
+                    {permit.remarks}
+                  </p>
+                </div>
+              )}
+            </Section>
+
+            {/* History */}
+            <Section title="Permit History" icon={Clock}>
+              {permit.approvals?.length ? (
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800">
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Action
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Performed By
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Remarks
+                      </th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                        Date
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...permit.approvals]
+                      .sort(
+                        (a, b) =>
+                          new Date(a.created_at).getTime() -
+                          new Date(b.created_at).getTime()
+                      )
+                      .map((approval) => (
+                        <tr key={approval.id}>
+                          <td className="border border-gray-300 px-3 py-2 uppercase text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                            {approval.action.replaceAll('_', ' ')}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                            {approval.performer?.full_name ?? '—'}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                            {approval.remarks ?? '—'}
+                          </td>
+                          <td className="border border-gray-300 px-3 py-2 text-gray-900 dark:border-gray-600 dark:text-gray-100">
+                            {formatDate(approval.created_at)}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">No history recorded.</p>
+              )}
+            </Section>
+
+            {/* Footer with QR */}
+            <div className="mt-8 flex flex-col items-end justify-between gap-6 border-t-2 border-blue-600 pt-6 sm:flex-row sm:items-end">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                <p>
+                  Generated on{' '}
+                  {new Intl.DateTimeFormat('en-MY', {
+                    dateStyle: 'long',
+                    timeStyle: 'short',
+                  }).format(new Date())}
+                </p>
+                <p className="mt-1">
+                  ePTW — Electronic Permit to Work
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="text-right text-xs text-gray-500 dark:text-gray-400">
+                  <p>Scan to view permit</p>
+                  <p className="mt-1 font-mono">{permit.permit_no}</p>
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrDataUrl}
+                  alt={`QR code for ${permit.permit_no}`}
+                  width={120}
+                  height={120}
+                  className="h-[120px] w-[120px] rounded-lg border border-gray-200 dark:border-gray-700"
+                />
+              </div>
             </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={qrDataUrl}
-              alt={`QR code for ${permit.permit_no}`}
-              width={120}
-              height={120}
-              className="h-[120px] w-[120px]"
-            />
           </div>
         </div>
       </div>
+
+      {/* Print styles */}
+      <style jsx global>{`
+        @media print {
+          .print\\:hidden {
+            display: none !important;
+          }
+          .print\\:bg-white {
+            background-color: white !important;
+          }
+          .print\\:p-0 {
+            padding: 0 !important;
+          }
+          .print\\:rounded-none {
+            border-radius: 0 !important;
+          }
+          .print\\:shadow-none {
+            box-shadow: none !important;
+          }
+          @page {
+            margin: 1cm;
+          }
+          body {
+            background: white !important;
+            color: black !important;
+          }
+        }
+      `}</style>
     </main>
   )
 }
@@ -882,14 +956,17 @@ type PrintPermit = {
 
 function Section({
   title,
+  icon: Icon,
   children,
 }: {
   title: string
+  icon?: any
   children: React.ReactNode
 }) {
   return (
-    <section className="mt-6">
-      <h2 className="border-b border-black pb-1 text-sm font-bold uppercase tracking-wide">
+    <section className="mt-6 first:mt-0">
+      <h2 className="flex items-center gap-2 border-b-2 border-blue-600 pb-2 text-sm font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+        {Icon && <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
         {title}
       </h2>
       <div className="mt-3">{children}</div>
@@ -914,10 +991,10 @@ function Item({
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase text-gray-600">
+      <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
         {label}
       </p>
-      <p className="mt-0.5 text-sm font-medium">
+      <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
         {value || '—'}
       </p>
     </div>
