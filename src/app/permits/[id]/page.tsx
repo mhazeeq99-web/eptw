@@ -1033,23 +1033,23 @@ export default async function PermitDetailsPage({
             )}
 
             {/* Safety Controls */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
+            <section className="mt-6 rounded-xl border bg-background">
+              <div className="flex items-center justify-between border-b px-6 py-4">
+                <div>
+                  <h2 className="flex items-center gap-2 font-semibold">
                     <Shield className="h-5 w-5 text-blue-600" />
                     Safety Controls
-                  </span>
-                  <AddSafetyControlButton
-                    permitId={permit.id}
-                    canAdd={canPerformSafetyVerification}
-                  />
-                </CardTitle>
-                <CardDescription>
-                  Required and selected safety controls for this permit
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Required and selected safety controls for this permit
+                  </p>
+                </div>
+                <AddSafetyControlButton
+                  permitId={permit.id}
+                  canAdd={canPerformSafetyVerification}
+                />
+              </div>
+              <div className="p-6">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {permit.safety_controls?.length ? (
                     permit.safety_controls.map((control) => (
@@ -1068,22 +1068,24 @@ export default async function PermitDetailsPage({
                     </p>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
             {/* Recommended Controls */}
             {permit.recommended_controls &&
               permit.recommended_controls.filter(
                 (item) => item.is_selected && item.safety_control
               ).length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recommended Controls</CardTitle>
-                    <CardDescription>
-                      Additional controls selected for this permit
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
+                <section className="mt-6 rounded-xl border bg-background">
+                  <div className="flex items-center justify-between border-b px-6 py-4">
+                    <div>
+                      <h2 className="font-semibold">Recommended Controls</h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Additional controls selected for this permit
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-6">
                     <div className="flex flex-wrap gap-2">
                       {permit.recommended_controls
                         .filter((item) => item.is_selected && item.safety_control)
@@ -1093,26 +1095,28 @@ export default async function PermitDetailsPage({
                           </Badge>
                         ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </section>
               )}
 
             {/* PPE Requirements */}
             {(permit.permit_ppe && permit.permit_ppe.length > 0) || permit.ppe_other ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <HardHat className="h-5 w-5 text-blue-600" />
-                    PPE Requirements
-                  </CardTitle>
-                  <CardDescription>
-                    Personal protective equipment required for this work
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+              <section className="mt-6 rounded-xl border bg-background">
+                <div className="flex items-center justify-between border-b px-6 py-4">
+                  <div>
+                    <h2 className="flex items-center gap-2 font-semibold">
+                      <HardHat className="h-5 w-5 text-blue-600" />
+                      PPE Requirements
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Personal protective equipment required for this work
+                    </p>
+                  </div>
+                </div>
+                <div className="p-6">
                   <PpeDisplay permit={permit} />
-                </CardContent>
-              </Card>
+                </div>
+              </section>
             ) : null}
 
             {/* Site Verification */}
@@ -1160,17 +1164,19 @@ export default async function PermitDetailsPage({
 
             {/* Safety Verification Readiness — final section before lifecycle */}
             {permit.status === 'pending_approval' || permit.status === 'draft' ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-blue-600" />
-                    Safety Verification Readiness
-                  </CardTitle>
-                  <CardDescription>
-                    Complete all safety verification requirements before approval
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+              <section className="mt-6 rounded-xl border bg-background">
+                <div className="flex items-center justify-between border-b px-6 py-4">
+                  <div>
+                    <h2 className="flex items-center gap-2 font-semibold">
+                      <Shield className="h-5 w-5 text-blue-600" />
+                      Safety Verification Readiness
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Complete all safety verification requirements before approval
+                    </p>
+                  </div>
+                </div>
+                <div className="p-6">
                   <SafetyVerificationPanel
                     permitId={permit.id}
                     permitNo={permit.permit_no}
@@ -1180,8 +1186,8 @@ export default async function PermitDetailsPage({
                       (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')
                     }
                   />
-                </CardContent>
-              </Card>
+                </div>
+              </section>
             ) : null}
           </TabsContent>
 
