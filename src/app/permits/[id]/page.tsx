@@ -803,9 +803,9 @@ export default async function PermitDetailsPage({
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="mt-6 space-y-6">
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid min-w-0 gap-6 lg:grid-cols-3">
               {/* Main Information Column */}
-              <div className="space-y-6 lg:col-span-2">
+              <div className="min-w-0 space-y-6 lg:col-span-2">
                 {/* Work Information */}
                 <Card>
                   <CardHeader>
@@ -862,9 +862,8 @@ export default async function PermitDetailsPage({
                         Personnel authorised to perform the work under this permit
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 sm:p-6">
-                      <ScrollArea className="h-[300px]">
-                        <div className="overflow-x-auto">
+                    <CardContent className="min-w-0 p-4 pt-0 sm:p-6">
+                      <div className="max-h-[300px] overflow-auto">
                         <table className="w-full min-w-[520px] text-sm">
                           <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                             <tr className="border-b text-left">
@@ -893,8 +892,7 @@ export default async function PermitDetailsPage({
                             ))}
                           </tbody>
                         </table>
-                        </div>
-                      </ScrollArea>
+                      </div>
                       <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                         <Info className="mr-1 inline h-3 w-3" />
                         Only workers listed and authorised under this permit may perform the work / enter the designated work area.
@@ -924,7 +922,7 @@ export default async function PermitDetailsPage({
               </div>
 
               {/* Right Column - Timeline & Quick Info */}
-              <div className="space-y-6">
+              <div className="min-w-0 space-y-6">
                 {/* Work Period Card */}
                 <Card>
                   <CardHeader>
