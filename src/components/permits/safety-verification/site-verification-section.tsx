@@ -173,7 +173,7 @@ export function SiteVerificationSection({
                   )}
                 </div>
 
-                {canEdit ? (
+                {canEdit && status !== 'verified' ? (
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -243,7 +243,7 @@ export function SiteVerificationSection({
           <textarea
             value={remarks}
             onChange={(event) => setRemarks(event.target.value)}
-            disabled={!canEdit}
+            disabled={!canEdit || status === 'verified'}
             rows={2}
             placeholder="Any notes about the work-area inspection..."
             className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-60"
@@ -261,7 +261,7 @@ export function SiteVerificationSection({
           </p>
         )}
 
-        {canEdit && (
+        {canEdit && status !== 'verified' && (
           <>
             {requiredUnchecked.length > 0 && (
               <p className="mt-3 text-sm text-muted-foreground">

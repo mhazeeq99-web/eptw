@@ -142,7 +142,7 @@ export function PpeVerificationSection({
           ))}
         </div>
 
-        {canEdit && (
+        {canEdit && !allRequiredVerified && (
           <>
             {error && (
               <p className="mt-3 text-sm text-destructive">
@@ -157,14 +157,16 @@ export function PpeVerificationSection({
                 disabled={saving}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                {saving
-                  ? 'Saving...'
-                  : allRequiredVerified
-                    ? 'Re-verify Required PPE'
-                    : 'Verify Required PPE Available'}
+                {saving ? 'Saving...' : 'Verify Required PPE Available'}
               </button>
             </div>
           </>
+        )}
+
+        {allRequiredVerified && (
+          <p className="mt-4 text-sm font-medium text-green-600">
+            ✓ Required PPE verified — all required items are selected and available.
+          </p>
         )}
       </div>
     </section>

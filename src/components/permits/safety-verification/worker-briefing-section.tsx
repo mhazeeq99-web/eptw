@@ -211,7 +211,7 @@ export function WorkerBriefingSection({
               <input
                 type="checkbox"
                 checked={covered[topic.key] === true}
-                disabled={!canEdit}
+                disabled={!canEdit || briefed}
                 onChange={(event) =>
                   setCovered((current) => ({
                     ...current,
@@ -231,7 +231,7 @@ export function WorkerBriefingSection({
           <textarea
             value={remarks}
             onChange={(event) => setRemarks(event.target.value)}
-            disabled={!canEdit}
+            disabled={!canEdit || briefed}
             rows={2}
             placeholder="Notes about the toolbox talk..."
             className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-60"
@@ -249,7 +249,7 @@ export function WorkerBriefingSection({
           </p>
         )}
 
-        {canEdit && (
+        {canEdit && !briefed && (
           <>
             {error && (
               <p className="mt-3 text-sm text-destructive">

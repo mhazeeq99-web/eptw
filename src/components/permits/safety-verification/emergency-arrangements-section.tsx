@@ -148,7 +148,7 @@ export function EmergencyArrangementsSection({
             onChange={(event) =>
               setEmergencyContact(event.target.value)
             }
-            disabled={!canEdit}
+            disabled={!canEdit || confirmed}
             placeholder="e.g. Site Control Room 03-1234-5678"
             className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-60"
           />
@@ -162,7 +162,7 @@ export function EmergencyArrangementsSection({
             onChange={(event) =>
               setMusterPoint(event.target.value)
             }
-            disabled={!canEdit}
+            disabled={!canEdit || confirmed}
             placeholder="e.g. Assembly area A"
             className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-60"
           />
@@ -177,7 +177,7 @@ export function EmergencyArrangementsSection({
             onChange={(event) =>
               setEmergencyProcedure(event.target.value)
             }
-            disabled={!canEdit}
+            disabled={!canEdit || confirmed}
             rows={2}
             placeholder="Reference to the site emergency procedure..."
             className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-60"
@@ -188,7 +188,7 @@ export function EmergencyArrangementsSection({
           <input
             type="checkbox"
             checked={firstAid}
-            disabled={!canEdit}
+            disabled={!canEdit || confirmed}
             onChange={(event) => setFirstAid(event.target.checked)}
           />
           First Aid available
@@ -198,7 +198,7 @@ export function EmergencyArrangementsSection({
           <input
             type="checkbox"
             checked={fireResponse}
-            disabled={!canEdit}
+            disabled={!canEdit || confirmed}
             onChange={(event) =>
               setFireResponse(event.target.checked)
             }
@@ -210,7 +210,7 @@ export function EmergencyArrangementsSection({
           <input
             type="checkbox"
             checked={rescueRequired}
-            disabled={!canEdit}
+            disabled={!canEdit || confirmed}
             onChange={(event) => {
               setRescueRequired(event.target.checked)
               if (!event.target.checked) {
@@ -225,7 +225,7 @@ export function EmergencyArrangementsSection({
           <input
             type="checkbox"
             checked={rescueAvailable}
-            disabled={!canEdit || !rescueRequired}
+            disabled={!canEdit || confirmed || !rescueRequired}
             onChange={(event) =>
               setRescueAvailable(event.target.checked)
             }
@@ -238,7 +238,7 @@ export function EmergencyArrangementsSection({
           <textarea
             value={remarks}
             onChange={(event) => setRemarks(event.target.value)}
-            disabled={!canEdit}
+            disabled={!canEdit || confirmed}
             rows={2}
             placeholder="Any notes about emergency readiness..."
             className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-60"
@@ -256,7 +256,7 @@ export function EmergencyArrangementsSection({
           </p>
         )}
 
-        {canEdit && (
+        {canEdit && !confirmed && (
           <>
             {error && (
               <p className="text-sm text-destructive sm:col-span-2">
@@ -271,11 +271,7 @@ export function EmergencyArrangementsSection({
                 disabled={saving}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                {saving
-                  ? 'Saving...'
-                  : confirmed
-                    ? 'Re-confirm Arrangements'
-                    : 'Confirm Emergency Arrangements'}
+                {saving ? 'Saving...' : 'Confirm Emergency Arrangements'}
               </button>
             </div>
           </>
