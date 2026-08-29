@@ -83,6 +83,13 @@ const EMPTY_LOTO_POINTS: LotoPoint[] = []
 const EMPTY_GAS_TESTS: GasTest[] = []
 const EMPTY_ATTACHMENTS: Attachment[] = []
 
+const SPECIALISED_TITLES: Record<string, string> = {
+  HOT: 'Hot Work Details',
+  CSE: 'Confined Space Details',
+  WAH: 'Work at Height Details',
+  ELEC: 'Electrical Work Details',
+}
+
 type Profile = {
   id: string
   full_name: string
@@ -1973,11 +1980,27 @@ function NewPermitWorkspace() {
                 ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
                   selectedPermitType.code
                 ) && (
-                  <SpecialisedDetailsFields
-                    code={selectedPermitType.code}
-                    value={specialDetails}
-                    onChange={setSpecialDetails}
-                  />
+                  <CollapsibleSection
+                    id="special-details"
+                    title={
+                      SPECIALISED_TITLES[
+                        selectedPermitType.code
+                      ] ?? 'Specialised Details'
+                    }
+                    description="Permit-type specific details for this work."
+                    icon={Wrench}
+                    isOpen={openSections.has('special-details')}
+                    onToggle={() =>
+                      toggleSection('special-details')
+                    }
+                  >
+                    <SpecialisedDetailsFields
+                      code={selectedPermitType.code}
+                      value={specialDetails}
+                      onChange={setSpecialDetails}
+                      embedded
+                    />
+                  </CollapsibleSection>
                 )}
 
               {selectedPermitType?.code === 'CSE' && (

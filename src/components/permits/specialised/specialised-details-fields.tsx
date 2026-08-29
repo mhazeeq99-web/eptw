@@ -238,11 +238,14 @@ export function SpecialisedDetailsFields({
   value,
   onChange,
   disabled,
+  embedded,
 }: {
   code: string | null
   value: SpecialDetailsState
   onChange: (value: SpecialDetailsState) => void
   disabled?: boolean
+  /** Render without the outer card so the parent can wrap it in a section. */
+  embedded?: boolean
 }) {
   if (!code) return null
 
@@ -252,7 +255,7 @@ export function SpecialisedDetailsFields({
 
   if (code === 'HOT') {
     return (
-      <section className="rounded-xl border bg-background p-6">
+      <section className={embedded ? 'p-6' : 'rounded-xl border bg-background p-6'}>
         <h2 className="text-lg font-semibold">Hot Work Details</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Permit-specific hot-work information. Fire watch, fire
@@ -413,7 +416,7 @@ export function SpecialisedDetailsFields({
 
   if (code === 'CSE') {
     return (
-      <section className="rounded-xl border bg-background p-6">
+      <section className={embedded ? 'p-6' : 'rounded-xl border bg-background p-6'}>
         <h2 className="text-lg font-semibold">Confined Space Details</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Permit-specific confined-space information. Gas testing, LOTO, JHA,
@@ -498,7 +501,7 @@ export function SpecialisedDetailsFields({
 
   if (code === 'WAH') {
     return (
-      <section className="rounded-xl border bg-background p-6">
+      <section className={embedded ? 'p-6' : 'rounded-xl border bg-background p-6'}>
         <h2 className="text-lg font-semibold">Work at Height Details</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Permit-specific work-at-height information. Fall-protection PPE and
@@ -590,7 +593,7 @@ export function SpecialisedDetailsFields({
 
   if (code === 'ELEC') {
     return (
-      <section className="rounded-xl border bg-background p-6">
+      <section className={embedded ? 'p-6' : 'rounded-xl border bg-background p-6'}>
         <h2 className="text-lg font-semibold">Electrical Work Details</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Permit-specific electrical-work information. Electrical isolation,
