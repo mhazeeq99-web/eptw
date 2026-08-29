@@ -1,7 +1,6 @@
 'use client'
 
 import { FormEvent, Suspense, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
@@ -54,7 +53,6 @@ import {
   CheckCircle2, 
   ChevronDown, 
   ChevronUp,
-  ChevronRight,
   Save,
   Send,
   X,
@@ -69,7 +67,7 @@ import {
   User
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -289,11 +287,6 @@ function NewPermitWorkspace() {
   const [submissionErrors, setSubmissionErrors] = useState<
     Array<{ field: string; message: string }>
   >([])
-  const [submittedPermit, setSubmittedPermit] = useState<{
-    id: number
-    permit_no: string
-    status: string
-  } | null>(null)
   
   // UI state for collapsible sections
   const [openSections, setOpenSections] = useState<Set<string>>(
@@ -1101,7 +1094,6 @@ function NewPermitWorkspace() {
 
     setError('')
     setSubmissionErrors([])
-    setSubmittedPermit(null)
 
     if (!companyId) {
       setError(
@@ -1406,17 +1398,12 @@ function NewPermitWorkspace() {
           return
         }
 
-        setSubmittedPermit({
-          id: permitId,
-          permit_no:
-            submitResult.permit
-              ?.permit_no ??
-            draftPermitNo ??
-            '',
-          status:
-            submitResult.permit?.status ??
-            'pending_approval',
-        })
+        // Navigate to the submitted permit; the permit detail page shows a
+        // "Permit Submitted Successfully" popup over the refreshed page.
+        router.replace(
+          `/permits/${permitId}?submitted=1`
+        )
+        router.refresh()
         return
       }
 
@@ -2221,39 +2208,6 @@ function NewPermitWorkspace() {
           </div>
         </form>
 
-        {/* Success Message */}
-        {submittedPermit && (
-          <Card className="mt-8">
-            <CardContent className="p-8 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-                <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
-              </div>
-              <h2 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
-                Permit Submitted Successfully
-              </h2>
-              <p className="mt-2 text-lg font-semibold text-blue-600 dark:text-blue-400">
-                {submittedPermit.permit_no}
-              </p>
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <Badge variant="success">
-                  {submittedPermit.status.replaceAll('_', ' ')}
-                </Badge>
-              </div>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Submitted by: {profile?.full_name ?? 'You'}
-              </p>
-              <div className="mt-6">
-                <Link
-                  href={`/permits/${submittedPermit.id}`}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
-                >
-                  View Permit
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardShell>
   )

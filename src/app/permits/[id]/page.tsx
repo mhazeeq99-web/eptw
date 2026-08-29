@@ -55,6 +55,7 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
+import { SubmitSuccessModal } from '@/components/permits/submit-success-modal'
 
 type PermitType = {
   id: number
@@ -253,10 +254,13 @@ type Permit = {
 
 export default async function PermitDetailsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ submitted?: string }>
 }) {
   const { id } = await params
+  const { submitted } = await searchParams
 
   const supabase = await createClient()
 
@@ -1255,6 +1259,15 @@ export default async function PermitDetailsPage({
           </Card>
         )}
       </div>
+
+      {submitted === '1' && permit && (
+        <SubmitSuccessModal
+          permitId={permit.id}
+          permitNo={permit.permit_no}
+          status={permit.status}
+          submittedByName={permit.requester?.full_name ?? 'You'}
+        />
+      )}
     </DashboardShell>
   )
 }
