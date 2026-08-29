@@ -375,26 +375,6 @@ export function JhaSection({
     )
   }
 
-  function toggleControlType(
-    index: number,
-    controlType: string
-  ) {
-    setHazards((current) =>
-      current.map((hazard, i) => {
-        if (i !== index) return hazard
-        const has = hazard.control_types.includes(controlType)
-        return {
-          ...hazard,
-          control_types: has
-            ? hazard.control_types.filter(
-                (item) => item !== controlType
-              )
-            : [...hazard.control_types, controlType],
-        }
-      })
-    )
-  }
-
   async function handleCreate(): Promise<boolean> {
     setError('')
 
@@ -863,60 +843,62 @@ export function JhaSection({
                       </td>
 
                       <td className="px-2 py-2">
-                        <div className="flex flex-col gap-1">
-                          {CONTROL_TYPES.map((controlType) => {
-                            const checked = hazard.control_types.includes(
-                              controlType
-                            )
-                            return (
-                              <button
-                                key={controlType}
-                                type="button"
-                                onClick={() =>
-                                  toggleControlType(index, controlType)
-                                }
-                                className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                                  checked
-                                    ? 'border-primary bg-primary text-primary-foreground'
-                                    : 'hover:bg-muted'
-                                }`}
-                              >
-                                {checked ? '✓ ' : ''}
-                                {controlType}
-                              </button>
-                            )
-                          })}
-                        </div>
+                        <select
+                          value={hazard.control_types[0] ?? ''}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              control_types: event.target.value
+                                ? [event.target.value]
+                                : [],
+                            })
+                          }
+                          className="w-32 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">Select</option>
+                          {CONTROL_TYPES.map((controlType) => (
+                            <option key={controlType} value={controlType}>
+                              {controlType}
+                            </option>
+                          ))}
+                        </select>
                       </td>
 
                       <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={5}
+                        <select
                           value={hazard.likelihood}
                           onChange={(event) =>
                             updateHazard(index, {
                               likelihood: event.target.value,
                             })
                           }
-                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
+                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">—</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
                       </td>
 
                       <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={5}
+                        <select
                           value={hazard.severity}
                           onChange={(event) =>
                             updateHazard(index, {
                               severity: event.target.value,
                             })
                           }
-                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
+                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">—</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
                       </td>
 
                       <td className="px-2 py-2">
@@ -953,33 +935,41 @@ export function JhaSection({
                       </td>
 
                       <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={5}
+                        <select
                           value={hazard.residual_likelihood}
                           onChange={(event) =>
                             updateHazard(index, {
                               residual_likelihood: event.target.value,
                             })
                           }
-                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
+                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">—</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
                       </td>
 
                       <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={5}
+                        <select
                           value={hazard.residual_severity}
                           onChange={(event) =>
                             updateHazard(index, {
                               residual_severity: event.target.value,
                             })
                           }
-                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
+                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">—</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
                       </td>
 
                       <td className="px-2 py-2">
