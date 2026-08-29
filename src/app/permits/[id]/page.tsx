@@ -720,11 +720,11 @@ export default async function PermitDetailsPage({
 
         {/* Hero Section */}
         <Card className="overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-white sm:px-8">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-6 text-white sm:px-8 sm:py-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-bold tracking-tight">
+                  <h1 className="text-2xl font-bold leading-tight break-words tracking-tight sm:text-3xl">
                     {permit.permit_no}
                   </h1>
                   <StatusBadge status={permit.status} />
@@ -768,7 +768,7 @@ export default async function PermitDetailsPage({
           </div>
           
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-4 border-t border-gray-200 bg-gray-50 p-4 sm:grid-cols-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="grid grid-cols-2 gap-3 border-t border-gray-200 bg-gray-50 p-3 sm:grid-cols-4 sm:gap-4 sm:p-4 dark:border-gray-700 dark:bg-gray-800">
             <QuickStat icon={User} label="Requester" value={permit.requester?.full_name} />
             <QuickStat icon={Users} label="Workers" value={`${permit.workers?.length ?? 0}`} />
             <QuickStat icon={Shield} label="Safety Controls" value={`${permit.safety_controls?.filter(c => c.is_required).length ?? 0} required`} />
@@ -817,8 +817,8 @@ export default async function PermitDetailsPage({
                       Permit type, location and equipment details
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                  <CardContent className="space-y-3 p-4 pt-0 sm:space-y-4 sm:p-6">
+                    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
                       <InfoItem icon={FileText} label="Work Title" value={permit.work_title} />
                       <InfoItem icon={MapPin} label="Work Location" value={permit.work_location} />
                       <InfoItem icon={HardHat} label="Permit Type" value={permit.permit_type?.name} />
@@ -862,7 +862,7 @@ export default async function PermitDetailsPage({
                         Personnel authorised to perform the work under this permit
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4 pt-0 sm:p-6">
                       <ScrollArea className="h-[300px]">
                         <div className="overflow-x-auto">
                         <table className="w-full min-w-[520px] text-sm">
@@ -933,7 +933,7 @@ export default async function PermitDetailsPage({
                       Work Period
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-4 p-4 pt-0 sm:p-6">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Planned Start</p>
@@ -959,7 +959,7 @@ export default async function PermitDetailsPage({
                       Current progress through the approval process
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 pt-0 sm:p-6">
                     <WorkflowTimeline permit={permit} />
                   </CardContent>
                 </Card>
@@ -972,7 +972,7 @@ export default async function PermitDetailsPage({
                       Requester Information
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-3 p-4 pt-0 sm:p-6">
                     <InfoItem label="Name" value={permit.requester?.full_name} />
                     <InfoItem label="Employee No." value={permit.requester?.employee_no} />
                     <InfoItem label="Department" value={permit.requester?.department} />
@@ -988,7 +988,7 @@ export default async function PermitDetailsPage({
                       Applicant Declaration
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 pt-0 sm:p-6">
                     <ApplicantDeclarationConfirm
                       permitId={permit.id}
                       initiallyConfirmed={Boolean(permit.declaration_confirmed_at)}
@@ -1410,7 +1410,7 @@ function WorkflowTimeline({ permit }: { permit: Permit }) {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 sm:space-y-4">
       {steps.map((step, index) => (
         <div key={step.label} className="flex items-start gap-3">
           <div className="flex flex-col items-center">
@@ -1427,12 +1427,12 @@ function WorkflowTimeline({ permit }: { permit: Permit }) {
             </div>
             {index < steps.length - 1 && (
               <div className={cn(
-                "w-0.5 flex-1 min-h-[2rem]",
+                "w-0.5 flex-1 min-h-[1.5rem] sm:min-h-[2rem]",
                 step.completed ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
               )} />
             )}
           </div>
-          <div className="flex-1 pb-4">
+          <div className="flex-1 pb-2 sm:pb-4">
             <p className={cn(
               "text-sm font-medium",
               step.completed ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
