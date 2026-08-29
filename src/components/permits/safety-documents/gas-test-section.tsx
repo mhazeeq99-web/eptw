@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
@@ -58,13 +58,22 @@ export function GasTestSection({
   canVerify,
   initialTests,
   embedded,
+  onTestsChange,
 }: {
   permitId: number
   canAdd: boolean
   canVerify: boolean
   initialTests: GasTest[]
   embedded?: boolean
+  onTestsChange?: (count: number) => void
 }) {
+  // Local copy so tests added here appear immediately and the parent can
+  // reflect the count in its green tick.
+  const [tests, setTests] = useState<GasTest[]>(initialTests)
+
+  useEffect(() => {
+    onTestsChange?.(tests.length)
+  }, [tests, onTestsChange])
   const router = useRouter()
 
   const [showForm, setShowForm] = useState(false)
@@ -172,6 +181,9 @@ export function GasTestSection({
       setResult('PASS')
       setReadings(DEFAULT_READINGS)
       setRemarks('')
+            if (res?.gas_test) {
+        setTests((current) => [...current, res.gas_test])
+      }
       setShowForm(false)
       notifyPermitChanged()
       router.refresh()
@@ -436,12 +448,12 @@ export function GasTestSection({
       )}
 
       <div className="divide-y">
-        {initialTests.length === 0 ? (
+        {tests.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">
             No gas tests have been recorded for this permit.
           </p>
         ) : (
-          initialTests.map((test) => (
+          tests.map((test) => (
             <div key={test.id} className="p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>

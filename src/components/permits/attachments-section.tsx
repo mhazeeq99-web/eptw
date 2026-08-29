@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Paperclip, Trash2 } from 'lucide-react'
 
@@ -24,18 +24,24 @@ export function AttachmentsSection({
   canDelete,
   initialAttachments,
   embedded,
+  onAttachmentsChange,
 }: {
   permitId: number
   canUpload: boolean
   canDelete: boolean
   initialAttachments: Attachment[]
   embedded?: boolean
+  onAttachmentsChange?: (count: number) => void
 }) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [attachments, setAttachments] =
     useState<Attachment[]>(initialAttachments)
+
+  useEffect(() => {
+    onAttachmentsChange?.(attachments.length)
+  }, [attachments, onAttachmentsChange])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 

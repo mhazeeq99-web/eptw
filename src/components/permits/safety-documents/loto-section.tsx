@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
@@ -56,13 +56,22 @@ export function LotoSection({
   canVerify,
   initialPoints,
   embedded,
+  onPointsChange,
 }: {
   permitId: number
   canAdd: boolean
   canVerify: boolean
   initialPoints: LotoPoint[]
   embedded?: boolean
+  onPointsChange?: (count: number) => void
 }) {
+  // Local copy so points added here appear immediately and the parent can
+  // reflect the count in its green tick (mirrors the JHA section).
+  const [points, setPoints] = useState<LotoPoint[]>(initialPoints)
+
+  useEffect(() => {
+    onPointsChange?.(points.length)
+  }, [points, onPointsChange])
   const router = useRouter()
 
   const [showForm, setShowForm] = useState(false)
@@ -123,6 +132,9 @@ export function LotoSection({
       setIsolationMethod('')
       setRemarks('')
       setShowForm(false)
+      if (result?.loto) {
+        setPoints((current) => [...current, result.loto])
+      }
       notifyPermitChanged()
       router.refresh()
     } catch {
@@ -295,12 +307,12 @@ export function LotoSection({
       )}
 
       <div className="divide-y">
-        {initialPoints.length === 0 ? (
+        {points.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">
             No isolation points have been recorded for this permit.
           </p>
         ) : (
-          initialPoints.map((point) => (
+          points.map((point) => (
             <div key={point.id} className="p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>

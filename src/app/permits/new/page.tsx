@@ -241,6 +241,9 @@ function NewPermitWorkspace() {
   // Number of JHA records actually saved in this session (drives the green
   // tick on the JHA/HIRARC section in create mode).
   const [jhaCount, setJhaCount] = useState(0)
+  const [lotoCount, setLotoCount] = useState(0)
+  const [gasCount, setGasCount] = useState(0)
+  const [attachmentCount, setAttachmentCount] = useState(0)
 
   const [companyId, setCompanyId] = useState('')
   const [companyOption, setCompanyOption] =
@@ -1985,6 +1988,7 @@ function NewPermitWorkspace() {
                     onToggle={() =>
                       toggleSection('special-details')
                     }
+                    isComplete={hasAnyValue(specialDetails)}
                   >
                     <SpecialisedDetailsFields
                       code={selectedPermitType.code}
@@ -2003,6 +2007,7 @@ function NewPermitWorkspace() {
                   icon={Users}
                   isOpen={openSections.has('cse-personnel')}
                   onToggle={() => toggleSection('cse-personnel')}
+                  isComplete={hasAnyValue(csePersonnel)}
                 >
                   <CsePersonnelEditor
                     workers={workers.map((worker, index) => ({
@@ -2024,7 +2029,7 @@ function NewPermitWorkspace() {
                   icon={Lock}
                   isOpen={openSections.has('loto')}
                   onToggle={() => toggleSection('loto')}
-                  isComplete={(editPermitData?.loto_points?.length ?? 0) > 0}
+                  isComplete={lotoCount > 0}
                 >
                   <LotoSection
                     permitId={draftPermitId}
@@ -2034,6 +2039,7 @@ function NewPermitWorkspace() {
                       editPermitData?.loto_points ?? EMPTY_LOTO_POINTS
                     }
                     embedded
+                    onPointsChange={setLotoCount}
                   />
                 </CollapsibleSection>
               )}
@@ -2047,7 +2053,7 @@ function NewPermitWorkspace() {
                   icon={Shield}
                   isOpen={openSections.has('gas-testing')}
                   onToggle={() => toggleSection('gas-testing')}
-                  isComplete={(editPermitData?.gas_tests?.length ?? 0) > 0}
+                  isComplete={gasCount > 0}
                 >
                   <GasTestSection
                     permitId={draftPermitId}
@@ -2057,6 +2063,7 @@ function NewPermitWorkspace() {
                       editPermitData?.gas_tests ?? EMPTY_GAS_TESTS
                     }
                     embedded
+                    onTestsChange={setGasCount}
                   />
                 </CollapsibleSection>
               )}
@@ -2069,7 +2076,7 @@ function NewPermitWorkspace() {
                 icon={Paperclip}
                 isOpen={openSections.has('attachments')}
                 onToggle={() => toggleSection('attachments')}
-                isComplete={(editPermitData?.attachments?.length ?? 0) > 0}
+                isComplete={attachmentCount > 0}
               >
                 <AttachmentsSection
                   permitId={draftPermitId}
@@ -2079,6 +2086,7 @@ function NewPermitWorkspace() {
                     editPermitData?.attachments ?? EMPTY_ATTACHMENTS
                   }
                   embedded
+                  onAttachmentsChange={setAttachmentCount}
                 />
               </CollapsibleSection>
 
@@ -2211,6 +2219,18 @@ function NewPermitWorkspace() {
       </div>
     </DashboardShell>
   )
+}
+
+function hasAnyValue(value: unknown): boolean {
+  if (value == null) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some((v) =>
+      hasAnyValue(v)
+    )
+  }
+  return true
 }
 
 function toLocalInput(value: string | null): string {
