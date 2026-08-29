@@ -158,6 +158,7 @@ export function JhaSection({
   const router = useRouter()
 
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [hazards, setHazards] = useState<HazardDraft[]>([
@@ -485,6 +486,130 @@ export function JhaSection({
     }
   }
 
+  // Re-open a saved JHA in the form for editing.
+  function handleEdit(jha: Jha) {
+    const rows = (jha.hazards ?? []).map((hazard) => ({
+      hazard: hazard.hazard,
+      hazard_category: hazard.hazard_category ?? '',
+      consequence: hazard.consequence ?? '',
+      existing_controls: hazard.existing_controls ?? '',
+      control_types: hazard.control_types ?? [],
+      likelihood:
+        hazard.likelihood != null
+          ? String(hazard.likelihood)
+          : '',
+      severity:
+        hazard.severity != null ? String(hazard.severity) : '',
+      additional_controls: hazard.additional_controls ?? '',
+      residual_likelihood:
+        hazard.residual_likelihood != null
+          ? String(hazard.residual_likelihood)
+          : '',
+      residual_severity:
+        hazard.residual_severity != null
+          ? String(hazard.residual_severity)
+          : '',
+    }))
+
+    setTitle(jha.title)
+    setDescription(jha.description ?? '')
+    setHazards(rows.length > 0 ? rows : [emptyHazard()])
+    setEditingId(jha.id)
+    setShowForm(true)
+    setError('')
+  }
+
+  // Save the in-progress JHA. Creates a new record, or PATCHes the record
+  // currently being edited.
+  async function handleSave(): Promise<boolean> {
+    if (editingId === null) {
+      return handleCreate()
+    }
+
+    setError('')
+
+    if (!title.trim()) {
+      if (!embedded) setError('JHA title is required.')
+      return false
+    }
+
+    const structuredHazards = hazards
+      .filter((hazard) => hazard.hazard.trim().length > 0)
+      .map((hazard) => ({
+        hazard: hazard.hazard.trim(),
+        hazard_category: hazard.hazard_category.trim() || null,
+        consequence: hazard.consequence.trim() || null,
+        existing_controls: hazard.existing_controls.trim() || null,
+        control_types: hazard.control_types,
+        likelihood: toNumber(hazard.likelihood),
+        severity: toNumber(hazard.severity),
+        additional_controls: hazard.additional_controls.trim() || null,
+        residual_likelihood: toNumber(hazard.residual_likelihood),
+        residual_severity: toNumber(hazard.residual_severity),
+      }))
+
+    if (structuredHazards.length === 0) {
+      if (!embedded) {
+        setError('Add at least one hazard with a description.')
+      }
+      return false
+    }
+
+    setSaving(true)
+
+    try {
+      const response = await fetch(
+        `/api/permits/${permitId}/jha/${editingId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim() || null,
+            hazards: structuredHazards,
+          }),
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (!embedded) {
+          setError(result.error || 'Unable to update JHA.')
+        }
+        return false
+      }
+
+      setJhas((current) =>
+        current.map((item) =>
+          item.id === editingId
+            ? {
+                ...item,
+                title: title.trim(),
+                description: description.trim() || null,
+              }
+            : item
+        )
+      )
+
+      setEditingId(null)
+      setTitle('')
+      setDescription('')
+      setHazards([emptyHazard()])
+      setShowForm(false)
+      notifyPermitChanged()
+      router.refresh()
+      return true
+    } catch {
+      if (!embedded) setError('Unable to update JHA.')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleComplete(jhaId: number) {
     setError('')
     setCompletingId(jhaId)
@@ -524,7 +649,7 @@ export function JhaSection({
   // part of Save Draft / Submit Permit (no separate "Save JHA" click needed).
   useEffect(() => {
     if (saveRef) {
-      saveRef.current = handleCreate
+      saveRef.current = handleSave
     }
   })
 
@@ -627,340 +752,292 @@ export function JhaSection({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">
-                Hazards &amp; Risk Assessment
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  setHazards((current) => [
-                    ...current,
-                    emptyHazard(),
-                  ])
-                }
-                className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
-              >
-                + Add Hazard
-              </button>
-            </div>
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full min-w-[1500px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-2 py-2">#</th>
+                  <th className="px-2 py-2">Hazard *</th>
+                  <th className="px-2 py-2">Category</th>
+                  <th className="px-2 py-2">Consequence</th>
+                  <th className="px-2 py-2">Existing controls</th>
+                  <th className="px-2 py-2">Controls</th>
+                  <th className="px-2 py-2">L</th>
+                  <th className="px-2 py-2">S</th>
+                  <th className="px-2 py-2">Initial risk</th>
+                  <th className="px-2 py-2">Additional controls</th>
+                  <th className="px-2 py-2">Res. L</th>
+                  <th className="px-2 py-2">Res. S</th>
+                  <th className="px-2 py-2">Res. risk</th>
+                  <th className="px-2 py-2"></th>
+                </tr>
+              </thead>
 
-            {hazards.map((hazard, index) => {
-              const likelihood = toNumber(hazard.likelihood)
-              const severity = toNumber(hazard.severity)
-              const rating =
-                likelihood !== null && severity !== null
-                  ? likelihood * severity
-                  : null
-              const band = riskBand(rating)
-              const residualLikelihood = toNumber(
-                hazard.residual_likelihood
-              )
-              const residualSeverity = toNumber(
-                hazard.residual_severity
-              )
-              const residualRating =
-                residualLikelihood !== null &&
-                residualSeverity !== null
-                  ? residualLikelihood * residualSeverity
-                  : null
-              const residualBand = riskBand(residualRating)
+              <tbody className="divide-y">
+                {hazards.map((hazard, index) => {
+                  const likelihood = toNumber(hazard.likelihood)
+                  const severity = toNumber(hazard.severity)
+                  const rating =
+                    likelihood !== null && severity !== null
+                      ? likelihood * severity
+                      : null
+                  const band = riskBand(rating)
+                  const residualLikelihood = toNumber(
+                    hazard.residual_likelihood
+                  )
+                  const residualSeverity = toNumber(
+                    hazard.residual_severity
+                  )
+                  const residualRating =
+                    residualLikelihood !== null &&
+                    residualSeverity !== null
+                      ? residualLikelihood * residualSeverity
+                      : null
+                  const residualBand = riskBand(residualRating)
 
-              return (
-                <div
-                  key={index}
-                  className="space-y-3 rounded-lg border p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Hazard {index + 1}
-                    </p>
-                    {hazards.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setHazards((current) =>
-                            current.filter(
-                              (_, i) => i !== index
+                  return (
+                    <tr key={index} className="align-top hover:bg-muted/20">
+                      <td className="px-2 py-2 text-xs font-medium text-muted-foreground">
+                        {index + 1}
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={hazard.hazard}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              hazard: event.target.value,
+                            })
+                          }
+                          placeholder="Hazard..."
+                          className="w-52 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <select
+                          value={hazard.hazard_category}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              hazard_category: event.target.value,
+                            })
+                          }
+                          className="w-32 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">Select</option>
+                          {HAZARD_CATEGORIES.map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <textarea
+                          value={hazard.consequence}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              consequence: event.target.value,
+                            })
+                          }
+                          rows={3}
+                          placeholder="What could go wrong?"
+                          className="h-16 w-44 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <textarea
+                          value={hazard.existing_controls}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              existing_controls: event.target.value,
+                            })
+                          }
+                          rows={3}
+                          placeholder="Controls in place..."
+                          className="h-16 w-44 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <div className="flex flex-col gap-1">
+                          {CONTROL_TYPES.map((controlType) => {
+                            const checked = hazard.control_types.includes(
+                              controlType
                             )
-                          )
-                        }
-                        className="text-xs font-medium text-destructive hover:underline"
-                      >
-                        Remove Hazard
-                      </button>
-                    )}
-                  </div>
+                            return (
+                              <button
+                                key={controlType}
+                                type="button"
+                                onClick={() =>
+                                  toggleControlType(index, controlType)
+                                }
+                                className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                                  checked
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted'
+                                }`}
+                              >
+                                {checked ? '✓ ' : ''}
+                                {controlType}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </td>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Hazard description *
-                      </label>
-                      <input
-                        type="text"
-                        value={hazard.hazard}
-                        onChange={(event) =>
-                          updateHazard(index, {
-                            hazard: event.target.value,
-                          })
-                        }
-                        placeholder="e.g. Fire / explosion from hot work sparks"
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      />
-                    </div>
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={5}
+                          value={hazard.likelihood}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              likelihood: event.target.value,
+                            })
+                          }
+                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
 
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Hazard category
-                      </label>
-                      <select
-                        value={hazard.hazard_category}
-                        onChange={(event) =>
-                          updateHazard(index, {
-                            hazard_category:
-                              event.target.value,
-                          })
-                        }
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="">
-                          Select category
-                        </option>
-                        {HAZARD_CATEGORIES.map((category) => (
-                          <option
-                            key={category}
-                            value={category}
-                          >
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={5}
+                          value={hazard.severity}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              severity: event.target.value,
+                            })
+                          }
+                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Consequence
-                    </label>
-                    <textarea
-                      value={hazard.consequence}
-                      onChange={(event) =>
-                        updateHazard(index, {
-                          consequence: event.target.value,
-                        })
-                      }
-                      rows={2}
-                      placeholder="What could go wrong and how severe could it be?"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    />
-                  </div>
+                      <td className="px-2 py-2">
+                        <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-xs font-medium">
+                          {rating === null ? (
+                            '—'
+                          ) : (
+                            <>
+                              {rating}
+                              {band && (
+                                <span
+                                  className={`ml-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${band.className}`}
+                                >
+                                  {band.label}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Existing controls
-                    </label>
-                    <textarea
-                      value={hazard.existing_controls}
-                      onChange={(event) =>
-                        updateHazard(index, {
-                          existing_controls:
-                            event.target.value,
-                        })
-                      }
-                      rows={2}
-                      placeholder="Controls already in place before this assessment..."
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    />
-                  </div>
+                      <td className="px-2 py-2">
+                        <textarea
+                          value={hazard.additional_controls}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              additional_controls: event.target.value,
+                            })
+                          }
+                          rows={3}
+                          placeholder="Further controls..."
+                          className="h-16 w-44 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Hierarchy of controls
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {CONTROL_TYPES.map((controlType) => {
-                        const checked =
-                          hazard.control_types.includes(
-                            controlType
-                          )
-                        return (
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={5}
+                          value={hazard.residual_likelihood}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              residual_likelihood: event.target.value,
+                            })
+                          }
+                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={5}
+                          value={hazard.residual_severity}
+                          onChange={(event) =>
+                            updateHazard(index, {
+                              residual_severity: event.target.value,
+                            })
+                          }
+                          className="w-14 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        />
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-xs font-medium">
+                          {residualRating === null ? (
+                            '—'
+                          ) : (
+                            <>
+                              {residualRating}
+                              {residualBand && (
+                                <span
+                                  className={`ml-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${residualBand.className}`}
+                                >
+                                  {residualBand.label}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-2 py-2">
+                        <div className="flex flex-col gap-1">
                           <button
-                            key={controlType}
                             type="button"
+                            title="Add hazard row"
                             onClick={() =>
-                              toggleControlType(
-                                index,
-                                controlType
-                              )
+                              setHazards((current) => [
+                                ...current,
+                                emptyHazard(),
+                              ])
                             }
-                            className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                              checked
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'hover:bg-muted'
-                            }`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary text-base font-semibold text-primary hover:bg-primary hover:text-primary-foreground"
                           >
-                            {checked ? '✓ ' : ''}
-                            {controlType}
+                            +
                           </button>
-                        )
-                      })}
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Likelihood (1–5)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={hazard.likelihood}
-                        onChange={(event) =>
-                          updateHazard(index, {
-                            likelihood: event.target.value,
-                          })
-                        }
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Severity (1–5)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={hazard.severity}
-                        onChange={(event) =>
-                          updateHazard(index, {
-                            severity: event.target.value,
-                          })
-                        }
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Initial risk (L × S)
-                      </label>
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
-                        {rating === null ? (
-                          '—'
-                        ) : (
-                          <>
-                            {rating}{' '}
-                            {band && (
-                              <span
-                                className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${band.className}`}
-                              >
-                                {band.label}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Risk matrix
-                      </label>
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                        LOW 1–4 · MEDIUM 5–9 · HIGH 10–15 ·
-                        VERY HIGH 16–25
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Additional controls
-                    </label>
-                    <textarea
-                      value={hazard.additional_controls}
-                      onChange={(event) =>
-                        updateHazard(index, {
-                          additional_controls:
-                            event.target.value,
-                        })
-                      }
-                      rows={2}
-                      placeholder="Further controls to reduce the risk..."
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Residual likelihood (1–5)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={hazard.residual_likelihood}
-                        onChange={(event) =>
-                          updateHazard(index, {
-                            residual_likelihood:
-                              event.target.value,
-                          })
-                        }
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Residual severity (1–5)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={hazard.residual_severity}
-                        onChange={(event) =>
-                          updateHazard(index, {
-                            residual_severity:
-                              event.target.value,
-                          })
-                        }
-                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Residual risk (L × S)
-                      </label>
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
-                        {residualRating === null ? (
-                          '—'
-                        ) : (
-                          <>
-                            {residualRating}{' '}
-                            {residualBand && (
-                              <span
-                                className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${residualBand.className}`}
-                              >
-                                {residualBand.label}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+                          {hazards.length > 1 && (
+                            <button
+                              type="button"
+                              title="Remove hazard"
+                              onClick={() =>
+                                setHazards((current) =>
+                                  current.filter((_, i) => i !== index)
+                                )
+                              }
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-destructive text-base font-semibold text-destructive hover:bg-destructive hover:text-white"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
 
           {error && (
@@ -970,27 +1047,35 @@ export function JhaSection({
           )}
 
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setShowForm(false)
-                setError('')
-              }}
-              className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-            >
-              Cancel
-            </button>
-
-            {!embedded && (
+            {editingId !== null && (
               <button
                 type="button"
-                onClick={handleCreate}
-                disabled={saving}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                onClick={() => {
+                  setEditingId(null)
+                  setTitle('')
+                  setDescription('')
+                  setHazards([emptyHazard()])
+                  setShowForm(false)
+                  setError('')
+                }}
+                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
               >
-                {saving ? 'Saving...' : 'Save JHA'}
+                New JHA
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving
+                ? 'Saving...'
+                : editingId !== null
+                ? 'Save Changes'
+                : 'Save JHA'}
+            </button>
           </div>
         </div>
       )}
@@ -1017,7 +1102,19 @@ export function JhaSection({
                   </p>
                 </div>
 
-                <StatusBadge status={jha.status} />
+                <div className="flex items-center gap-2">
+                  {canAdd && jha.status === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(jha)}
+                      className="rounded-md border px-3 py-1 text-xs font-medium hover:bg-muted"
+                    >
+                      Edit
+                    </button>
+                  )}
+
+                  <StatusBadge status={jha.status} />
+                </div>
               </div>
 
               {jha.description && (

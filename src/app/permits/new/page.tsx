@@ -232,9 +232,11 @@ function NewPermitWorkspace() {
   // Captured from the authenticated user's contractor membership so the
   // update route can preserve contractor_id on the draft permit.
   const [contractorId, setContractorId] = useState<number | null>(null)
-  // Guards the bootstrap effect so it auto-creates exactly once per
-  // (company, permit type) selection (also survives StrictMode re-runs).
-  const bootstrapKeyRef = useRef('')
+  // Guards the bootstrap effect so it auto-creates AT MOST ONE draft permit
+  // per form session, regardless of permit-type changes (also survives
+  // StrictMode re-runs). Changing the permit type updates the existing draft
+  // on save — it must never create a second draft.
+  const bootstrapStartedRef = useRef(false)
   // Set by JhaSection so the in-progress JHA is persisted automatically
   // when the user presses Save Draft or Submit Permit.
   const jhaSaveRef = useRef<(() => Promise<boolean>) | null>(null)
@@ -1020,12 +1022,11 @@ function NewPermitWorkspace() {
     async function createDraft() {
       if (!companyId || !permitTypeId) return
       if (draftPermitId !== null) return
-
-      // Guard: only one create attempt per (company, permit type)
-      // selection. Once a draft exists the effect is a no-op.
-      const key = `${companyId}:${permitTypeId}`
-      if (bootstrapKeyRef.current === key) return
-      bootstrapKeyRef.current = key
+      // Only ever create one draft in this form session. A second permit-type
+      // selection must reuse the existing draft (updated on save), not spawn
+      // a new one.
+      if (bootstrapStartedRef.current) return
+      bootstrapStartedRef.current = true
 
       setDraftCreating(true)
       setError('')
