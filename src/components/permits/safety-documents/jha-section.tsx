@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, Trash2 } from 'lucide-react'
+import { Download, Trash2, CheckCircle2 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
 
@@ -142,6 +142,7 @@ export function JhaSection({
   initialHirarc,
   embedded,
   saveRef,
+  onJhasChange,
 }: {
   permitId: number
   canAdd: boolean
@@ -154,20 +155,21 @@ export function JhaSection({
   saveRef?: React.MutableRefObject<
     (() => Promise<boolean>) | null
   >
+  /** Notify the parent whenever the number of saved JHA records changes. */
+  onJhasChange?: (count: number) => void
 }) {
   const router = useRouter()
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [savedFlash, setSavedFlash] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [hazards, setHazards] = useState<HazardDraft[]>([
     emptyHazard(),
   ])
   const [saving, setSaving] = useState(false)
-  const [completingId, setCompletingId] = useState<
-    number | null
-  >(null)
+
   const [error, setError] = useState('')
 
   // Local copy of the JHA list so records saved in this component (the new
@@ -186,9 +188,9 @@ export function JhaSection({
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const satisfied =
-    jhas.some((jha) => jha.status === 'verified') ||
-    hirarc.length > 0
+  // The applicant's section is complete once a JHA/HIRARC has been filled or
+  // uploaded; verification is the safety reviewer's separate step.
+  const satisfied = jhas.length > 0 || hirarc.length > 0
 
   const methodLabels: string[] = []
   if (jhas.some((jha) => jha.status === 'verified')) {
@@ -455,6 +457,7 @@ export function JhaSection({
       }
       notifyPermitChanged()
       router.refresh()
+      setSavedFlash('JHA saved')
       return true
     } catch {
       if (!embedded) {
@@ -581,47 +584,13 @@ export function JhaSection({
       setShowForm(false)
       notifyPermitChanged()
       router.refresh()
+      setSavedFlash('JHA saved')
       return true
     } catch {
       if (!embedded) setError('Unable to update JHA.')
       return false
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function handleComplete(jhaId: number) {
-    setError('')
-    setCompletingId(jhaId)
-
-    try {
-      const response = await fetch(
-        `/api/permits/${permitId}/jha/${jhaId}/complete`,
-        { method: 'POST' }
-      )
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        setError(
-          result.error || 'Unable to mark JHA as completed.'
-        )
-        return
-      }
-
-      setJhas((current) =>
-        current.map((jha) =>
-          jha.id === jhaId
-            ? { ...jha, status: 'completed' }
-            : jha
-        )
-      )
-      notifyPermitChanged()
-      router.refresh()
-    } catch {
-      setError('Unable to mark JHA as completed.')
-    } finally {
-      setCompletingId(null)
     }
   }
 
@@ -633,8 +602,27 @@ export function JhaSection({
     }
   })
 
+  // Report the saved-JHA count so the parent section can show its green tick.
+  useEffect(() => {
+    onJhasChange?.(jhas.length)
+  }, [jhas, onJhasChange])
+
+  // Clear the green "saved" confirmation after a short delay.
+  useEffect(() => {
+    if (!savedFlash) return
+    const timer = setTimeout(() => setSavedFlash(null), 4000)
+    return () => clearTimeout(timer)
+  }, [savedFlash])
+
   return (
     <section className={embedded ? '' : 'mt-6 rounded-xl border bg-background'}>
+      {savedFlash && (
+        <div className="flex items-center gap-2 border-b border-green-200 bg-green-50 px-6 py-3 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+          <CheckCircle2 className="h-4 w-4" />
+          {savedFlash}
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
           <h2 className="font-semibold">JHA / HIRARC</h2>
@@ -1271,12 +1259,6 @@ export function JhaSection({
                 )
               )}
 
-              {jha.status === 'completed' && (
-                <p className="mt-3 text-xs font-medium text-blue-600">
-                  ✓ Marked as completed by the requester
-                </p>
-              )}
-
               {jha.status === 'verified' &&
                 jha.verifier && (
                   <p className="mt-3 text-xs font-medium text-green-600">
@@ -1286,23 +1268,7 @@ export function JhaSection({
                   </p>
                 )}
 
-              {canAdd &&
-                jha.status === 'pending' && (
-                  <button
-                    type="button"
-                    onClick={() => handleComplete(jha.id)}
-                    disabled={completingId === jha.id}
-                    className="mt-4 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
-                  >
-                    {completingId === jha.id
-                      ? 'Marking...'
-                      : 'Mark Completed'}
-                  </button>
-                )}
-
-              {canVerify &&
-                (jha.status === 'pending' ||
-                  jha.status === 'completed') && (
+              {canVerify && jha.status === 'pending' && (
                   <div className="mt-4">
                     <VerifySafetyDocButton
                       permitId={permitId}

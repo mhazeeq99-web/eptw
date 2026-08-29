@@ -240,6 +240,9 @@ function NewPermitWorkspace() {
   // Set by JhaSection so the in-progress JHA is persisted automatically
   // when the user presses Save Draft or Submit Permit.
   const jhaSaveRef = useRef<(() => Promise<boolean>) | null>(null)
+  // Number of JHA records actually saved in this session (drives the green
+  // tick on the JHA/HIRARC section in create mode).
+  const [jhaCount, setJhaCount] = useState(0)
 
   const [companyId, setCompanyId] = useState('')
   const [companyOption, setCompanyOption] =
@@ -1849,7 +1852,7 @@ function NewPermitWorkspace() {
                 icon={AlertTriangle}
                 isOpen={openSections.has('jha')}
                 onToggle={() => toggleSection('jha')}
-                isComplete={(editPermitData?.jhas?.length ?? 0) > 0}
+                isComplete={jhaCount > 0}
               >
                 <JhaSection
                   permitId={draftPermitId}
@@ -1861,6 +1864,7 @@ function NewPermitWorkspace() {
                   }
                   embedded
                   saveRef={jhaSaveRef}
+                  onJhasChange={setJhaCount}
                 />
               </CollapsibleSection>
 
