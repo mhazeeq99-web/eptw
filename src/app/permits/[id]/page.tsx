@@ -864,7 +864,8 @@ export default async function PermitDetailsPage({
                     </CardHeader>
                     <CardContent>
                       <ScrollArea className="h-[300px]">
-                        <table className="w-full text-sm">
+                        <div className="overflow-x-auto">
+                        <table className="w-full min-w-[520px] text-sm">
                           <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                             <tr className="border-b text-left">
                               <th className="px-4 py-3 font-medium">No.</th>
@@ -892,6 +893,7 @@ export default async function PermitDetailsPage({
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       </ScrollArea>
                       <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                         <Info className="mr-1 inline h-3 w-3" />
@@ -932,13 +934,13 @@ export default async function PermitDetailsPage({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Planned Start</p>
                         <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(permit.planned_start)}</p>
                       </div>
-                      <ArrowLeft className="h-4 w-4 text-gray-400 rotate-180" />
-                      <div className="text-right">
+                      <ArrowLeft className="hidden h-4 w-4 text-gray-400 rotate-180 sm:block" />
+                      <div className="sm:text-right">
                         <p className="text-xs text-gray-500 dark:text-gray-400">Planned End</p>
                         <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(permit.planned_end)}</p>
                       </div>
