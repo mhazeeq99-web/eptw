@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2 } from 'lucide-react'
 
@@ -15,11 +16,17 @@ export function SubmitSuccessModal({
   submittedByName: string
 }) {
   const router = useRouter()
+  const [open, setOpen] = useState(true)
 
   function close() {
+    // Dismiss the modal immediately from client state (the server page may
+    // not re-render when navigating to the same path with a cleared query).
+    setOpen(false)
     // Navigate to the clean permit URL (clears the ?submitted=1 flag).
     router.replace(`/permits/${permitId}`)
   }
+
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

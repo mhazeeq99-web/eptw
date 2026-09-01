@@ -22,7 +22,7 @@ import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { SafetyStatusPill } from '../safety-status-pill'
+import { SectionVerifyButton } from '../section-verify-button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   SpecialisedDetailsFields,
@@ -256,8 +256,18 @@ export function SpecialisedPermitSection({
         </div>
 
         <div className="flex items-center gap-2">
-          <SafetyStatusPill
-            status={isComplete ? 'verified' : 'pending'}
+          <SectionVerifyButton
+            verified={isComplete}
+            onVerify={async () => {
+              if (!isComplete) {
+                // Requirements are not filled yet — open the editor so the
+                // verifier can complete them before marking verified.
+                setEditMode(true)
+                return false
+              }
+              notifyPermitChanged()
+              return true
+            }}
           />
           {canEdit && !editMode && (
             <Button

@@ -21,6 +21,7 @@ import {
   Circle
 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
+import { SectionVerifyButton } from '../section-verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { SafetyStatusPill } from '../safety-status-pill'
 import { cn } from '@/lib/utils'
@@ -111,6 +112,30 @@ export function LotoSection({
 
   const verifiedCount = points.filter(p => p.status === 'verified').length
   const pendingCount = points.filter(p => p.status === 'pending').length
+  const allVerified =
+    points.length > 0 && pendingCount === 0
+
+  async function handleVerifyAll(): Promise<boolean> {
+    const response = await fetch(
+      `/api/permits/${permitId}/loto/verify`,
+      { method: 'POST' }
+    )
+    if (!response.ok) {
+      const result = await response.json()
+      throw new Error(result.error || 'Unable to verify LOTO points')
+    }
+    // Optimistically flip every pending point to verified.
+    setPoints((current) =>
+      current.map((point) =>
+        point.status === 'pending'
+          ? { ...point, status: 'verified' as const }
+          : point
+      )
+    )
+    notifyPermitChanged()
+    router.refresh()
+    return true
+  }
 
   useEffect(() => {
     if (!savedFlash) return
@@ -208,17 +233,25 @@ export function LotoSection({
           </p>
         </div>
 
-        {canAdd && !showForm && (
-          <Button
-            type="button"
-            onClick={() => setShowForm(true)}
-            variant="outline"
-            size="sm"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Isolation Point
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canAdd && !showForm && (
+            <Button
+              type="button"
+              onClick={() => setShowForm(true)}
+              variant="outline"
+              size="sm"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Isolation Point
+            </Button>
+          )}
+          {canVerify && (
+            <SectionVerifyButton
+              verified={allVerified}
+              onVerify={handleVerifyAll}
+            />
+          )}
+        </div>
       </div>
 
       {/* Form */}

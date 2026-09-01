@@ -19,6 +19,7 @@ import {
   CalendarClock
 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
+import { SectionVerifyButton } from '../section-verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { SafetyStatusPill } from '../safety-status-pill'
 import { cn } from '@/lib/utils'
@@ -137,6 +138,30 @@ export function GasTestSection({
           : item
       )
     )
+  }
+
+  const hasVerifiedTest = tests.some((t) => t.status === 'verified')
+
+  async function handleVerifyAll(): Promise<boolean> {
+    const response = await fetch(
+      `/api/permits/${permitId}/gas-tests/verify`,
+      { method: 'POST' }
+    )
+    if (!response.ok) {
+      const result = await response.json()
+      throw new Error(result.error || 'Unable to verify gas tests')
+    }
+    // Optimistically flip every pending test to verified.
+    setTests((current) =>
+      current.map((test) =>
+        test.status === 'pending'
+          ? { ...test, status: 'verified' as const }
+          : test
+      )
+    )
+    notifyPermitChanged()
+    router.refresh()
+    return true
   }
 
   useEffect(() => {
@@ -278,13 +303,6 @@ export function GasTestSection({
         </div>
 
         <div className="flex items-center gap-2">
-          <SafetyStatusPill
-            status={
-              tests.some((t) => t.status === 'verified')
-                ? 'verified'
-                : 'pending'
-            }
-          />
           {canAdd && !showForm && (
             <Button
               type="button"
@@ -295,6 +313,12 @@ export function GasTestSection({
               <Plus className="mr-2 h-4 w-4" />
               Record New Test
             </Button>
+          )}
+          {canVerify && (
+            <SectionVerifyButton
+              verified={hasVerifiedTest}
+              onVerify={handleVerifyAll}
+            />
           )}
         </div>
       </div>
