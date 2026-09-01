@@ -22,7 +22,9 @@ import {
   HardHat,
   ClipboardCheck,
   Activity,
-  Info
+  Info,
+  ChevronDown,
+  MoreVertical
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
@@ -56,6 +58,13 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { SubmitSuccessModal } from '@/components/permits/submit-success-modal'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 type PermitType = {
   id: number
@@ -697,7 +706,10 @@ export default async function PermitDetailsPage({
       ? `${formatDate(permit.planned_start)} → ${formatDate(permit.planned_end)}`
       : null
 
-  const completionPercentage = calculateCompletionPercentage(permit)
+  const approvalRequirements = getApprovalRequirements(permit)
+  const completedRequirements = approvalRequirements.filter(r => r.completed).length
+  const totalRequirements = approvalRequirements.length
+  const isReadyForApproval = completedRequirements === totalRequirements
 
   return (
     <DashboardShell>
@@ -705,64 +717,62 @@ export default async function PermitDetailsPage({
         {/* Breadcrumb & Quick Actions */}
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <BackButton href="/permits" label="Back to Permits" />
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/permits/${permit.id}/print`}
-              target="_blank"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
-              <Printer className="h-4 w-4" />
-              Print / PDF
-            </Link>
-            {renderActionButtons(permit, currentUserRole, user)}
-          </div>
+          <ActionButtons permit={permit} currentUserRole={currentUserRole} user={user} />
         </div>
 
         {/* Hero Section */}
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-6 text-white sm:px-8 sm:py-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-3">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-4 flex-1">
+                {/* Primary hierarchy: Permit number + Status */}
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-bold leading-tight break-words tracking-tight sm:text-3xl">
                     {permit.permit_no}
                   </h1>
                   <StatusBadge status={permit.status} />
-                  <Badge variant="secondary" className="bg-white/20 text-white">
+                </div>
+                
+                {/* Secondary: Type + Work title */}
+                <div>
+                  <Badge variant="secondary" className="bg-white/20 text-white mb-2">
                     {permit.permit_type?.name ?? 'Permit'}
                   </Badge>
+                  <p className="text-xl font-semibold text-white">
+                    {permit.work_title}
+                  </p>
                 </div>
-                <p className="text-lg font-medium text-white/90">
-                  {permit.work_title}
-                </p>
-                <div className="flex flex-wrap gap-4 text-sm text-white/80">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="h-4 w-4" />
-                    {validityLabel || 'No validity period set'}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Building2 className="h-4 w-4" />
-                    {permit.company?.name}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="h-4 w-4" />
-                    {permit.area?.name}
-                  </span>
+                
+                {/* Tertiary: Location + Time */}
+                <div className="flex flex-col gap-2 text-sm text-white/80">
+                  {permit.work_location && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4" />
+                      {permit.work_location}
+                    </span>
+                  )}
+                  {validityLabel && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="h-4 w-4" />
+                      {validityLabel}
+                    </span>
+                  )}
+                  {permit.company && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4" />
+                      {permit.company.name}
+                    </span>
+                  )}
                 </div>
               </div>
               
-              {/* Progress Indicator */}
-              <div className="w-full lg:w-64">
-                <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Permit Progress</span>
-                    <span className="text-sm font-bold">{completionPercentage}%</span>
-                  </div>
-                  <Progress value={completionPercentage} className="h-2 bg-white/20" />
-                  <p className="mt-2 text-xs text-white/70">
-                    {getProgressMessage(permit.status)}
-                  </p>
-                </div>
+              {/* Approval Readiness Card */}
+              <div className="w-full lg:w-80">
+                <ApprovalReadinessCard 
+                  requirements={approvalRequirements}
+                  isReady={isReadyForApproval}
+                  permitId={permit.id}
+                />
               </div>
             </div>
           </div>
@@ -771,33 +781,40 @@ export default async function PermitDetailsPage({
           <div className="grid grid-cols-2 gap-3 border-t border-gray-200 bg-gray-50 p-3 sm:grid-cols-4 sm:gap-4 sm:p-4 dark:border-gray-700 dark:bg-gray-800">
             <QuickStat icon={User} label="Requester" value={permit.requester?.full_name} />
             <QuickStat icon={Users} label="Workers" value={`${permit.workers?.length ?? 0}`} />
-            <QuickStat icon={Shield} label="Safety Controls" value={`${permit.safety_controls?.filter(c => c.is_required).length ?? 0} required`} />
-            <QuickStat icon={Activity} label="Status" value={formatStatus(permit.status)} />
+            <QuickStat icon={Shield} label="Safety Controls" value={`${permit.safety_controls?.filter(c => c.is_required && c.status === 'verified').length ?? 0}/${permit.safety_controls?.filter(c => c.is_required).length ?? 0} verified`} />
+            <QuickStat icon={ClipboardCheck} label="Readiness" value={`${completedRequirements}/${totalRequirements} ✓`} />
           </div>
         </Card>
+
+        {/* Compact Lifecycle Indicator */}
+        <CompactLifecycle status={permit.status} />
 
         {/* Main Content with Tabs */}
         <Tabs defaultValue="overview" className="mt-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Info className="h-4 w-4" />
-              <span className="hidden sm:inline">Overview</span>
-              <span className="sm:hidden">Overview</span>
+              <span>Overview</span>
             </TabsTrigger>
             <TabsTrigger value="safety" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Safety</span>
-              <span className="sm:hidden">Safety</span>
+              <span>Safety</span>
+              {!isReadyForApproval && (
+                <span className="ml-1 h-2 w-2 rounded-full bg-yellow-500" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="documents" className="flex items-center gap-2">
               <Paperclip className="h-4 w-4" />
-              <span className="hidden sm:inline">Documents</span>
-              <span className="sm:hidden">Docs</span>
+              <span>Documents</span>
+              {permit.attachments?.length > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {permit.attachments.length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2">
               <History className="h-4 w-4" />
-              <span className="hidden sm:inline">History</span>
-              <span className="sm:hidden">History</span>
+              <span>History</span>
             </TabsTrigger>
           </TabsList>
 
@@ -847,7 +864,7 @@ export default async function PermitDetailsPage({
                   </CardContent>
                 </Card>
 
-                {/* Workers Table */}
+                {/* Workers Section with responsive design */}
                 {permit.workers && permit.workers.length > 0 && (
                   <Card>
                     <CardHeader>
@@ -863,40 +880,7 @@ export default async function PermitDetailsPage({
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="min-w-0 p-4 pt-0 sm:p-6">
-                      <div className="max-h-[300px] overflow-auto">
-                        <table className="w-full min-w-[520px] text-sm">
-                          <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
-                            <tr className="border-b text-left">
-                              <th className="px-4 py-3 font-medium">No.</th>
-                              <th className="px-4 py-3 font-medium">Name</th>
-                              <th className="px-4 py-3 font-medium">ID Number</th>
-                              {permit.workers.some((w) => w.is_contractor) && (
-                                <th className="px-4 py-3 font-medium">Nationality</th>
-                              )}
-                              <th className="px-4 py-3 font-medium">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {permit.workers.map((worker, index) => (
-                              <tr key={worker.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td className="px-4 py-3 text-gray-500">{index + 1}</td>
-                                <td className="px-4 py-3 font-medium">{worker.full_name}</td>
-                                <td className="px-4 py-3">{worker.id_number ?? '—'}</td>
-                                {worker.is_contractor && (
-                                  <td className="px-4 py-3">{worker.nationality ?? '—'}</td>
-                                )}
-                                <td className="px-4 py-3">
-                                  <WorkerStatusBadge worker={worker} />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                        <Info className="mr-1 inline h-3 w-3" />
-                        Only workers listed and authorised under this permit may perform the work / enter the designated work area.
-                      </p>
+                      <WorkersList workers={permit.workers} />
                     </CardContent>
                   </Card>
                 )}
@@ -978,13 +962,26 @@ export default async function PermitDetailsPage({
                   </CardContent>
                 </Card>
 
-                {/* Applicant Declaration */}
-                <Card>
+                {/* Applicant Declaration - Enhanced */}
+                <Card className={cn(
+                  "border-2",
+                  permit.declaration_confirmed_at 
+                    ? "border-green-200 dark:border-green-800" 
+                    : "border-yellow-200 dark:border-yellow-800"
+                )}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                      <ClipboardCheck className={cn(
+                        "h-5 w-5",
+                        permit.declaration_confirmed_at ? "text-green-600" : "text-yellow-600"
+                      )} />
                       Applicant Declaration
                     </CardTitle>
+                    {permit.declaration_confirmed_at && (
+                      <CardDescription>
+                        Confirmed on {formatDate(permit.declaration_confirmed_at)}
+                      </CardDescription>
+                    )}
                   </CardHeader>
                   <CardContent className="p-4 pt-0 sm:p-6">
                     <ApplicantDeclarationConfirm
@@ -1000,40 +997,72 @@ export default async function PermitDetailsPage({
 
           {/* Safety Tab */}
           <TabsContent value="safety" className="mt-6 space-y-6">
+            {/* Safety Readiness Summary */}
+            <Card className="border-2 border-blue-200 dark:border-blue-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                  Safety Readiness Summary
+                </CardTitle>
+                <CardDescription>
+                  Status of all safety verification requirements
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {approvalRequirements.map((req) => (
+                    <SafetyRequirementCard
+                      key={req.label}
+                      title={req.label}
+                      status={req.status}
+                      required={req.required}
+                      completed={req.completed}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* JHA / HIRARC gets full width — its hazards table is wide */}
-            <JhaSection
-              permitId={permit.id}
-              canAdd={canAddSafetyDocs}
-              canVerify={canVerifySafetyDocs}
-              initialJhas={permit.jhas ?? []}
-              initialHirarc={permit.hirarc_documents ?? []}
-            />
+            <div id="jha-section">
+              <JhaSection
+                permitId={permit.id}
+                canAdd={canAddSafetyDocs}
+                canVerify={canVerifySafetyDocs}
+                initialJhas={permit.jhas ?? []}
+                initialHirarc={permit.hirarc_documents ?? []}
+              />
+            </div>
 
             {(permit.permit_type?.requires_loto ||
               permit.permit_type?.requires_gas_test) && (
               <div className="grid gap-6 lg:grid-cols-2">
                 {permit.permit_type?.requires_loto && (
-                  <LotoSection
-                    permitId={permit.id}
-                    canAdd={canAddSafetyDocs}
-                    canVerify={canVerifySafetyDocs}
-                    initialPoints={permit.loto_points ?? []}
-                  />
+                  <div id="loto-section">
+                    <LotoSection
+                      permitId={permit.id}
+                      canAdd={canAddSafetyDocs}
+                      canVerify={canVerifySafetyDocs}
+                      initialPoints={permit.loto_points ?? []}
+                    />
+                  </div>
                 )}
 
                 {permit.permit_type?.requires_gas_test && (
-                  <GasTestSection
-                    permitId={permit.id}
-                    canAdd={canAddSafetyDocs}
-                    canVerify={canVerifySafetyDocs}
-                    initialTests={permit.gas_tests ?? []}
-                  />
+                  <div id="gas-test-section">
+                    <GasTestSection
+                      permitId={permit.id}
+                      canAdd={canAddSafetyDocs}
+                      canVerify={canVerifySafetyDocs}
+                      initialTests={permit.gas_tests ?? []}
+                    />
+                  </div>
                 )}
               </div>
             )}
 
             {/* Safety Controls */}
-            <section className="mt-6 rounded-xl border bg-background">
+            <section id="controls-section" className="mt-6 rounded-xl border bg-background">
               <div className="flex items-center justify-between border-b px-6 py-4">
                 <div>
                   <h2 className="flex items-center gap-2 font-semibold">
@@ -1101,7 +1130,7 @@ export default async function PermitDetailsPage({
 
             {/* PPE Requirements */}
             {(permit.permit_ppe && permit.permit_ppe.length > 0) || permit.ppe_other ? (
-              <section className="mt-6 rounded-xl border bg-background">
+              <section id="ppe-section" className="mt-6 rounded-xl border bg-background">
                 <div className="flex items-center justify-between border-b px-6 py-4">
                   <div>
                     <h2 className="flex items-center gap-2 font-semibold">
@@ -1121,45 +1150,53 @@ export default async function PermitDetailsPage({
 
             {/* Site Verification */}
             {permit.permit_type?.requires_site_verification !== false && (
-              <SiteVerificationSection
-                permitId={permit.id}
-                canEdit={canPerformSafetyVerification}
-                template={siteChecklistTemplate}
-                initialRecord={permit.site_verification as SiteVerificationRecord | null}
-              />
+              <div id="site-verification-section">
+                <SiteVerificationSection
+                  permitId={permit.id}
+                  canEdit={canPerformSafetyVerification}
+                  template={siteChecklistTemplate}
+                  initialRecord={permit.site_verification as SiteVerificationRecord | null}
+                />
+              </div>
             )}
 
             {/* PPE Verification */}
-            <PpeVerificationSection
-              permitId={permit.id}
-              canEdit={canPerformSafetyVerification}
-              initialItems={ppeVerificationItems}
-            />
+            <div id="ppe-verification-section">
+              <PpeVerificationSection
+                permitId={permit.id}
+                canEdit={canPerformSafetyVerification}
+                initialItems={ppeVerificationItems}
+              />
+            </div>
 
             {/* Emergency Arrangements */}
             {permit.permit_type?.requires_emergency_arrangements && (
-              <EmergencyArrangementsSection
-                permitId={permit.id}
-                canEdit={canPerformSafetyVerification}
-                initialRecord={permit.emergency_arrangements as EmergencyArrangementsRecord | null}
-              />
+              <div id="emergency-section">
+                <EmergencyArrangementsSection
+                  permitId={permit.id}
+                  canEdit={canPerformSafetyVerification}
+                  initialRecord={permit.emergency_arrangements as EmergencyArrangementsRecord | null}
+                />
+              </div>
             )}
 
             {/* Worker Briefing */}
             {(permit.workers && permit.workers.length > 0) || permit.permit_type?.requires_worker_briefing ? (
-              <WorkerBriefingSection
-                permitId={permit.id}
-                canEdit={canPerformSafetyVerification}
-                requiresLoto={permit.permit_type?.requires_loto ?? false}
-                requiresGas={permit.permit_type?.requires_gas_test ?? false}
-                initialRecord={permit.worker_briefing as WorkerBriefingRecord | null}
-                initialWorkers={(permit.workers ?? []).map((worker) => ({
-                  id: worker.id,
-                  full_name: worker.full_name,
-                  briefed: worker.briefed,
-                  acknowledged: worker.acknowledged,
-                }))}
-              />
+              <div id="briefing-section">
+                <WorkerBriefingSection
+                  permitId={permit.id}
+                  canEdit={canPerformSafetyVerification}
+                  requiresLoto={permit.permit_type?.requires_loto ?? false}
+                  requiresGas={permit.permit_type?.requires_gas_test ?? false}
+                  initialRecord={permit.worker_briefing as WorkerBriefingRecord | null}
+                  initialWorkers={(permit.workers ?? []).map((worker) => ({
+                    id: worker.id,
+                    full_name: worker.full_name,
+                    briefed: worker.briefed,
+                    acknowledged: worker.acknowledged,
+                  }))}
+                />
+              </div>
             ) : null}
 
             {/* Safety Verification Readiness — final section before lifecycle */}
@@ -1239,7 +1276,7 @@ export default async function PermitDetailsPage({
         </Tabs>
 
         {/* Lifecycle Panel */}
-        <CollapsibleSection title="Permit Lifecycle">
+        <CollapsibleSection title="Permit Lifecycle Details" defaultOpen={false}>
           <LifecyclePanel
             permitId={permit.id}
             status={permit.status}
@@ -1279,109 +1316,535 @@ export default async function PermitDetailsPage({
 }
 
 /* =========================================================
-   HELPER FUNCTIONS
-   ========================================================= */
-
-function renderActionButtons(permit: Permit, currentUserRole: string | null, user: any) {
-  const buttons = []
-
-  if (permit.status === 'draft' && permit.initiation_mode === 'internal') {
-    buttons.push(
-      <SubmitPermitButton key="submit" permitId={permit.id} permitNo={permit.permit_no} />
-    )
-  }
-
-  if (permit.status === 'draft' && permit.initiation_mode === 'contractor_direct') {
-    buttons.push(
-      <SubmitPermitButton key="submit" permitId={permit.id} permitNo={permit.permit_no} />
-    )
-  }
-
-  if (permit.status === 'draft' && user?.id === permit.requester?.id) {
-    buttons.push(
-      <Link
-        key="edit"
-        href={`/permits/new?edit=${permit.id}`}
-        className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-      >
-        Edit Permit
-      </Link>
-    )
-  }
-
-  if (permit.status === 'rejected' && user?.id === permit.requester?.id) {
-    buttons.push(
-      <Link
-        key="revise"
-        href={`/permits/new?edit=${permit.id}`}
-        className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-      >
-        Revise Permit
-      </Link>,
-      <ResubmitPermitButton key="resubmit" permitId={permit.id} permitNo={permit.permit_no} />
-    )
-  }
-
-  if (permit.status === 'pending_approval' && permit.workflow_stage === 'safety_approval' && 
-      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')) {
-    buttons.push(
-      <RejectPermitButton key="reject" permitId={permit.id} permitNo={permit.permit_no} />
-    )
-  }
-
-  if (permit.status === 'active' && (currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
-    buttons.push(
-      <SuspendPermitButton key="suspend" permitId={permit.id} permitNo={permit.permit_no} />
-    )
-  }
-
-  if (['draft', 'pending_approval', 'rejected', 'approved', 'issued', 'suspended'].includes(permit.status) &&
-      (user?.id === permit.requester?.id || currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
-    buttons.push(
-      <CancelPermitButton key="cancel" permitId={permit.id} permitNo={permit.permit_no} />
-    )
-  }
-
-  return buttons
-}
-
-function calculateCompletionPercentage(permit: Permit): number {
-  const steps = [
-    !!permit.work_title,
-    !!permit.work_description,
-    !!permit.work_location,
-    !!permit.planned_start,
-    !!permit.planned_end,
-    permit.safety_controls?.some(c => c.is_required && c.status === 'verified'),
-    permit.permit_type?.requires_jha ? permit.jhas?.some(j => j.status === 'verified') : true,
-    permit.permit_type?.requires_loto ? permit.loto_points?.some(l => l.status === 'verified') : true,
-    permit.permit_type?.requires_gas_test ? permit.gas_tests?.some(g => g.status === 'verified') : true,
-    !!permit.declaration_confirmed_at,
-  ]
-
-  const completed = steps.filter(Boolean).length
-  return Math.round((completed / steps.length) * 100)
-}
-
-function getProgressMessage(status: string): string {
-  const messages: Record<string, string> = {
-    draft: 'Permit is being drafted',
-    pending_approval: 'Awaiting approval',
-    approved: 'Permit has been approved',
-    issued: 'Permit has been issued',
-    active: 'Work is in progress',
-    suspended: 'Work has been suspended',
-    completed: 'Work completed',
-    closed: 'Permit closed',
-    cancelled: 'Permit cancelled',
-    rejected: 'Permit rejected',
-  }
-  return messages[status] || 'Status unknown'
-}
-
-/* =========================================================
    ENHANCED COMPONENTS
    ========================================================= */
+
+function ApprovalReadinessCard({ 
+  requirements, 
+  isReady, 
+  permitId 
+}: { 
+  requirements: ApprovalRequirement[]
+  isReady: boolean
+  permitId: number
+}) {
+  return (
+    <div className={cn(
+      "rounded-lg p-4 backdrop-blur-sm",
+      isReady ? "bg-green-500/20" : "bg-yellow-500/20"
+    )}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium">Approval Readiness</span>
+        <Badge variant={isReady ? "success" : "warning"}>
+          {isReady ? "✓ Ready" : `${requirements.filter(r => !r.completed).length} to review`}
+        </Badge>
+      </div>
+      
+      {/* Compact requirement list */}
+      <div className="space-y-1.5 mt-3">
+        {requirements.map(req => (
+          <div key={req.label} className="flex items-center justify-between text-xs">
+            <span className="text-white/80">{req.label}</span>
+            {req.completed ? (
+              <CheckCircle2 className="h-4 w-4 text-green-300" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-yellow-300" />
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {!isReady && (
+        <a 
+          href="#safety" 
+          className="mt-3 block text-xs text-white underline"
+          onClick={(e) => {
+            e.preventDefault()
+            document.querySelector('[data-value="safety"]')?.dispatchEvent(
+              new MouseEvent('click', { bubbles: true })
+            )
+          }}
+        >
+          Review outstanding items →
+        </a>
+      )}
+    </div>
+  )
+}
+
+type ApprovalRequirement = {
+  label: string
+  status?: string
+  required: boolean
+  completed: boolean
+}
+
+function getApprovalRequirements(permit: Permit): ApprovalRequirement[] {
+  return [
+    {
+      label: 'JHA',
+      status: getSafetyDocStatus(permit.jhas),
+      required: permit.permit_type?.requires_jha ?? false,
+      completed: !permit.permit_type?.requires_jha || 
+        permit.jhas?.some(j => j.status === 'verified')
+    },
+    {
+      label: 'LOTO',
+      status: getSafetyDocStatus(permit.loto_points),
+      required: permit.permit_type?.requires_loto ?? false,
+      completed: !permit.permit_type?.requires_loto || 
+        permit.loto_points?.some(l => l.status === 'verified')
+    },
+    {
+      label: 'Gas Test',
+      status: getSafetyDocStatus(permit.gas_tests),
+      required: permit.permit_type?.requires_gas_test ?? false,
+      completed: !permit.permit_type?.requires_gas_test || 
+        permit.gas_tests?.some(g => g.status === 'verified')
+    },
+    {
+      label: 'Safety Controls',
+      status: getControlsStatus(permit.safety_controls),
+      required: true,
+      completed: permit.safety_controls?.every(c => 
+        !c.is_required || c.status === 'verified'
+      ) ?? false
+    },
+    {
+      label: 'Site Verification',
+      status: permit.site_verification?.status,
+      required: permit.permit_type?.requires_site_verification ?? false,
+      completed: !permit.permit_type?.requires_site_verification || 
+        permit.site_verification?.status === 'completed'
+    },
+    {
+      label: 'PPE',
+      status: getPpeStatus(permit.permit_ppe),
+      required: true,
+      completed: permit.permit_ppe?.every(p => 
+        !p.is_selected || p.verified
+      ) ?? false
+    },
+    {
+      label: 'Declaration',
+      status: permit.declaration_confirmed_at ? 'confirmed' : undefined,
+      required: true,
+      completed: !!permit.declaration_confirmed_at
+    }
+  ]
+}
+
+function SafetyRequirementCard({ 
+  title, 
+  status, 
+  required, 
+  completed 
+}: { 
+  title: string
+  status?: string
+  required: boolean
+  completed: boolean
+}) {
+  const statusConfig = getStatusConfig(status, completed)
+  
+  return (
+    <div className={cn(
+      "rounded-lg border p-4 transition-all",
+      statusConfig.borderColor,
+      statusConfig.bgColor
+    )}>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {title}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            {required ? 'Required' : 'Optional'}
+          </p>
+        </div>
+        <statusConfig.icon className={cn("h-5 w-5", statusConfig.iconColor)} />
+      </div>
+      
+      {status && (
+        <div className="mt-3">
+          <Badge variant={statusConfig.badgeVariant}>
+            {formatStatus(status)}
+          </Badge>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function getStatusConfig(status?: string, completed?: boolean) {
+  if (completed) {
+    return {
+      borderColor: 'border-green-200 dark:border-green-800',
+      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      icon: CheckCircle2,
+      iconColor: 'text-green-500',
+      badgeVariant: 'success' as const
+    }
+  }
+  
+  switch (status) {
+    case 'verified':
+    case 'completed':
+    case 'confirmed':
+      return {
+        borderColor: 'border-green-200 dark:border-green-800',
+        bgColor: 'bg-green-50 dark:bg-green-900/20',
+        icon: CheckCircle2,
+        iconColor: 'text-green-500',
+        badgeVariant: 'success' as const
+      }
+    case 'pending':
+    case 'in_progress':
+      return {
+        borderColor: 'border-yellow-200 dark:border-yellow-800',
+        bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+        icon: AlertTriangle,
+        iconColor: 'text-yellow-500',
+        badgeVariant: 'warning' as const
+      }
+    case 'rejected':
+      return {
+        borderColor: 'border-red-200 dark:border-red-800',
+        bgColor: 'bg-red-50 dark:bg-red-900/20',
+        icon: XCircle,
+        iconColor: 'text-red-500',
+        badgeVariant: 'destructive' as const
+      }
+    default:
+      return {
+        borderColor: 'border-gray-200 dark:border-gray-700',
+        bgColor: 'bg-gray-50 dark:bg-gray-800',
+        icon: AlertTriangle,
+        iconColor: 'text-yellow-500',
+        badgeVariant: 'warning' as const
+      }
+  }
+}
+
+function getSafetyDocStatus(docs: Array<{ status: string }> | null): string | undefined {
+  if (!docs || docs.length === 0) return undefined
+  if (docs.some(d => d.status === 'verified')) return 'verified'
+  if (docs.some(d => d.status === 'pending')) return 'pending'
+  if (docs.some(d => d.status === 'rejected')) return 'rejected'
+  return docs[0]?.status
+}
+
+function getControlsStatus(controls: PermitSafetyControl[] | null): string | undefined {
+  if (!controls || controls.length === 0) return undefined
+  const requiredControls = controls.filter(c => c.is_required)
+  if (requiredControls.length === 0) return 'verified'
+  if (requiredControls.every(c => c.status === 'verified')) return 'verified'
+  if (requiredControls.some(c => c.status === 'pending')) return 'pending'
+  if (requiredControls.some(c => c.status === 'rejected')) return 'rejected'
+  return requiredControls[0]?.status
+}
+
+function getPpeStatus(ppe: Permit['permit_ppe']): string | undefined {
+  if (!ppe || ppe.length === 0) return undefined
+  const selectedPpe = ppe.filter(p => p.is_selected)
+  if (selectedPpe.length === 0) return 'verified'
+  if (selectedPpe.every(p => p.verified)) return 'verified'
+  if (selectedPpe.some(p => !p.verified)) return 'pending'
+  return selectedPpe[0]?.verified ? 'verified' : 'pending'
+}
+
+function CompactLifecycle({ status }: { status: string }) {
+  const stages = [
+    { label: 'Created', key: 'created' },
+    { label: 'Submitted', key: 'submitted' },
+    { label: 'Verified', key: 'verified' },
+    { label: 'Approved', key: 'approved' },
+    { label: 'Active', key: 'active' },
+  ]
+  
+  const currentStageIndex = getCurrentStageIndex(status)
+  
+  return (
+    <div className="mt-4 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between">
+        {stages.map((stage, index) => {
+          const isCompleted = index < currentStageIndex
+          const isCurrent = index === currentStageIndex
+          
+          return (
+            <div key={stage.key} className="flex items-center flex-1">
+              <div className="flex flex-col items-center">
+                <div className={cn(
+                  "h-8 w-8 rounded-full flex items-center justify-center border-2",
+                  isCompleted ? "bg-green-500 border-green-500" : 
+                  isCurrent ? "bg-blue-500 border-blue-500" : 
+                  "bg-gray-200 border-gray-300 dark:bg-gray-700 dark:border-gray-600"
+                )}>
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-4 w-4 text-white" />
+                  ) : isCurrent ? (
+                    <Activity className="h-4 w-4 text-white" />
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {index + 1}
+                    </span>
+                  )}
+                </div>
+                <span className={cn(
+                  "mt-1 text-xs",
+                  isCompleted || isCurrent ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
+                )}>
+                  {stage.label}
+                </span>
+              </div>
+              {index < stages.length - 1 && (
+                <div className={cn(
+                  "flex-1 h-0.5 mx-2",
+                  isCompleted ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
+                )} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function getCurrentStageIndex(status: string): number {
+  switch (status) {
+    case 'draft':
+      return 0
+    case 'pending_approval':
+      return 1
+    case 'approved':
+    case 'issued':
+      return 2
+    case 'active':
+      return 3
+    case 'suspended':
+    case 'completed':
+    case 'closed':
+      return 4
+    default:
+      return 0
+  }
+}
+
+function ActionButtons({ 
+  permit, 
+  currentUserRole, 
+  user 
+}: { 
+  permit: Permit
+  currentUserRole: string | null
+  user: any
+}) {
+  const primaryAction = getPrimaryAction(permit, currentUserRole, user)
+  const secondaryActions = getSecondaryActions(permit, currentUserRole, user)
+  
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Print button always available */}
+      <Link
+        href={`/permits/${permit.id}/print`}
+        target="_blank"
+        className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        <Printer className="h-4 w-4" />
+        Print / PDF
+      </Link>
+      
+      {/* Primary action */}
+      {primaryAction}
+      
+      {/* Secondary actions in dropdown */}
+      {secondaryActions.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              More
+              <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {secondaryActions.map((action, index) => (
+              <DropdownMenuItem key={index} onClick={action.onClick}>
+                {action.icon && <action.icon className="mr-2 h-4 w-4" />}
+                {action.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  )
+}
+
+function getPrimaryAction(
+  permit: Permit, 
+  currentUserRole: string | null, 
+  user: any
+): React.ReactNode {
+  if ((permit.status === 'draft' && (permit.initiation_mode === 'internal' || permit.initiation_mode === 'contractor_direct'))) {
+    return (
+      <SubmitPermitButton 
+        key="submit" 
+        permitId={permit.id} 
+        permitNo={permit.permit_no} 
+      />
+    )
+  }
+  
+  if (permit.status === 'rejected' && user?.id === permit.requester?.id) {
+    return (
+      <ResubmitPermitButton 
+        key="resubmit" 
+        permitId={permit.id} 
+        permitNo={permit.permit_no} 
+      />
+    )
+  }
+  
+  return null
+}
+
+function getSecondaryActions(
+  permit: Permit, 
+  currentUserRole: string | null, 
+  user: any
+): Array<{ label: string; icon: any; onClick?: () => void }> {
+  const actions = []
+  
+  if (permit.status === 'draft' && user?.id === permit.requester?.id) {
+    actions.push({
+      label: 'Edit Permit',
+      icon: FileText,
+      onClick: () => {
+        window.location.href = `/permits/new?edit=${permit.id}`
+      }
+    })
+  }
+  
+  if (permit.status === 'rejected' && user?.id === permit.requester?.id) {
+    actions.push({
+      label: 'Revise Permit',
+      icon: FileText,
+      onClick: () => {
+        window.location.href = `/permits/new?edit=${permit.id}`
+      }
+    })
+  }
+  
+  if (permit.status === 'pending_approval' && permit.workflow_stage === 'safety_approval' && 
+      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')) {
+    actions.push({
+      label: 'Reject Permit',
+      icon: XCircle,
+    })
+  }
+  
+  if (permit.status === 'active' && (currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
+    actions.push({
+      label: 'Suspend Permit',
+      icon: PauseCircle,
+    })
+  }
+  
+  if (['draft', 'pending_approval', 'rejected', 'approved', 'issued', 'suspended'].includes(permit.status) &&
+      (user?.id === permit.requester?.id || currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
+    actions.push({
+      label: 'Cancel Permit',
+      icon: XCircle,
+    })
+  }
+  
+  return actions
+}
+
+function WorkersList({ workers }: { workers: NonNullable<Permit['workers']> }) {
+  return (
+    <>
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <div className="max-h-[300px] overflow-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+              <tr className="border-b text-left">
+                <th className="px-4 py-3 font-medium">No.</th>
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">ID Number</th>
+                {workers.some((w) => w.is_contractor) && (
+                  <th className="px-4 py-3 font-medium">Nationality</th>
+                )}
+                <th className="px-4 py-3 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {workers.map((worker, index) => (
+                <tr key={worker.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-4 py-3 text-gray-500">{index + 1}</td>
+                  <td className="px-4 py-3 font-medium">{worker.full_name}</td>
+                  <td className="px-4 py-3">{worker.id_number ?? '—'}</td>
+                  {worker.is_contractor && (
+                    <td className="px-4 py-3">{worker.nationality ?? '—'}</td>
+                  )}
+                  <td className="px-4 py-3">
+                    <WorkerStatusBadge worker={worker} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {workers.map((worker, index) => (
+          <Card key={worker.id} className="bg-gray-50 dark:bg-gray-800">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {worker.full_name}
+                    </span>
+                  </div>
+                  
+                  <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    {worker.id_number && (
+                      <p>
+                        <span className="text-xs text-gray-500">ID: </span>
+                        {worker.id_number}
+                      </p>
+                    )}
+                    {worker.is_contractor && worker.nationality && (
+                      <p>
+                        <span className="text-xs text-gray-500">Nationality: </span>
+                        {worker.nationality}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <WorkerStatusBadge worker={worker} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      
+      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+        <Info className="mr-1 inline h-3 w-3" />
+        Only workers listed and authorised under this permit may perform the work / enter the designated work area.
+      </p>
+    </>
+  )
+}
 
 function QuickStat({ icon: Icon, label, value }: { icon: any; label: string; value?: string }) {
   return (
