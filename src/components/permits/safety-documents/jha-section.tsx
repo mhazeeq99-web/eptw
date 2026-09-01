@@ -2,9 +2,43 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, Trash2, CheckCircle2 } from 'lucide-react'
+import { 
+  Download, 
+  Trash2, 
+  CheckCircle2, 
+  Plus, 
+  X, 
+  FileText, 
+  FileSpreadsheet, 
+  FileImage, 
+  File as FileIcon,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Shield,
+  ArrowRight,
+  MoreVertical,
+  Edit,
+  Eye
+} from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 /**
  * 5x5 likelihood x severity risk matrix adopted by the company
@@ -12,10 +46,10 @@ import { notifyPermitChanged } from '@/lib/permit-changed'
  * not a statutory requirement; band labels are shown for readability.
  */
 const RISK_BANDS = [
-  { min: 16, max: 25, label: 'VERY HIGH', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
-  { min: 10, max: 15, label: 'HIGH', className: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300' },
-  { min: 5, max: 9, label: 'MEDIUM', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300' },
-  { min: 1, max: 4, label: 'LOW', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' },
+  { min: 16, max: 25, label: 'VERY HIGH', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300', borderColor: 'border-red-200 dark:border-red-800' },
+  { min: 10, max: 15, label: 'HIGH', className: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300', borderColor: 'border-orange-200 dark:border-orange-800' },
+  { min: 5, max: 9, label: 'MEDIUM', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300', borderColor: 'border-yellow-200 dark:border-yellow-800' },
+  { min: 1, max: 4, label: 'LOW', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300', borderColor: 'border-green-200 dark:border-green-800' },
 ] as const
 
 export function riskBand(rating: number | null) {
@@ -46,6 +80,14 @@ const CONTROL_TYPES = [
   'Administrative',
   'PPE',
 ] as const
+
+const RISK_MATRIX = [
+  [1, 2, 3, 4, 5],
+  [2, 4, 6, 8, 10],
+  [3, 6, 9, 12, 15],
+  [4, 8, 12, 16, 20],
+  [5, 10, 15, 20, 25],
+]
 
 export type JhaHazard = {
   id: number
@@ -161,23 +203,22 @@ export function JhaSection({
   const router = useRouter()
 
   const [showForm, setShowForm] = useState(false)
+  const [showChoiceCards, setShowChoiceCards] = useState(false)
+  const [showRiskMatrix, setShowRiskMatrix] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [savedFlash, setSavedFlash] = useState<string | null>(null)
+  const [unsavedChanges, setUnsavedChanges] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [hazards, setHazards] = useState<HazardDraft[]>([
     emptyHazard(),
   ])
   const [saving, setSaving] = useState(false)
+  const [expandedJha, setExpandedJha] = useState<number | null>(null)
 
   const [error, setError] = useState('')
 
-  // Local copy of the JHA list so records saved in this component (the new
-  // permit form passes a static EMPTY_JHAS prop) appear immediately instead of
-  // requiring the parent's `initialJhas` prop to change. `hirarc` already does
-  // this; `jhas` mirrors the same behaviour.
   const [jhas, setJhas] = useState<Jha[]>(initialJhas)
-
   const [hirarc, setHirarc] = useState<HirarcDocument[]>(
     initialHirarc
   )
@@ -188,9 +229,9 @@ export function JhaSection({
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // The applicant's section is complete once a JHA/HIRARC has been filled or
-  // uploaded; verification is the safety reviewer's separate step.
   const satisfied = jhas.length > 0 || hirarc.length > 0
+  const hasVerifiedJha = jhas.some((jha) => jha.status === 'verified')
+  const hasUploadedHirarc = hirarc.length > 0
 
   const methodLabels: string[] = []
   if (jhas.some((jha) => jha.status === 'verified')) {
@@ -199,6 +240,15 @@ export function JhaSection({
   if (hirarc.length > 0) {
     methodLabels.push('Uploaded HIRARC')
   }
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (showForm && (title || description || hazards.some(h => h.hazard))) {
+      setUnsavedChanges(true)
+    } else {
+      setUnsavedChanges(false)
+    }
+  }, [showForm, title, description, hazards])
 
   async function handleHirarcSelected(
     event: React.ChangeEvent<HTMLInputElement>
@@ -210,7 +260,6 @@ export function JhaSection({
     setUploading(true)
 
     try {
-      // 1. Request a signed upload URL.
       const urlResponse = await fetch(
         `/api/permits/${permitId}/hirarc/upload-url`,
         {
@@ -234,7 +283,6 @@ export function JhaSection({
         )
       }
 
-      // 2. Upload the file bytes to the signed URL.
       const uploadResponse = await fetch(
         urlResult.upload_url,
         {
@@ -251,7 +299,6 @@ export function JhaSection({
         throw new Error('Upload to storage failed')
       }
 
-      // 3. Record the HIRARC document metadata.
       const recordResponse = await fetch(
         `/api/permits/${permitId}/hirarc`,
         {
@@ -281,6 +328,7 @@ export function JhaSection({
         recordResult.document,
         ...current,
       ])
+      setShowChoiceCards(false)
       notifyPermitChanged()
       router.refresh()
     } catch (uploadError) {
@@ -452,12 +500,13 @@ export function JhaSection({
       setDescription('')
       setHazards([emptyHazard()])
       setShowForm(false)
+      setUnsavedChanges(false)
       if (created) {
         setJhas((current) => [...current, created])
       }
       notifyPermitChanged()
       router.refresh()
-      setSavedFlash('JHA saved')
+      setSavedFlash('JHA saved successfully')
       return true
     } catch {
       if (!embedded) {
@@ -469,7 +518,6 @@ export function JhaSection({
     }
   }
 
-  // Re-open a saved JHA in the form for editing.
   function handleEdit(jha: Jha) {
     const rows = (jha.hazards ?? []).map((hazard) => ({
       hazard: hazard.hazard,
@@ -502,8 +550,6 @@ export function JhaSection({
     setError('')
   }
 
-  // Save the in-progress JHA. Creates a new record, or PATCHes the record
-  // currently being edited.
   async function handleSave(): Promise<boolean> {
     if (editingId === null) {
       return handleCreate()
@@ -582,9 +628,10 @@ export function JhaSection({
       setDescription('')
       setHazards([emptyHazard()])
       setShowForm(false)
+      setUnsavedChanges(false)
       notifyPermitChanged()
       router.refresh()
-      setSavedFlash('JHA saved')
+      setSavedFlash('JHA updated successfully')
       return true
     } catch {
       if (!embedded) setError('Unable to update JHA.')
@@ -594,20 +641,16 @@ export function JhaSection({
     }
   }
 
-  // Expose the in-progress JHA save so the parent form can persist it as
-  // part of Save Draft / Submit Permit (no separate "Save JHA" click needed).
   useEffect(() => {
     if (saveRef) {
       saveRef.current = handleSave
     }
   })
 
-  // Report the saved-JHA count so the parent section can show its green tick.
   useEffect(() => {
     onJhasChange?.(jhas.length)
   }, [jhas, onJhasChange])
 
-  // Clear the green "saved" confirmation after a short delay.
   useEffect(() => {
     if (!savedFlash) return
     const timer = setTimeout(() => setSavedFlash(null), 4000)
@@ -634,15 +677,22 @@ export function JhaSection({
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
-              satisfied
-                ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
-            }`}
-          >
-            {satisfied ? 'Complete' : 'Incomplete'}
-          </span>
+          {/* Status indicator */}
+          {satisfied ? (
+            hasVerifiedJha || hasUploadedHirarc ? (
+              <Badge variant="success">
+                ✓ {hasVerifiedJha ? 'JHA Verified' : 'HIRARC Uploaded'}
+              </Badge>
+            ) : (
+              <Badge variant="info">
+                ○ Pending Safety Review
+              </Badge>
+            )
+          ) : (
+            <Badge variant="warning">
+              Incomplete
+            </Badge>
+          )}
 
           {satisfied && (
             <span className="text-xs text-muted-foreground">
@@ -651,29 +701,13 @@ export function JhaSection({
           )}
 
           {canAdd && !showForm && !satisfied && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(true)
-                  setUploadError('')
-                }}
-                className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
-              >
-                Fill JHA / HIRARC
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
-              >
-                {uploading
-                  ? 'Uploading...'
-                  : 'Upload Existing HIRARC'}
-              </button>
-            </div>
+            <Button
+              onClick={() => setShowChoiceCards(true)}
+              variant="outline"
+              size="sm"
+            >
+              + Add JHA / HIRARC
+            </Button>
           )}
 
           <input
@@ -686,12 +720,81 @@ export function JhaSection({
         </div>
       </div>
 
+      {/* Choice cards for method selection */}
+      {showChoiceCards && !satisfied && (
+        <div className="border-b p-6">
+          <p className="text-sm font-medium mb-4">
+            How would you like to provide the risk assessment?
+          </p>
+          
+          <div className="grid gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowChoiceCards(false)
+                setShowForm(true)
+              }}
+              className="rounded-lg border-2 border-gray-200 p-6 text-left transition-all hover:border-blue-500 hover:shadow-md dark:border-gray-700 dark:hover:border-blue-400"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
+                  <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="font-semibold text-lg">
+                  Create JHA
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Complete the risk assessment directly in the system
+                with structured hazard cards and risk ratings.
+              </p>
+              <span className="mt-4 inline-block text-sm font-medium text-blue-600 dark:text-blue-400">
+                Create JHA →
+              </span>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="rounded-lg border-2 border-gray-200 p-6 text-left transition-all hover:border-blue-500 hover:shadow-md disabled:opacity-50 dark:border-gray-700 dark:hover:border-blue-400"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/50">
+                  <FileSpreadsheet className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="font-semibold text-lg">
+                  Upload HIRARC
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Upload an existing HIRARC document from your
+                company's safety management system.
+              </p>
+              <span className="mt-4 inline-block text-sm font-medium text-green-600 dark:text-green-400">
+                {uploading ? 'Uploading...' : 'Upload HIRARC →'}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* JHA Editor Form */}
       {showForm && (
-        <div className="space-y-4 border-b p-6">
+        <div className="space-y-6 border-b p-6">
+          {/* Unsaved changes indicator */}
+          {unsavedChanges && (
+            <div className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300">
+              <AlertTriangle className="h-4 w-4" />
+              Unsaved changes
+            </div>
+          )}
+
+          {/* JHA Details */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Title *
+                JHA Title *
               </label>
               <input
                 type="text"
@@ -706,7 +809,7 @@ export function JhaSection({
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Description
+                Work Scope / Description
               </label>
               <input
                 type="text"
@@ -720,303 +823,115 @@ export function JhaSection({
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full min-w-[1500px] border-collapse text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <th className="px-2 py-2">#</th>
-                  <th className="px-2 py-2">Hazard *</th>
-                  <th className="px-2 py-2">Category</th>
-                  <th className="px-2 py-2">Consequence</th>
-                  <th className="px-2 py-2">Existing controls</th>
-                  <th className="px-2 py-2">Controls</th>
-                  <th className="px-2 py-2">L</th>
-                  <th className="px-2 py-2">S</th>
-                  <th className="px-2 py-2">Initial risk</th>
-                  <th className="px-2 py-2">Additional controls</th>
-                  <th className="px-2 py-2">Res. L</th>
-                  <th className="px-2 py-2">Res. S</th>
-                  <th className="px-2 py-2">Res. risk</th>
-                  <th className="px-2 py-2"></th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y">
-                {hazards.map((hazard, index) => {
-                  const likelihood = toNumber(hazard.likelihood)
-                  const severity = toNumber(hazard.severity)
-                  const rating =
-                    likelihood !== null && severity !== null
-                      ? likelihood * severity
-                      : null
-                  const band = riskBand(rating)
-                  const residualLikelihood = toNumber(
-                    hazard.residual_likelihood
-                  )
-                  const residualSeverity = toNumber(
-                    hazard.residual_severity
-                  )
-                  const residualRating =
-                    residualLikelihood !== null &&
-                    residualSeverity !== null
-                      ? residualLikelihood * residualSeverity
-                      : null
-                  const residualBand = riskBand(residualRating)
-
-                  return (
-                    <tr key={index} className="align-top hover:bg-muted/20">
-                      <td className="px-2 py-2 text-xs font-medium text-muted-foreground">
-                        {index + 1}
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={hazard.hazard}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              hazard: event.target.value,
-                            })
-                          }
-                          placeholder="Hazard..."
-                          className="w-52 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <select
-                          value={hazard.hazard_category}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              hazard_category: event.target.value,
-                            })
-                          }
-                          className="w-32 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        >
-                          <option value="">Select</option>
-                          {HAZARD_CATEGORIES.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <textarea
-                          value={hazard.consequence}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              consequence: event.target.value,
-                            })
-                          }
-                          rows={3}
-                          placeholder="What could go wrong?"
-                          className="h-16 w-44 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <textarea
-                          value={hazard.existing_controls}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              existing_controls: event.target.value,
-                            })
-                          }
-                          rows={3}
-                          placeholder="Controls in place..."
-                          className="h-16 w-44 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <select
-                          value={hazard.control_types[0] ?? ''}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              control_types: event.target.value
-                                ? [event.target.value]
-                                : [],
-                            })
-                          }
-                          className="w-32 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        >
-                          <option value="">Select</option>
-                          {CONTROL_TYPES.map((controlType) => (
-                            <option key={controlType} value={controlType}>
-                              {controlType}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <select
-                          value={hazard.likelihood}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              likelihood: event.target.value,
-                            })
-                          }
-                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        >
-                          <option value="">—</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="5">5</option>
-                        </select>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <select
-                          value={hazard.severity}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              severity: event.target.value,
-                            })
-                          }
-                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        >
-                          <option value="">—</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="5">5</option>
-                        </select>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-xs font-medium">
-                          {rating === null ? (
-                            '—'
-                          ) : (
-                            <>
-                              {rating}
-                              {band && (
-                                <span
-                                  className={`ml-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${band.className}`}
+          {/* Risk Matrix Reference */}
+          <div className="rounded-lg border bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setShowRiskMatrix(!showRiskMatrix)}
+              className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+            >
+              <span className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Risk Matrix Reference
+              </span>
+              {showRiskMatrix ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+            
+            {showRiskMatrix && (
+              <div className="border-t p-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-center text-sm">
+                    <thead>
+                      <tr>
+                        <th className="p-2 text-left text-xs font-medium text-muted-foreground">
+                          Likelihood ↓ / Severity →
+                        </th>
+                        <th className="p-2 text-xs font-medium">1</th>
+                        <th className="p-2 text-xs font-medium">2</th>
+                        <th className="p-2 text-xs font-medium">3</th>
+                        <th className="p-2 text-xs font-medium">4</th>
+                        <th className="p-2 text-xs font-medium">5</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {RISK_MATRIX.map((row, i) => (
+                        <tr key={i}>
+                          <td className="p-2 text-xs font-medium">{i + 1}</td>
+                          {row.map((value, j) => {
+                            const band = riskBand(value)
+                            return (
+                              <td key={j} className="p-1">
+                                <div
+                                  className={cn(
+                                    "rounded-md px-2 py-1 text-xs font-medium",
+                                    band?.className
+                                  )}
                                 >
-                                  {band.label}
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <textarea
-                          value={hazard.additional_controls}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              additional_controls: event.target.value,
-                            })
-                          }
-                          rows={3}
-                          placeholder="Further controls..."
-                          className="h-16 w-44 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <select
-                          value={hazard.residual_likelihood}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              residual_likelihood: event.target.value,
-                            })
-                          }
-                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        >
-                          <option value="">—</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="5">5</option>
-                        </select>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <select
-                          value={hazard.residual_severity}
-                          onChange={(event) =>
-                            updateHazard(index, {
-                              residual_severity: event.target.value,
-                            })
-                          }
-                          className="w-16 rounded-md border bg-background px-2 py-1.5 text-sm"
-                        >
-                          <option value="">—</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="5">5</option>
-                        </select>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <div className="rounded-md border bg-muted/30 px-2 py-1.5 text-xs font-medium">
-                          {residualRating === null ? (
-                            '—'
-                          ) : (
-                            <>
-                              {residualRating}
-                              {residualBand && (
-                                <span
-                                  className={`ml-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${residualBand.className}`}
-                                >
-                                  {residualBand.label}
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            title="Add hazard row"
-                            onClick={() =>
-                              setHazards((current) => [
-                                ...current,
-                                emptyHazard(),
-                              ])
-                            }
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary text-base font-semibold text-primary hover:bg-primary hover:text-primary-foreground"
-                          >
-                            +
-                          </button>
-
-                          {hazards.length > 1 && (
-                            <button
-                              type="button"
-                              title="Remove hazard"
-                              onClick={() =>
-                                setHazards((current) =>
-                                  current.filter((_, i) => i !== index)
-                                )
-                              }
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-destructive text-base font-semibold text-destructive hover:bg-destructive hover:text-white"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                                  {value}
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {RISK_BANDS.map((band) => (
+                    <span
+                      key={band.label}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                        band.className
+                      )}
+                    >
+                      {band.min}-{band.max} {band.label}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Risk = Likelihood × Severity
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Hazard Cards */}
+          <div className="space-y-4">
+            {hazards.map((hazard, index) => (
+              <HazardEditorCard
+                key={index}
+                hazard={hazard}
+                index={index}
+                onChange={(patch) => updateHazard(index, patch)}
+                onRemove={() =>
+                  setHazards((current) =>
+                    current.filter((_, i) => i !== index)
+                  )
+                }
+                canRemove={hazards.length > 1}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setHazards((current) => [
+                ...current,
+                emptyHazard(),
+              ])
+            }
+            className="inline-flex items-center gap-2 rounded-md border border-dashed px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-4 w-4" />
+            Add Hazard
+          </button>
 
           {error && (
             <p className="text-sm text-destructive">
@@ -1026,38 +941,38 @@ export function JhaSection({
 
           <div className="flex justify-end gap-2">
             {editingId !== null && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
                   setEditingId(null)
                   setTitle('')
                   setDescription('')
                   setHazards([emptyHazard()])
                   setShowForm(false)
+                  setUnsavedChanges(false)
                   setError('')
                 }}
-                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
               >
-                New JHA
-              </button>
+                Cancel Edit
+              </Button>
             )}
 
-            <button
-              type="button"
+            <Button
               onClick={handleSave}
               disabled={saving}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {saving
                 ? 'Saving...'
                 : editingId !== null
                 ? 'Save Changes'
                 : 'Save JHA'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
+      {/* Saved JHA List */}
       <div className="divide-y">
         {jhas.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">
@@ -1065,224 +980,25 @@ export function JhaSection({
           </p>
         ) : (
           jhas.map((jha) => (
-            <div key={jha.id} className="p-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="font-medium">
-                    {jha.title}
-                  </p>
-
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Added by{' '}
-                    {jha.creator?.full_name ?? 'Unknown'}
-                    {' · '}
-                    {formatDate(jha.created_at)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {canAdd && jha.status === 'pending' && (
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(jha)}
-                      className="rounded-md border px-3 py-1 text-xs font-medium hover:bg-muted"
-                    >
-                      Edit
-                    </button>
-                  )}
-
-                  <StatusBadge status={jha.status} />
-                </div>
-              </div>
-
-              {jha.description && (
-                <p className="mt-3 text-sm whitespace-pre-wrap">
-                  {jha.description}
-                </p>
-              )}
-
-              {jha.hazards && jha.hazards.length > 0 ? (
-                <div className="mt-4 overflow-x-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="border-b bg-muted/40">
-                      <tr>
-                        <th className="px-4 py-2 text-left font-medium">
-                          #
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Hazard
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Category
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Consequence
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Existing controls
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Control hierarchy
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          L / S
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Initial risk
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Additional controls
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Residual L / S
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          Residual risk
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {jha.hazards.map((hazard, index) => {
-                        const band = riskBand(
-                          hazard.risk_rating
-                        )
-                        const residualBand = riskBand(
-                          hazard.residual_risk
-                        )
-                        return (
-                          <tr key={hazard.id}>
-                            <td className="px-4 py-3 text-muted-foreground">
-                              {index + 1}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.hazard}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.hazard_category ?? '—'}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.consequence ?? '—'}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.existing_controls ?? '—'}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.control_types.length > 0
-                                ? hazard.control_types.join(
-                                    ', '
-                                  )
-                                : '—'}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              {hazard.likelihood !== null &&
-                              hazard.severity !== null
-                                ? `${hazard.likelihood} / ${hazard.severity}`
-                                : '—'}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.risk_rating !== null ? (
-                                <span
-                                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold uppercase ${
-                                    band?.className ??
-                                    'bg-muted text-muted-foreground'
-                                  }`}
-                                >
-                                  {hazard.risk_rating}{' '}
-                                  {band?.label ?? ''}
-                                </span>
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.additional_controls ?? '—'}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              {hazard.residual_likelihood !==
-                                null &&
-                              hazard.residual_severity !== null
-                                ? `${hazard.residual_likelihood} / ${hazard.residual_severity}`
-                                : '—'}
-                            </td>
-                            <td className="px-4 py-3">
-                              {hazard.residual_risk !== null ? (
-                                <span
-                                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold uppercase ${
-                                    residualBand?.className ??
-                                    'bg-muted text-muted-foreground'
-                                  }`}
-                                >
-                                  {hazard.residual_risk}{' '}
-                                  {residualBand?.label ?? ''}
-                                </span>
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                jha.hazards_controls &&
-                jha.hazards_controls.length > 0 && (
-                  <div className="mt-4 overflow-hidden rounded-md border">
-                    <table className="w-full text-sm">
-                      <thead className="border-b bg-muted/40">
-                        <tr>
-                          <th className="px-4 py-2 text-left font-medium">
-                            Hazard
-                          </th>
-                          <th className="px-4 py-2 text-left font-medium">
-                            Control
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {jha.hazards_controls.map(
-                          (item, index) => (
-                            <tr key={index}>
-                              <td className="px-4 py-2">
-                                {item.hazard}
-                              </td>
-                              <td className="px-4 py-2">
-                                {item.control}
-                              </td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+            <JhaDisplayCard
+              key={jha.id}
+              jha={jha}
+              canAdd={canAdd}
+              canVerify={canVerify}
+              permitId={permitId}
+              expanded={expandedJha === jha.id}
+              onToggleExpand={() =>
+                setExpandedJha(
+                  expandedJha === jha.id ? null : jha.id
                 )
-              )}
-
-              {jha.status === 'verified' &&
-                jha.verifier && (
-                  <p className="mt-3 text-xs font-medium text-green-600">
-                    ✓ Verified by{' '}
-                    {jha.verifier.full_name} ·{' '}
-                    {formatDate(jha.verified_at)}
-                  </p>
-                )}
-
-              {canVerify && jha.status === 'pending' && (
-                  <div className="mt-4">
-                    <VerifySafetyDocButton
-                      permitId={permitId}
-                      kind="jha"
-                      docId={jha.id}
-                    />
-                  </div>
-                )}
-            </div>
+              }
+              onEdit={() => handleEdit(jha)}
+            />
           ))
         )}
       </div>
 
-      {/* Uploaded HIRARC documents (Option B — satisfies the requirement) */}
+      {/* Uploaded HIRARC documents */}
       <div className="border-t">
         <div className="flex items-center justify-between px-6 py-4">
           <div>
@@ -1296,14 +1012,15 @@ export function JhaSection({
           </div>
 
           {canAdd && hirarc.length > 0 && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
             >
-              {uploading ? 'Uploading...' : 'Upload'}
-            </button>
+              {uploading ? 'Uploading...' : '+ Upload'}
+            </Button>
           )}
         </div>
 
@@ -1320,59 +1037,14 @@ export function JhaSection({
         ) : (
           <div className="divide-y">
             {hirarc.map((document) => (
-              <div
+              <HirarcDocumentCard
                 key={document.id}
-                className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-md border text-sm">
-                    📄
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {document.filename}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Uploaded by{' '}
-                      {document.uploader?.full_name ?? 'Unknown'}
-                      {' · '}
-                      {formatDate(document.created_at)}
-                      {document.size_bytes
-                        ? ` · ${formatBytes(document.size_bytes)}`
-                        : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleHirarcDownload(document)
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download
-                  </button>
-
-                  {canAdd && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleHirarcDelete(document)
-                      }
-                      disabled={deletingId === document.id}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-destructive px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      {deletingId === document.id
-                        ? 'Deleting...'
-                        : 'Delete'}
-                    </button>
-                  )}
-                </div>
-              </div>
+                document={document}
+                canDelete={canAdd}
+                deleting={deletingId === document.id}
+                onDownload={() => handleHirarcDownload(document)}
+                onDelete={() => handleHirarcDelete(document)}
+              />
             ))}
           </div>
         )}
@@ -1380,6 +1052,652 @@ export function JhaSection({
     </section>
   )
 }
+
+/* =========================================================
+   HAZARD EDITOR CARD
+   ========================================================= */
+
+function HazardEditorCard({
+  hazard,
+  index,
+  onChange,
+  onRemove,
+  canRemove,
+}: {
+  hazard: HazardDraft
+  index: number
+  onChange: (patch: Partial<HazardDraft>) => void
+  onRemove: () => void
+  canRemove: boolean
+}) {
+  const likelihood = toNumber(hazard.likelihood)
+  const severity = toNumber(hazard.severity)
+  const rating =
+    likelihood !== null && severity !== null
+      ? likelihood * severity
+      : null
+  const band = riskBand(rating)
+  
+  const residualLikelihood = toNumber(hazard.residual_likelihood)
+  const residualSeverity = toNumber(hazard.residual_severity)
+  const residualRating =
+    residualLikelihood !== null && residualSeverity !== null
+      ? residualLikelihood * residualSeverity
+      : null
+  const residualBand = riskBand(residualRating)
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-base font-semibold">
+          Hazard {String(index + 1).padStart(2, '0')}
+        </CardTitle>
+        {canRemove && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            className="text-destructive hover:text-destructive"
+          >
+            <X className="h-4 w-4" />
+            Remove
+          </Button>
+        )}
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {/* Hazard Description */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Hazard *
+          </label>
+          <input
+            type="text"
+            value={hazard.hazard}
+            onChange={(e) => onChange({ hazard: e.target.value })}
+            placeholder="Describe the hazard..."
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </div>
+
+        {/* Category and Control Hierarchy */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Category
+            </label>
+            <select
+              value={hazard.hazard_category}
+              onChange={(e) =>
+                onChange({ hazard_category: e.target.value })
+              }
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select category</option>
+              {HAZARD_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Control Hierarchy
+            </label>
+            <select
+              value={hazard.control_types[0] ?? ''}
+              onChange={(e) =>
+                onChange({
+                  control_types: e.target.value
+                    ? [e.target.value]
+                    : [],
+                })
+              }
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select hierarchy</option>
+              {CONTROL_TYPES.map((controlType) => (
+                <option key={controlType} value={controlType}>
+                  {controlType}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Consequence */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Consequence
+          </label>
+          <textarea
+            value={hazard.consequence}
+            onChange={(e) =>
+              onChange({ consequence: e.target.value })
+            }
+            rows={2}
+            placeholder="What could go wrong?"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </div>
+
+        {/* Existing Controls */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Existing Controls
+          </label>
+          <textarea
+            value={hazard.existing_controls}
+            onChange={(e) =>
+              onChange({ existing_controls: e.target.value })
+            }
+            rows={2}
+            placeholder="Controls currently in place..."
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </div>
+
+        {/* Initial Risk Assessment */}
+        <div className="rounded-lg border bg-muted/20 p-4">
+          <h4 className="text-sm font-semibold mb-3">
+            Initial Risk Assessment
+          </h4>
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">
+                Likelihood (L)
+              </label>
+              <select
+                value={hazard.likelihood}
+                onChange={(e) =>
+                  onChange({ likelihood: e.target.value })
+                }
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select</option>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">
+                Severity (S)
+              </label>
+              <select
+                value={hazard.severity}
+                onChange={(e) =>
+                  onChange({ severity: e.target.value })
+                }
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select</option>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          {rating !== null && band && (
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-lg border px-3 py-2",
+                band.className,
+                band.borderColor
+              )}
+            >
+              <span className="text-sm font-medium">
+                Initial Risk
+              </span>
+              <span className="text-lg font-bold">
+                {rating} · {band.label}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Additional Controls */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Additional Controls
+          </label>
+          <textarea
+            value={hazard.additional_controls}
+            onChange={(e) =>
+              onChange({ additional_controls: e.target.value })
+            }
+            rows={2}
+            placeholder="Further controls to implement..."
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          />
+        </div>
+
+        {/* Residual Risk Assessment */}
+        <div className="rounded-lg border bg-muted/20 p-4">
+          <h4 className="text-sm font-semibold mb-3">
+            Residual Risk Assessment
+          </h4>
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">
+                Residual Likelihood (L)
+              </label>
+              <select
+                value={hazard.residual_likelihood}
+                onChange={(e) =>
+                  onChange({
+                    residual_likelihood: e.target.value,
+                  })
+                }
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select</option>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">
+                Residual Severity (S)
+              </label>
+              <select
+                value={hazard.residual_severity}
+                onChange={(e) =>
+                  onChange({
+                    residual_severity: e.target.value,
+                  })
+                }
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select</option>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          {residualRating !== null && residualBand && (
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-lg border px-3 py-2",
+                residualBand.className,
+                residualBand.borderColor
+              )}
+            >
+              <span className="text-sm font-medium">
+                Residual Risk
+              </span>
+              <span className="text-lg font-bold">
+                {residualRating} · {residualBand.label}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Risk Reduction Visual */}
+        {rating !== null && residualRating !== null && (
+          <div className="flex items-center justify-center gap-3 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30">
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-1">
+                Initial
+              </p>
+              <p className={cn(
+                "text-sm font-bold",
+                band?.className
+              )}>
+                {rating} {band?.label}
+              </p>
+            </div>
+            <ArrowRight className="h-5 w-5 text-blue-500" />
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-1">
+                Residual
+              </p>
+              <p className={cn(
+                "text-sm font-bold",
+                residualBand?.className
+              )}>
+                {residualRating} {residualBand?.label}
+              </p>
+            </div>
+            <div className="ml-2 text-xs text-muted-foreground">
+              Risk reduced by{' '}
+              <span className="font-semibold text-green-600">
+                {rating - residualRating} points
+              </span>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/* =========================================================
+   JHA DISPLAY CARD
+   ========================================================= */
+
+function JhaDisplayCard({
+  jha,
+  canAdd,
+  canVerify,
+  permitId,
+  expanded,
+  onToggleExpand,
+  onEdit,
+}: {
+  jha: Jha
+  canAdd: boolean
+  canVerify: boolean
+  permitId: number
+  expanded: boolean
+  onToggleExpand: () => void
+  onEdit: () => void
+}) {
+  return (
+    <div className="p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1">
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="flex items-center gap-2 text-left hover:underline"
+          >
+            <h3 className="font-medium">
+              {jha.title}
+            </h3>
+            {expanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+          
+          <p className="mt-1 text-xs text-muted-foreground">
+            Added by {jha.creator?.full_name ?? 'Unknown'}
+            {' · '}
+            {formatDate(jha.created_at)}
+          </p>
+          
+          {/* Summary stats */}
+          {jha.hazards && jha.hazards.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Badge variant="secondary">
+                {jha.hazards.length} hazards
+              </Badge>
+              {getHighestRisk(jha.hazards, 'initial') && (
+                <Badge variant="warning">
+                  Highest initial: {getHighestRisk(jha.hazards, 'initial')}
+                </Badge>
+              )}
+              {getHighestRisk(jha.hazards, 'residual') && (
+                <Badge variant="success">
+                  Highest residual: {getHighestRisk(jha.hazards, 'residual')}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {canAdd && jha.status === 'pending' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEdit}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+          )}
+
+          <StatusBadge status={jha.status} />
+        </div>
+      </div>
+
+      {/* Expanded hazard list */}
+      {expanded && jha.hazards && jha.hazards.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {jha.hazards.map((hazard, index) => (
+            <HazardDisplayCard
+              key={hazard.id}
+              hazard={hazard}
+              index={index}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Verification */}
+      {jha.status === 'verified' && jha.verifier && (
+        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/30">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <div>
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                VERIFIED
+              </p>
+              <p className="text-xs text-green-600 dark:text-green-400">
+                Verified by {jha.verifier.full_name} ·{' '}
+                {formatDate(jha.verified_at)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {canVerify && jha.status === 'pending' && (
+        <div className="mt-4">
+          <VerifySafetyDocButton
+            permitId={permitId}
+            kind="jha"
+            docId={jha.id}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* =========================================================
+   HAZARD DISPLAY CARD
+   ========================================================= */
+
+function HazardDisplayCard({
+  hazard,
+  index,
+}: {
+  hazard: JhaHazard
+  index: number
+}) {
+  const band = riskBand(hazard.risk_rating)
+  const residualBand = riskBand(hazard.residual_risk)
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">
+          Hazard {String(index + 1).padStart(2, '0')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {hazard.hazard}
+          </p>
+          {hazard.hazard_category && (
+            <Badge variant="secondary" className="mt-1">
+              {hazard.hazard_category}
+            </Badge>
+          )}
+        </div>
+
+        {hazard.consequence && (
+          <div className="text-sm">
+            <p className="text-xs text-muted-foreground mb-1">
+              Consequence
+            </p>
+            <p>{hazard.consequence}</p>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {hazard.existing_controls && (
+            <div className="text-sm">
+              <p className="text-xs text-muted-foreground mb-1">
+                Existing Controls
+              </p>
+              <p>{hazard.existing_controls}</p>
+            </div>
+          )}
+          
+          {hazard.additional_controls && (
+            <div className="text-sm">
+              <p className="text-xs text-muted-foreground mb-1">
+                Additional Controls
+              </p>
+              <p>{hazard.additional_controls}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Risk comparison */}
+        <div className="grid grid-cols-2 gap-3">
+          <div
+            className={cn(
+              "rounded-lg border p-3",
+              band?.className,
+              band?.borderColor
+            )}
+          >
+            <p className="text-xs font-medium mb-1">
+              Initial Risk
+            </p>
+            <p className="text-lg font-bold">
+              {hazard.risk_rating ?? '—'}
+              {band && (
+                <span className="ml-1 text-xs font-medium">
+                  {band.label}
+                </span>
+              )}
+            </p>
+          </div>
+          
+          <div
+            className={cn(
+              "rounded-lg border p-3",
+              residualBand?.className,
+              residualBand?.borderColor
+            )}
+          >
+            <p className="text-xs font-medium mb-1">
+              Residual Risk
+            </p>
+            <p className="text-lg font-bold">
+              {hazard.residual_risk ?? '—'}
+              {residualBand && (
+                <span className="ml-1 text-xs font-medium">
+                  {residualBand.label}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* =========================================================
+   HIRARC DOCUMENT CARD
+   ========================================================= */
+
+function HirarcDocumentCard({
+  document,
+  canDelete,
+  deleting,
+  onDownload,
+  onDelete,
+}: {
+  document: HirarcDocument
+  canDelete: boolean
+  deleting: boolean
+  onDownload: () => void
+  onDelete: () => void
+}) {
+  const fileIcon = getFileIcon(document.filename)
+  
+  return (
+    <div className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-md border text-lg">
+          {fileIcon}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">
+            {document.filename}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Uploaded by {document.uploader?.full_name ?? 'Unknown'}
+            {' · '}
+            {formatDate(document.created_at)}
+            {document.size_bytes
+              ? ` · ${formatBytes(document.size_bytes)}`
+              : ''}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onDownload}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Download
+        </Button>
+
+        {canDelete && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={onDelete}
+                disabled={deleting}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {deleting ? 'Deleting...' : 'Delete'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* =========================================================
+   HELPER FUNCTIONS
+   ========================================================= */
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -1398,6 +1716,45 @@ function StatusBadge({ status }: { status: string }) {
       {status.replaceAll('_', ' ')}
     </span>
   )
+}
+
+function getHighestRisk(
+  hazards: JhaHazard[],
+  type: 'initial' | 'residual'
+): string | null {
+  const risks = hazards
+    .map((h) =>
+      type === 'initial' ? h.risk_rating : h.residual_risk
+    )
+    .filter((r): r is number => r !== null)
+  
+  if (risks.length === 0) return null
+  
+  const highest = Math.max(...risks)
+  const band = riskBand(highest)
+  return `${highest} ${band?.label ?? ''}`
+}
+
+function getFileIcon(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase()
+  
+  switch (ext) {
+    case 'pdf':
+      return '📕'
+    case 'doc':
+    case 'docx':
+      return '📘'
+    case 'xls':
+    case 'xlsx':
+      return '📗'
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+    case 'webp':
+      return '🖼️'
+    default:
+      return '📄'
+  }
 }
 
 function formatDate(value: string | null) {
