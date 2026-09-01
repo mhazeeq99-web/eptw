@@ -33,6 +33,7 @@ import {
   ShieldAlert,
   Search,
   HeartPulse,
+  MessageSquare,
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
@@ -79,6 +80,7 @@ function buildSections(role: string | null): Section[] {
     title: 'Settings',
     items: [
       { label: 'Settings', href: '/settings', icon: Settings },
+      { label: 'Feedback', href: '/settings/feedback', icon: MessageSquare },
       { label: 'Subscription', href: '/settings/subscription', icon: CreditCard },
     ],
   }
@@ -151,7 +153,7 @@ function buildSections(role: string | null): Section[] {
             { label: 'System Health', href: '/platform/system-health', icon: HeartPulse },
           ],
         },
-        { title: 'Account', items: [{ label: 'Settings', href: '/settings', icon: Settings }] },
+        { title: 'Account', items: [{ label: 'Settings', href: '/settings', icon: Settings }, { label: 'Feedback', href: '/settings/feedback', icon: MessageSquare }] },
       ]
 
     case 'safety_manager':
@@ -200,6 +202,12 @@ function buildSections(role: string | null): Section[] {
             { label: 'Permit History', href: '/permits/history', icon: History },
           ],
         },
+        {
+          title: 'Account',
+          items: [
+            { label: 'Feedback', href: '/settings/feedback', icon: MessageSquare },
+          ],
+        },
       ]
 
     case 'contractor_admin':
@@ -216,6 +224,12 @@ function buildSections(role: string | null): Section[] {
             { label: 'My Permits', href: '/permits/mine', icon: ClipboardCheck },
             { label: 'All Permits', href: '/permits', icon: FileText },
             { label: 'Permit History', href: '/permits/history', icon: History },
+          ],
+        },
+        {
+          title: 'Account',
+          items: [
+            { label: 'Feedback', href: '/settings/feedback', icon: MessageSquare },
           ],
         },
       ]

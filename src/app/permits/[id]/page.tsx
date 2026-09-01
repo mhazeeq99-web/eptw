@@ -38,6 +38,7 @@ import { EmergencyArrangementsSection, type EmergencyArrangementsRecord } from '
 import { SafetyVerificationPanel } from '@/components/permits/safety-verification/safety-verification-panel'
 import { PpeRequirementsSection } from '@/components/permits/ppe-requirements-section'
 import { SpecialisedPermitSection } from '@/components/permits/specialised/specialised-permit-section'
+import { getPermitSafetyReadiness } from '@/lib/safety-readiness'
 import { formatDateTimeMY } from '@/lib/dates'
 import { BackButton } from '@/components/ui/back-button'
 import { CollapsibleSection } from '@/components/permits/collapsible-section'
@@ -690,10 +691,18 @@ export default async function PermitDetailsPage({
       ? `${formatDate(permit.planned_start)} → ${formatDate(permit.planned_end)}`
       : null
 
-  const approvalRequirements = getApprovalRequirements(permit)
-  const completedRequirements = approvalRequirements.filter(r => r.completed).length
-  const totalRequirements = approvalRequirements.length
-  const isReadyForApproval = completedRequirements === totalRequirements
+  const readiness = await getPermitSafetyReadiness(
+    supabase,
+    permit.id
+  )
+  const requiredItems = readiness.items.filter(
+    (item) => item.required
+  )
+  const completedRequirements = requiredItems.filter(
+    (item) => item.status === 'complete'
+  ).length
+  const totalRequirements = requiredItems.length
+  const isReadyForApproval = readiness.ready
 
   return (
     <DashboardShell>
@@ -1228,97 +1237,6 @@ export default async function PermitDetailsPage({
 /* =========================================================
    ENHANCED COMPONENTS
    ========================================================= */
-
-
-type ApprovalRequirement = {
-  label: string
-  status?: string
-  required: boolean
-  completed: boolean
-}
-
-function getApprovalRequirements(permit: Permit): ApprovalRequirement[] {
-  return [
-    {
-      label: 'JHA',
-      status: getSafetyDocStatus(permit.jhas),
-      required: permit.permit_type?.requires_jha ?? false,
-      completed: !permit.permit_type?.requires_jha || 
-        permit.jhas?.some(j => j.status === 'verified')
-    },
-    {
-      label: 'LOTO',
-      status: getSafetyDocStatus(permit.loto_points),
-      required: permit.permit_type?.requires_loto ?? false,
-      completed: !permit.permit_type?.requires_loto || 
-        permit.loto_points?.some(l => l.status === 'verified')
-    },
-    {
-      label: 'Gas Test',
-      status: getSafetyDocStatus(permit.gas_tests),
-      required: permit.permit_type?.requires_gas_test ?? false,
-      completed: !permit.permit_type?.requires_gas_test || 
-        permit.gas_tests?.some(g => g.status === 'verified')
-    },
-    {
-      label: 'Safety Controls',
-      status: getControlsStatus(permit.safety_controls),
-      required: true,
-      completed: permit.safety_controls?.every(c => 
-        !c.is_required || c.status === 'verified'
-      ) ?? false
-    },
-    {
-      label: 'Site Verification',
-      status: permit.site_verification?.status,
-      required: permit.permit_type?.requires_site_verification ?? false,
-      completed: !permit.permit_type?.requires_site_verification || 
-        permit.site_verification?.status === 'completed'
-    },
-    {
-      label: 'PPE',
-      status: getPpeStatus(permit.permit_ppe),
-      required: true,
-      completed: permit.permit_ppe?.every(p => 
-        !p.is_selected || p.verified
-      ) ?? false
-    },
-    {
-      label: 'Declaration',
-      status: permit.declaration_confirmed_at ? 'confirmed' : undefined,
-      required: true,
-      completed: !!permit.declaration_confirmed_at
-    }
-  ]
-}
-
-
-function getSafetyDocStatus(docs: Array<{ status: string }> | null): string | undefined {
-  if (!docs || docs.length === 0) return undefined
-  if (docs.some(d => d.status === 'verified')) return 'verified'
-  if (docs.some(d => d.status === 'pending')) return 'pending'
-  if (docs.some(d => d.status === 'rejected')) return 'rejected'
-  return docs[0]?.status
-}
-
-function getControlsStatus(controls: PermitSafetyControl[] | null): string | undefined {
-  if (!controls || controls.length === 0) return undefined
-  const requiredControls = controls.filter(c => c.is_required)
-  if (requiredControls.length === 0) return 'verified'
-  if (requiredControls.every(c => c.status === 'verified')) return 'verified'
-  if (requiredControls.some(c => c.status === 'pending')) return 'pending'
-  if (requiredControls.some(c => c.status === 'rejected')) return 'rejected'
-  return requiredControls[0]?.status
-}
-
-function getPpeStatus(ppe: Permit['permit_ppe']): string | undefined {
-  if (!ppe || ppe.length === 0) return undefined
-  const selectedPpe = ppe.filter(p => p.is_selected)
-  if (selectedPpe.length === 0) return 'verified'
-  if (selectedPpe.every(p => p.verified)) return 'verified'
-  if (selectedPpe.some(p => !p.verified)) return 'pending'
-  return selectedPpe[0]?.verified ? 'verified' : 'pending'
-}
 
 
 
