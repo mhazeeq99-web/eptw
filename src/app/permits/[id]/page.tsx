@@ -1,7 +1,5 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { 
-  Printer, 
   Clock, 
   MapPin, 
   Building2, 
@@ -22,18 +20,12 @@ import {
   HardHat,
   ClipboardCheck,
   Activity,
-  Info,
-  MoreVertical
+  Info
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
-import { SubmitPermitButton } from '@/components/permits/submit-permit-button'
-import { ResubmitPermitButton } from '@/components/permits/resubmit-permit-button'
-import { SuspendPermitButton } from '@/components/permits/suspend-permit-button'
 import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
 import { AddSafetyControlButton } from '@/components/permits/add-safety-control-button'
-import { RejectPermitButton } from '@/components/permits/reject-permit-button'
-import { CancelPermitButton } from '@/components/permits/cancel-permit-button'
 import { ApplicantDeclarationConfirm } from '@/components/permits/applicant-declaration-confirm'
 import { LifecyclePanel } from '@/components/permits/lifecycle-panel'
 import { JhaSection, type Jha, type HirarcDocument } from '@/components/permits/safety-documents/jha-section'
@@ -55,9 +47,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Progress } from '@/components/ui/progress'
 import { SubmitSuccessModal } from '@/components/permits/submit-success-modal'
-import { ReviewSafetyLink } from '@/components/permits/review-safety-link'
 import { PermitActionButtons } from '@/components/permits/permit-action-buttons'
 
 type PermitType = {
@@ -768,15 +758,6 @@ export default async function PermitDetailsPage({
                   )}
                 </div>
               </div>
-              
-              {/* Approval Readiness Card */}
-              <div className="w-full lg:w-80">
-                <ApprovalReadinessCard 
-                  requirements={approvalRequirements}
-                  isReady={isReadyForApproval}
-                  permitId={permit.id}
-                />
-              </div>
             </div>
           </div>
           
@@ -1322,47 +1303,6 @@ export default async function PermitDetailsPage({
    ENHANCED COMPONENTS
    ========================================================= */
 
-function ApprovalReadinessCard({ 
-  requirements, 
-  isReady, 
-  permitId 
-}: { 
-  requirements: ApprovalRequirement[]
-  isReady: boolean
-  permitId: number
-}) {
-  return (
-    <div className={cn(
-      "rounded-lg p-4 backdrop-blur-sm",
-      isReady ? "bg-green-500/20" : "bg-yellow-500/20"
-    )}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium">Approval Readiness</span>
-        <Badge variant={isReady ? "success" : "warning"}>
-          {isReady ? "✓ Ready" : `${requirements.filter(r => !r.completed).length} to review`}
-        </Badge>
-      </div>
-      
-      {/* Compact requirement list */}
-      <div className="space-y-1.5 mt-3">
-        {requirements.map(req => (
-          <div key={req.label} className="flex items-center justify-between text-xs">
-            <span className="text-white/80">{req.label}</span>
-            {req.completed ? (
-              <CheckCircle2 className="h-4 w-4 text-green-300" />
-            ) : (
-              <AlertTriangle className="h-4 w-4 text-yellow-300" />
-            )}
-          </div>
-        ))}
-      </div>
-      
-      {!isReady && (
-        <ReviewSafetyLink />
-      )}
-    </div>
-  )
-}
 
 type ApprovalRequirement = {
   label: string
