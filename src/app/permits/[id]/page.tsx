@@ -878,25 +878,6 @@ export default async function PermitDetailsPage({
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Specialised Permit Details */}
-                <SpecialisedPermitSection
-                  permitId={permit.id}
-                  code={permit.permit_type?.code ?? null}
-                  initialDetails={permit.special_details ?? null}
-                  initialWorkers={(permit.workers ?? []).map((worker) => ({
-                    id: worker.id,
-                    full_name: worker.full_name,
-                  }))}
-                  initialPersonnel={(permit.cse_personnel ?? []).map(
-                    (assignment) => ({
-                      id: assignment.id,
-                      worker_id: assignment.worker_id,
-                      responsibility: assignment.responsibility,
-                    })
-                  )}
-                  canEdit={canAddSafetyDocs}
-                />
               </div>
 
               {/* Right Column - Timeline & Quick Info */}
@@ -999,6 +980,28 @@ export default async function PermitDetailsPage({
                 canVerify={canVerifySafetyDocs}
                 initialJhas={permit.jhas ?? []}
                 initialHirarc={permit.hirarc_documents ?? []}
+              />
+            </div>
+
+            {/* Specialised permit-type requirements (Hot Work / Confined Space /
+                Work at Height / Electrical) live under the Safety tab. */}
+            <div id="specialised-requirements-section">
+              <SpecialisedPermitSection
+                permitId={permit.id}
+                code={permit.permit_type?.code ?? null}
+                initialDetails={permit.special_details ?? null}
+                initialWorkers={(permit.workers ?? []).map((worker) => ({
+                  id: worker.id,
+                  full_name: worker.full_name,
+                }))}
+                initialPersonnel={(permit.cse_personnel ?? []).map(
+                  (assignment) => ({
+                    id: assignment.id,
+                    worker_id: assignment.worker_id,
+                    responsibility: assignment.responsibility,
+                  })
+                )}
+                canEdit={canAddSafetyDocs}
               />
             </div>
 

@@ -129,6 +129,16 @@ export function GasTestSection({
   const latestTest = sortedTests[0]
   const previousTests = sortedTests.slice(1)
 
+  function handleVerified(testId: number) {
+    setTests((current) =>
+      current.map((item) =>
+        item.id === testId
+          ? { ...item, status: 'verified' as const }
+          : item
+      )
+    )
+  }
+
   useEffect(() => {
     if (!savedFlash) return
     const timer = setTimeout(() => setSavedFlash(null), 4000)
@@ -464,6 +474,7 @@ export function GasTestSection({
           isLatest={true}
           canVerify={canVerify}
           permitId={permitId}
+          onVerified={() => handleVerified(latestTest.id)}
         />
       )}
 
@@ -494,6 +505,7 @@ export function GasTestSection({
                   isLatest={false}
                   canVerify={canVerify}
                   permitId={permitId}
+                  onVerified={() => handleVerified(test.id)}
                 />
               ))}
             </div>
@@ -609,11 +621,13 @@ function GasTestCard({
   isLatest,
   canVerify,
   permitId,
+  onVerified,
 }: {
   test: GasTest
   isLatest: boolean
   canVerify: boolean
   permitId: number
+  onVerified?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -749,6 +763,7 @@ function GasTestCard({
             permitId={permitId}
             kind="gas-test"
             docId={test.id}
+            onVerified={onVerified}
           />
         </div>
       )}

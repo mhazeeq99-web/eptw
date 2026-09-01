@@ -221,7 +221,9 @@ export function SpecialisedPermitSection({
   return (
     <section className={cn(
       "mt-6 rounded-xl border-2 bg-background",
-      config.borderColor
+      isComplete
+        ? "border-green-300 dark:border-green-800"
+        : config.borderColor
     )}>
       {savedFlash && (
         <div className="flex items-center gap-2 border-b border-green-200 bg-green-50 px-6 py-3 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
@@ -233,7 +235,9 @@ export function SpecialisedPermitSection({
       {/* Header */}
       <div className={cn(
         "flex items-center justify-between border-b px-6 py-4",
-        config.bgColor
+        isComplete
+          ? "bg-green-50/50 dark:bg-green-950/20"
+          : config.bgColor
       )}>
         <div className="flex items-start gap-3">
           <div className={cn(

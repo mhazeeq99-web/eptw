@@ -436,6 +436,15 @@ export function LotoSection({
                   expandedPoint === point.id ? null : point.id
                 )
               }
+              onVerified={() =>
+                setPoints((current) =>
+                  current.map((item) =>
+                    item.id === point.id
+                      ? { ...item, status: 'verified' as const }
+                      : item
+                  )
+                )
+              }
             />
           ))
         )}
@@ -455,6 +464,7 @@ function LotoPointCard({
   permitId,
   expanded,
   onToggleExpand,
+  onVerified,
 }: {
   point: LotoPoint
   index: number
@@ -462,6 +472,7 @@ function LotoPointCard({
   permitId: number
   expanded: boolean
   onToggleExpand: () => void
+  onVerified?: () => void
 }) {
   const energyType = ENERGY_TYPES.find(e => e.value === point.energy_type)
   const isolationMethod = ISOLATION_METHODS.find(m => m.value === point.isolation_method)
@@ -602,6 +613,7 @@ function LotoPointCard({
             permitId={permitId}
             kind="loto"
             docId={point.id}
+            onVerified={onVerified}
           />
         </div>
       )}
