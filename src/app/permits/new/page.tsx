@@ -1133,6 +1133,32 @@ function NewPermitWorkspace() {
         worker.id_number.trim()
     )
 
+    // Warn if any worker row is incomplete (missing name or ID/NRIC). These
+    // would otherwise be silently dropped, leaving the permit with 0 workers.
+    const incompleteWorkers = workers.filter(
+      (worker) =>
+        worker.full_name.trim() || worker.id_number.trim()
+    ).filter(
+      (worker) =>
+        !worker.full_name.trim() || !worker.id_number.trim()
+    )
+
+    if (workers.length > 0 && incompleteWorkers.length > 0) {
+      setSubmissionErrors([
+        {
+          field: 'workers',
+          message: isContractor
+            ? `Please complete the name and NRIC/passport for every worker. The following are missing details: ${incompleteWorkers
+                .map((w) => w.full_name.trim() || 'Unnamed worker')
+                .join(', ')}`
+            : `Please complete the name and employee ID for every worker. The following are missing details: ${incompleteWorkers
+                .map((w) => w.full_name.trim() || 'Unnamed worker')
+                .join(', ')}`,
+        },
+      ])
+      return
+    }
+
     if (
       mode === 'submit' &&
       isContractor &&

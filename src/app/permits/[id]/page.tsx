@@ -850,25 +850,44 @@ export default async function PermitDetailsPage({
                 </Card>
 
                 {/* Workers Section with responsive design */}
-                {permit.workers && permit.workers.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <Users className="h-5 w-5 text-blue-600" />
-                          Workers / Authorised Personnel
-                        </span>
-                        <Badge variant="secondary">{permit.workers.length} workers</Badge>
-                      </CardTitle>
-                      <CardDescription>
-                        Personnel authorised to perform the work under this permit
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="min-w-0 p-4 pt-0 sm:p-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-blue-600" />
+                        Workers / Authorised Personnel
+                      </span>
+                      <Badge variant="secondary">{permit.workers?.length ?? 0} workers</Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      Personnel authorised to perform the work under this permit
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="min-w-0 p-4 pt-0 sm:p-6">
+                    {permit.workers && permit.workers.length > 0 ? (
                       <WorkersList workers={permit.workers} />
-                    </CardContent>
-                  </Card>
-                )}
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No workers have been added to this permit.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Worker Briefing */}
+                <WorkerBriefingSection
+                  permitId={permit.id}
+                  canEdit={canPerformSafetyVerification}
+                  requiresLoto={permit.permit_type?.requires_loto ?? false}
+                  requiresGas={permit.permit_type?.requires_gas_test ?? false}
+                  initialRecord={permit.worker_briefing as WorkerBriefingRecord | null}
+                  initialWorkers={(permit.workers ?? []).map((worker) => ({
+                    id: worker.id,
+                    full_name: worker.full_name,
+                    briefed: worker.briefed,
+                    acknowledged: worker.acknowledged,
+                  }))}
+                />
 
                 {/* Specialised Permit Details */}
                 <SpecialisedPermitSection
@@ -982,32 +1001,6 @@ export default async function PermitDetailsPage({
 
           {/* Safety Tab */}
           <TabsContent value="safety" className="mt-6 space-y-6">
-            {/* Safety Readiness Summary */}
-            <Card className="border-2 border-blue-200 dark:border-blue-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                  Safety Readiness Summary
-                </CardTitle>
-                <CardDescription>
-                  Status of all safety verification requirements
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {approvalRequirements.map((req) => (
-                    <SafetyRequirementCard
-                      key={req.label}
-                      title={req.label}
-                      status={req.status}
-                      required={req.required}
-                      completed={req.completed}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* JHA / HIRARC gets full width — its hazards table is wide */}
             <div id="jha-section">
               <JhaSection
@@ -1165,51 +1158,17 @@ export default async function PermitDetailsPage({
               </div>
             )}
 
-            {/* Worker Briefing */}
-            {(permit.workers && permit.workers.length > 0) || permit.permit_type?.requires_worker_briefing ? (
-              <div id="briefing-section">
-                <WorkerBriefingSection
-                  permitId={permit.id}
-                  canEdit={canPerformSafetyVerification}
-                  requiresLoto={permit.permit_type?.requires_loto ?? false}
-                  requiresGas={permit.permit_type?.requires_gas_test ?? false}
-                  initialRecord={permit.worker_briefing as WorkerBriefingRecord | null}
-                  initialWorkers={(permit.workers ?? []).map((worker) => ({
-                    id: worker.id,
-                    full_name: worker.full_name,
-                    briefed: worker.briefed,
-                    acknowledged: worker.acknowledged,
-                  }))}
-                />
-              </div>
-            ) : null}
-
-            {/* Safety Verification Readiness — final section before lifecycle */}
+            {/* Safety Approval Gate — separate final section before lifecycle */}
             {permit.status === 'pending_approval' || permit.status === 'draft' ? (
-              <section className="mt-6 rounded-xl border bg-background">
-                <div className="flex items-center justify-between border-b px-6 py-4">
-                  <div>
-                    <h2 className="flex items-center gap-2 font-semibold">
-                      <Shield className="h-5 w-5 text-blue-600" />
-                      Safety Verification Readiness
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Complete all safety verification requirements before approval
-                    </p>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <SafetyVerificationPanel
-                    permitId={permit.id}
-                    permitNo={permit.permit_no}
-                    canApprove={
-                      permit.status === 'pending_approval' &&
-                      permit.workflow_stage === 'safety_approval' &&
-                      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')
-                    }
-                  />
-                </div>
-              </section>
+              <SafetyVerificationPanel
+                permitId={permit.id}
+                permitNo={permit.permit_no}
+                canApprove={
+                  permit.status === 'pending_approval' &&
+                  permit.workflow_stage === 'safety_approval' &&
+                  (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')
+                }
+              />
             ) : null}
           </TabsContent>
 
@@ -1261,14 +1220,16 @@ export default async function PermitDetailsPage({
         </Tabs>
 
         {/* Lifecycle Panel */}
-        <CollapsibleSection title="Permit Lifecycle Details" defaultOpen={false}>
-          <LifecyclePanel
-            permitId={permit.id}
-            status={permit.status}
-            permitNo={permit.permit_no}
-            canAct={currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator'}
-          />
-        </CollapsibleSection>
+        <div className="mt-8">
+          <CollapsibleSection title="Permit Lifecycle Details" defaultOpen={false}>
+            <LifecyclePanel
+              permitId={permit.id}
+              status={permit.status}
+              permitNo={permit.permit_no}
+              canAct={currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator'}
+            />
+          </CollapsibleSection>
+        </div>
 
         {/* Remarks Section */}
         {permit.remarks && (
@@ -1367,97 +1328,6 @@ function getApprovalRequirements(permit: Permit): ApprovalRequirement[] {
   ]
 }
 
-function SafetyRequirementCard({ 
-  title, 
-  status, 
-  required, 
-  completed 
-}: { 
-  title: string
-  status?: string
-  required: boolean
-  completed: boolean
-}) {
-  const statusConfig = getStatusConfig(status, completed)
-  
-  return (
-    <div className={cn(
-      "rounded-lg border p-4 transition-all",
-      statusConfig.borderColor,
-      statusConfig.bgColor
-    )}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {title}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {required ? 'Required' : 'Optional'}
-          </p>
-        </div>
-        <statusConfig.icon className={cn("h-5 w-5", statusConfig.iconColor)} />
-      </div>
-      
-      {status && (
-        <div className="mt-3">
-          <Badge variant={statusConfig.badgeVariant}>
-            {formatStatus(status)}
-          </Badge>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function getStatusConfig(status?: string, completed?: boolean) {
-  if (completed) {
-    return {
-      borderColor: 'border-green-200 dark:border-green-800',
-      bgColor: 'bg-green-50 dark:bg-green-900/20',
-      icon: CheckCircle2,
-      iconColor: 'text-green-500',
-      badgeVariant: 'success' as const
-    }
-  }
-  
-  switch (status) {
-    case 'verified':
-    case 'completed':
-    case 'confirmed':
-      return {
-        borderColor: 'border-green-200 dark:border-green-800',
-        bgColor: 'bg-green-50 dark:bg-green-900/20',
-        icon: CheckCircle2,
-        iconColor: 'text-green-500',
-        badgeVariant: 'success' as const
-      }
-    case 'pending':
-    case 'in_progress':
-      return {
-        borderColor: 'border-yellow-200 dark:border-yellow-800',
-        bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-        icon: AlertTriangle,
-        iconColor: 'text-yellow-500',
-        badgeVariant: 'warning' as const
-      }
-    case 'rejected':
-      return {
-        borderColor: 'border-red-200 dark:border-red-800',
-        bgColor: 'bg-red-50 dark:bg-red-900/20',
-        icon: XCircle,
-        iconColor: 'text-red-500',
-        badgeVariant: 'destructive' as const
-      }
-    default:
-      return {
-        borderColor: 'border-gray-200 dark:border-gray-700',
-        bgColor: 'bg-gray-50 dark:bg-gray-800',
-        icon: AlertTriangle,
-        iconColor: 'text-yellow-500',
-        badgeVariant: 'warning' as const
-      }
-  }
-}
 
 function getSafetyDocStatus(docs: Array<{ status: string }> | null): string | undefined {
   if (!docs || docs.length === 0) return undefined
@@ -1667,7 +1537,6 @@ function WorkflowTimeline({ permit }: { permit: Permit }) {
   const steps = [
     { label: 'Created', date: permit.created_at, icon: FileText, completed: true },
     { label: 'Submitted', date: permit.submitted_at, icon: CheckCircle2, completed: !!permit.submitted_at },
-    { label: 'Work Verified', date: permit.work_verified_at, icon: Shield, completed: !!permit.work_verified_at },
     { label: 'Approved', date: permit.approved_at, icon: CheckCircle2, completed: !!permit.approved_at },
     { label: 'Active', date: permit.status === 'active' ? permit.approved_at : null, icon: Activity, completed: ['active', 'completed', 'closed'].includes(permit.status) },
     { label: 'Completed', date: permit.completed_at, icon: CheckCircle2, completed: !!permit.completed_at },
@@ -1788,8 +1657,17 @@ function PpeDisplay({ permit }: { permit: Permit }) {
     }
   }
 
+  const requiredVerified = selectedPpe.every(
+    (item) => item.verified === true
+  )
+
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <SafetyStatusPill
+          status={requiredVerified ? 'verified' : 'pending'}
+        />
+      </div>
       {categories.map((category) => (
         <div key={category}>
           <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
@@ -1799,9 +1677,18 @@ function PpeDisplay({ permit }: { permit: Permit }) {
             {selectedPpe
               .filter((item) => (item.ppe_item?.category ?? 'Other') === category)
               .map((item) => (
-                <Badge key={item.ppe_item_id} variant="secondary">
+                <span
+                  key={item.ppe_item_id}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                    item.verified
+                      ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+                      : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  )}
+                >
                   {item.ppe_item?.name}
-                </Badge>
+                  {item.verified && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+                </span>
               ))}
           </div>
         </div>
@@ -1918,6 +1805,3 @@ function formatAction(value: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
-function formatStatus(status: string) {
-  return status.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-}

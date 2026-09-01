@@ -1,6 +1,7 @@
 'use client'
 
 import { Plus, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export type WorkerDraft = {
   full_name: string
@@ -105,7 +106,12 @@ export function WorkerListEditor({
                     }
                     placeholder="Worker name"
                     aria-label="Worker name"
-                    className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    className={cn(
+                      "w-full rounded-md border bg-background px-2 py-1.5 text-sm",
+                      worker.id_number.trim() && !worker.full_name.trim()
+                        ? "border-destructive"
+                        : "border-gray-300 dark:border-gray-600"
+                    )}
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -123,7 +129,12 @@ export function WorkerListEditor({
                         : 'e.g. EMP-1024'
                     }
                     aria-label={idLabel}
-                    className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    className={cn(
+                      "w-full rounded-md border bg-background px-2 py-1.5 text-sm",
+                      worker.full_name.trim() && !worker.id_number.trim()
+                        ? "border-destructive"
+                        : "border-gray-300 dark:border-gray-600"
+                    )}
                   />
                 </td>
                 {mode === 'contractor' && (
