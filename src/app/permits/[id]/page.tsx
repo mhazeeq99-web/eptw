@@ -23,7 +23,6 @@ import {
   ClipboardCheck,
   Activity,
   Info,
-  ChevronDown,
   MoreVertical
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
@@ -58,13 +57,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { SubmitSuccessModal } from '@/components/permits/submit-success-modal'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { ReviewSafetyLink } from '@/components/permits/review-safety-link'
+import { PermitActionButtons } from '@/components/permits/permit-action-buttons'
 
 type PermitType = {
   id: number
@@ -717,7 +711,16 @@ export default async function PermitDetailsPage({
         {/* Breadcrumb & Quick Actions */}
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <BackButton href="/permits" label="Back to Permits" />
-          <ActionButtons permit={permit} currentUserRole={currentUserRole} user={user} />
+          <PermitActionButtons
+            id={permit.id}
+            permitNo={permit.permit_no}
+            status={permit.status}
+            initiationMode={permit.initiation_mode}
+            workflowStage={permit.workflow_stage}
+            requesterId={permit.requester?.id ?? null}
+            currentUserRole={currentUserRole}
+            currentUserId={user?.id ?? null}
+          />
         </div>
 
         {/* Hero Section */}
@@ -1355,18 +1358,7 @@ function ApprovalReadinessCard({
       </div>
       
       {!isReady && (
-        <a 
-          href="#safety" 
-          className="mt-3 block text-xs text-white underline"
-          onClick={(e) => {
-            e.preventDefault()
-            document.querySelector('[data-value="safety"]')?.dispatchEvent(
-              new MouseEvent('click', { bubbles: true })
-            )
-          }}
-        >
-          Review outstanding items →
-        </a>
+        <ReviewSafetyLink />
       )}
     </div>
   )
@@ -1631,136 +1623,6 @@ function getCurrentStageIndex(status: string): number {
   }
 }
 
-function ActionButtons({ 
-  permit, 
-  currentUserRole, 
-  user 
-}: { 
-  permit: Permit
-  currentUserRole: string | null
-  user: any
-}) {
-  const primaryAction = getPrimaryAction(permit, currentUserRole, user)
-  const secondaryActions = getSecondaryActions(permit, currentUserRole, user)
-  
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Print button always available */}
-      <Link
-        href={`/permits/${permit.id}/print`}
-        target="_blank"
-        className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-      >
-        <Printer className="h-4 w-4" />
-        Print / PDF
-      </Link>
-      
-      {/* Primary action */}
-      {primaryAction}
-      
-      {/* Secondary actions in dropdown */}
-      {secondaryActions.length > 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              More
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {secondaryActions.map((action, index) => (
-              <DropdownMenuItem key={index} onClick={action.onClick}>
-                {action.icon && <action.icon className="mr-2 h-4 w-4" />}
-                {action.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
-  )
-}
-
-function getPrimaryAction(
-  permit: Permit, 
-  currentUserRole: string | null, 
-  user: any
-): React.ReactNode {
-  if ((permit.status === 'draft' && (permit.initiation_mode === 'internal' || permit.initiation_mode === 'contractor_direct'))) {
-    return (
-      <SubmitPermitButton 
-        key="submit" 
-        permitId={permit.id} 
-        permitNo={permit.permit_no} 
-      />
-    )
-  }
-  
-  if (permit.status === 'rejected' && user?.id === permit.requester?.id) {
-    return (
-      <ResubmitPermitButton 
-        key="resubmit" 
-        permitId={permit.id} 
-        permitNo={permit.permit_no} 
-      />
-    )
-  }
-  
-  return null
-}
-
-function getSecondaryActions(
-  permit: Permit, 
-  currentUserRole: string | null, 
-  user: any
-): Array<{ label: string; icon: any; onClick?: () => void }> {
-  const actions = []
-  
-  if (permit.status === 'draft' && user?.id === permit.requester?.id) {
-    actions.push({
-      label: 'Edit Permit',
-      icon: FileText,
-      onClick: () => {
-        window.location.href = `/permits/new?edit=${permit.id}`
-      }
-    })
-  }
-  
-  if (permit.status === 'rejected' && user?.id === permit.requester?.id) {
-    actions.push({
-      label: 'Revise Permit',
-      icon: FileText,
-      onClick: () => {
-        window.location.href = `/permits/new?edit=${permit.id}`
-      }
-    })
-  }
-  
-  if (permit.status === 'pending_approval' && permit.workflow_stage === 'safety_approval' && 
-      (currentUserRole === 'safety_coordinator' || currentUserRole === 'safety_manager')) {
-    actions.push({
-      label: 'Reject Permit',
-      icon: XCircle,
-    })
-  }
-  
-  if (permit.status === 'active' && (currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
-    actions.push({
-      label: 'Suspend Permit',
-      icon: PauseCircle,
-    })
-  }
-  
-  if (['draft', 'pending_approval', 'rejected', 'approved', 'issued', 'suspended'].includes(permit.status) &&
-      (user?.id === permit.requester?.id || currentUserRole === 'safety_manager' || currentUserRole === 'safety_coordinator')) {
-    actions.push({
-      label: 'Cancel Permit',
-      icon: XCircle,
-    })
-  }
-  
-  return actions
-}
 
 function WorkersList({ workers }: { workers: NonNullable<Permit['workers']> }) {
   return (
