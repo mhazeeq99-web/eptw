@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
+import { SafetyStatusPill } from '../safety-status-pill'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -651,7 +652,7 @@ function GasTestCard({
             </div>
           </div>
           
-          <GasStatusBadge status={test.status} />
+          <SafetyStatusPill status={test.status} />
         </div>
 
         {/* Location and time */}
@@ -742,10 +743,10 @@ function GasTestCard({
             <Shield className="h-5 w-5 text-green-600" />
             <div>
               <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                SAFETY VERIFIED
+                Verified
               </p>
               <p className="text-xs text-green-600 dark:text-green-400">
-                {test.verifier.full_name} ·{' '}
+                Verified by {test.verifier.full_name} ·{' '}
                 {formatDate(test.verified_at)}
               </p>
             </div>
@@ -833,40 +834,6 @@ function ResultBadge({ result }: { result: 'PASS' | 'CONDITIONAL' | 'FAIL' }) {
   )
 }
 
-function GasStatusBadge({ status }: { status: string }) {
-  const configs: Record<string, { label: string; className: string; icon: any }> = {
-    pending: {
-      label: 'Pending verification',
-      className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-      icon: AlertTriangle,
-    },
-    verified: {
-      label: 'Safety verified',
-      className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-      icon: Shield,
-    },
-    rejected: {
-      label: 'Rejected',
-      className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-      icon: XCircle,
-    },
-  }
-
-  const config = configs[status] || configs.pending
-  const Icon = config.icon
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        config.className
-      )}
-    >
-      <Icon className="h-3 w-3" />
-      {config.label}
-    </span>
-  )
-}
 
 /* =========================================================
    HELPERS

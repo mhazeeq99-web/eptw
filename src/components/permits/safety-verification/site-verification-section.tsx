@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { SafetyStatusPill } from '../safety-status-pill'
 import { 
   CheckCircle2, 
   AlertTriangle, 
@@ -200,7 +201,7 @@ export function SiteVerificationSection({
           </p>
         </div>
 
-        <SiteStatusBadge status={status} />
+        <SafetyStatusPill status={status} />
       </div>
 
       {/* Progress summary */}
@@ -332,7 +333,7 @@ export function SiteVerificationSection({
               <Shield className="h-5 w-5 text-green-600" />
               <div>
                 <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                  SITE VERIFIED
+                  Verified
                 </p>
                 <p className="text-xs text-green-600 dark:text-green-400">
                   Verified by {initialRecord.verifier?.full_name || 'Unknown'}
@@ -524,37 +525,3 @@ function StatusIcon({ status }: { status: 'ok' | 'fail' | 'na' }) {
   )
 }
 
-function SiteStatusBadge({ status }: { status: string }) {
-  const configs: Record<string, { label: string; className: string; icon: any }> = {
-    not_verified: {
-      label: 'Pending verification',
-      className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-      icon: AlertTriangle,
-    },
-    verified: {
-      label: 'Verified',
-      className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-      icon: Shield,
-    },
-    failed: {
-      label: 'Failed',
-      className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-      icon: XCircle,
-    },
-  }
-
-  const config = configs[status] || configs.not_verified
-  const Icon = config.icon
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        config.className
-      )}
-    >
-      <Icon className="h-3 w-3" />
-      {config.label}
-    </span>
-  )
-}

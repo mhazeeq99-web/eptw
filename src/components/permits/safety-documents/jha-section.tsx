@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
+import { SafetyStatusPill } from '../safety-status-pill'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -678,21 +679,15 @@ export function JhaSection({
 
         <div className="flex flex-col items-end gap-2">
           {/* Status indicator */}
-          {satisfied ? (
-            hasVerifiedJha || hasUploadedHirarc ? (
-              <Badge variant="success">
-                ✓ {hasVerifiedJha ? 'JHA Verified' : 'HIRARC Uploaded'}
-              </Badge>
-            ) : (
-              <Badge variant="info">
-                ○ Pending Safety Review
-              </Badge>
-            )
-          ) : (
-            <Badge variant="warning">
-              Incomplete
-            </Badge>
-          )}
+          <SafetyStatusPill
+            status={
+              hasVerifiedJha || hasUploadedHirarc
+                ? 'verified'
+                : satisfied
+                  ? 'completed'
+                  : 'pending'
+            }
+          />
 
           {satisfied && (
             <span className="text-xs text-muted-foreground">
@@ -1464,7 +1459,7 @@ function JhaDisplayCard({
             </Button>
           )}
 
-          <StatusBadge status={jha.status} />
+          <SafetyStatusPill status={jha.status} />
         </div>
       </div>
 
@@ -1488,7 +1483,7 @@ function JhaDisplayCard({
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <div>
               <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                VERIFIED
+                Verified
               </p>
               <p className="text-xs text-green-600 dark:text-green-400">
                 Verified by {jha.verifier.full_name} ·{' '}
@@ -1699,24 +1694,6 @@ function HirarcDocumentCard({
    HELPER FUNCTIONS
    ========================================================= */
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-    completed: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-    verified: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-    rejected: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-  }
-
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
-        styles[status] ?? 'bg-muted text-muted-foreground'
-      }`}
-    >
-      {status.replaceAll('_', ' ')}
-    </span>
-  )
-}
 
 function getHighestRisk(
   hazards: JhaHazard[],

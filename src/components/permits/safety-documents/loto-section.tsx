@@ -9,7 +9,6 @@ import {
   Zap, 
   Shield, 
   CheckCircle2, 
-  AlertTriangle,
   Plus,
   ChevronDown,
   ChevronUp,
@@ -23,6 +22,7 @@ import {
 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
+import { SafetyStatusPill } from '../safety-status-pill'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -486,7 +486,7 @@ function LotoPointCard({
           </button>
           
           <div className="flex items-center gap-2">
-            <LotoStatusBadge status={point.status} />
+            <SafetyStatusPill status={point.status} />
             {expanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             ) : (
@@ -596,7 +596,7 @@ function LotoPointCard({
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <div>
               <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                ISOLATION VERIFIED
+                Verified
               </p>
               <p className="text-xs text-green-600 dark:text-green-400">
                 Verified by {point.verifier.full_name} ·{' '}
@@ -624,40 +624,6 @@ function LotoPointCard({
    STATUS BADGE
    ========================================================= */
 
-function LotoStatusBadge({ status }: { status: string }) {
-  const configs: Record<string, { label: string; className: string; icon: any }> = {
-    pending: {
-      label: 'Pending verification',
-      className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-      icon: AlertTriangle,
-    },
-    verified: {
-      label: 'Verified',
-      className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-      icon: CheckCircle2,
-    },
-    rejected: {
-      label: 'Rejected',
-      className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-      icon: AlertTriangle,
-    },
-  }
-
-  const config = configs[status] || configs.pending
-  const Icon = config.icon
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        config.className
-      )}
-    >
-      <Icon className="h-3 w-3" />
-      {config.label}
-    </span>
-  )
-}
 
 function formatDate(value: string | null) {
   if (!value) return '—'

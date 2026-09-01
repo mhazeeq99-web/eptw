@@ -37,6 +37,7 @@ import { WorkerBriefingSection, type WorkerBriefingRecord } from '@/components/p
 import { PpeVerificationSection, type PpeVerificationItem } from '@/components/permits/safety-verification/ppe-verification-section'
 import { EmergencyArrangementsSection, type EmergencyArrangementsRecord } from '@/components/permits/safety-verification/emergency-arrangements-section'
 import { SafetyVerificationPanel } from '@/components/permits/safety-verification/safety-verification-panel'
+import { SafetyStatusPill } from '@/components/permits/safety-status-pill'
 import { SpecialisedPermitSection } from '@/components/permits/specialised/specialised-permit-section'
 import { formatDateTimeMY } from '@/lib/dates'
 import { BackButton } from '@/components/ui/back-button'
@@ -1844,9 +1845,7 @@ function Requirement({ label, required, status, permitId, controlId }: {
           </p>
         </div>
         {status && (
-          <Badge variant={isVerified ? "success" : isPending ? "warning" : "secondary"}>
-            {status.replaceAll('_', ' ')}
-          </Badge>
+          <SafetyStatusPill status={status} />
         )}
       </div>
       {isPending && permitId && controlId && (
