@@ -2,8 +2,28 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { 
+  CheckCircle2, 
+  AlertTriangle, 
+  XCircle, 
+  Clock, 
+  MapPin, 
+  Gauge, 
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  FlaskConical,
+  Timer,
+  Shield,
+  FileCheck,
+  CalendarClock
+} from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 export type GasTest = {
   id: number
@@ -45,11 +65,20 @@ type ReadingDraft = {
   result: 'PASS' | 'CONDITIONAL' | 'FAIL' | ''
 }
 
-const DEFAULT_READINGS: ReadingDraft[] = [
+const STANDARD_READINGS: ReadingDraft[] = [
   { parameter: 'O₂', reading: '', unit: '%', result: 'PASS' },
   { parameter: 'LEL', reading: '', unit: '%LEL', result: 'PASS' },
   { parameter: 'H₂S', reading: '', unit: 'ppm', result: 'PASS' },
   { parameter: 'CO', reading: '', unit: 'ppm', result: 'PASS' },
+]
+
+const ADDITIONAL_GASES = [
+  'NH₃',
+  'Cl₂',
+  'SO₂',
+  'VOC',
+  'CO₂',
+  'Other',
 ]
 
 export function GasTestSection({
@@ -67,35 +96,45 @@ export function GasTestSection({
   embedded?: boolean
   onTestsChange?: (count: number) => void
 }) {
-  // Local copy so tests added here appear immediately and the parent can
-  // reflect the count in its green tick.
   const [tests, setTests] = useState<GasTest[]>(initialTests)
+  const [showForm, setShowForm] = useState(false)
+  const [showPreviousTests, setShowPreviousTests] = useState(false)
+  const [savedFlash, setSavedFlash] = useState<string | null>(null)
 
   useEffect(() => {
     onTestsChange?.(tests.length)
   }, [tests, onTestsChange])
+  
   const router = useRouter()
 
-  const [showForm, setShowForm] = useState(false)
   const [testedAt, setTestedAt] = useState('')
   const [instrument, setInstrument] = useState('')
   const [instrumentId, setInstrumentId] = useState('')
   const [calibrationStatus, setCalibrationStatus] = useState('')
   const [testLocation, setTestLocation] = useState('')
-  const [result, setResult] = useState<
-    'PASS' | 'CONDITIONAL' | 'FAIL' | ''
-  >('PASS')
-  const [readings, setReadings] = useState<ReadingDraft[]>(
-    DEFAULT_READINGS
-  )
+  const [result, setResult] = useState<'PASS' | 'CONDITIONAL' | 'FAIL' | ''>('PASS')
+  const [readings, setReadings] = useState<ReadingDraft[]>(STANDARD_READINGS)
   const [remarks, setRemarks] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  function updateReading(
-    index: number,
-    patch: Partial<ReadingDraft>
-  ) {
+  // Sort tests by date (latest first)
+  const sortedTests = [...tests].sort((a, b) => {
+    const dateA = a.tested_at ? new Date(a.tested_at).getTime() : 0
+    const dateB = b.tested_at ? new Date(b.tested_at).getTime() : 0
+    return dateB - dateA
+  })
+
+  const latestTest = sortedTests[0]
+  const previousTests = sortedTests.slice(1)
+
+  useEffect(() => {
+    if (!savedFlash) return
+    const timer = setTimeout(() => setSavedFlash(null), 4000)
+    return () => clearTimeout(timer)
+  }, [savedFlash])
+
+  function updateReading(index: number, patch: Partial<ReadingDraft>) {
     setReadings((current) =>
       current.map((reading, i) =>
         i === index ? { ...reading, ...patch } : reading
@@ -103,10 +142,15 @@ export function GasTestSection({
     )
   }
 
-  function addReading() {
+  function addOtherGas(gas?: string) {
     setReadings((current) => [
       ...current,
-      { parameter: 'Other', reading: '', unit: '', result: '' },
+      { 
+        parameter: gas || 'Other', 
+        reading: '', 
+        unit: '', 
+        result: '' 
+      },
     ])
   }
 
@@ -167,9 +211,7 @@ export function GasTestSection({
       const res = await response.json()
 
       if (!response.ok) {
-        setError(
-          res.error || 'Unable to record gas test.'
-        )
+        setError(res.error || 'Unable to record gas test.')
         return
       }
 
@@ -179,12 +221,13 @@ export function GasTestSection({
       setCalibrationStatus('')
       setTestLocation('')
       setResult('PASS')
-      setReadings(DEFAULT_READINGS)
+      setReadings(STANDARD_READINGS)
       setRemarks('')
-            if (res?.gas_test) {
+      if (res?.gas_test) {
         setTests((current) => [...current, res.gas_test])
       }
       setShowForm(false)
+      setSavedFlash('Gas test recorded successfully')
       notifyPermitChanged()
       router.refresh()
     } catch {
@@ -196,218 +239,187 @@ export function GasTestSection({
 
   return (
     <section className={embedded ? '' : 'mt-6 rounded-xl border bg-background'}>
+      {savedFlash && (
+        <div className="flex items-center gap-2 border-b border-green-200 bg-green-50 px-6 py-3 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+          <CheckCircle2 className="h-4 w-4" />
+          {savedFlash}
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
-          <h2 className="font-semibold">Gas Testing</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Atmospheric gas test results for this permit.
-          </p>
+          <h2 className="flex items-center gap-2 font-semibold">
+            <FlaskConical className="h-5 w-5 text-blue-600" />
+            Gas Testing
+          </h2>
+          {latestTest ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Latest: {latestTest.result && <ResultBadge result={latestTest.result} />}
+              {' · '}
+              {getRelativeTime(latestTest.tested_at)}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Atmospheric gas test results for this permit.
+            </p>
+          )}
         </div>
 
         {canAdd && !showForm && (
-          <button
+          <Button
             type="button"
             onClick={() => setShowForm(true)}
-            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+            variant="outline"
+            size="sm"
           >
-            Record Test
-          </button>
+            <Plus className="mr-2 h-4 w-4" />
+            Record New Test
+          </Button>
         )}
       </div>
 
+      {/* Form */}
       {showForm && (
-        <div className="grid gap-4 border-b p-6 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-            <label className="text-sm font-medium">
-              Test Date / Time
-            </label>
-            <input
-              type="datetime-local"
-              value={testedAt}
-              onChange={(event) =>
-                setTestedAt(event.target.value)
-              }
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
-          </div>
+        <div className="space-y-6 border-b p-6">
+          {/* Test details */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              1. Test Details
+            </h3>
+            
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Test Location *
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={testLocation}
+                    onChange={(event) => setTestLocation(event.target.value)}
+                    placeholder="e.g. Manhole MH-3 entry point"
+                    className="w-full rounded-md border bg-background pl-9 pr-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Instrument</label>
-            <input
-              type="text"
-              value={instrument}
-              onChange={(event) => setInstrument(event.target.value)}
-              placeholder="e.g. Gas Detector GD-001"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Instrument ID / Serial
-            </label>
-            <input
-              type="text"
-              value={instrumentId}
-              onChange={(event) => setInstrumentId(event.target.value)}
-              placeholder="e.g. GD-001"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Calibration / Validity
-            </label>
-            <select
-              value={calibrationStatus}
-              onChange={(event) =>
-                setCalibrationStatus(event.target.value)
-              }
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Select status</option>
-              <option value="Valid">Valid</option>
-              <option value="Expired">Expired</option>
-              <option value="Unknown">Unknown</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Test Location</label>
-            <input
-              type="text"
-              value={testLocation}
-              onChange={(event) => setTestLocation(event.target.value)}
-              placeholder="e.g. Manhole MH-3 entry point"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Result</label>
-            <select
-              value={result}
-              onChange={(event) =>
-                setResult(
-                  event.target.value as
-                    | 'PASS'
-                    | 'CONDITIONAL'
-                    | 'FAIL'
-                    | ''
-                )
-              }
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="PASS">PASS</option>
-              <option value="CONDITIONAL">CONDITIONAL</option>
-              <option value="FAIL">FAIL</option>
-            </select>
-          </div>
-
-          <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-            <label className="text-sm font-medium">
-              Parameter Readings
-            </label>
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30 text-left text-muted-foreground">
-                    <th className="px-3 py-2 font-medium">Parameter</th>
-                    <th className="px-3 py-2 font-medium">Reading</th>
-                    <th className="px-3 py-2 font-medium">Unit</th>
-                    <th className="px-3 py-2 font-medium">Result</th>
-                    <th className="px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {readings.map((reading, index) => (
-                    <tr key={index} className="border-b last:border-0">
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="text"
-                          value={reading.parameter}
-                          onChange={(event) =>
-                            updateReading(index, {
-                              parameter: event.target.value,
-                            })
-                          }
-                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="number"
-                          step="any"
-                          value={reading.reading}
-                          onChange={(event) =>
-                            updateReading(index, {
-                              reading: event.target.value,
-                            })
-                          }
-                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="text"
-                          value={reading.unit}
-                          onChange={(event) =>
-                            updateReading(index, {
-                              unit: event.target.value,
-                            })
-                          }
-                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                        />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <select
-                          value={reading.result}
-                          onChange={(event) =>
-                            updateReading(index, {
-                              result: event.target.value as
-                                | 'PASS'
-                                | 'CONDITIONAL'
-                                | 'FAIL'
-                                | '',
-                            })
-                          }
-                          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                        >
-                          <option value="">—</option>
-                          <option value="PASS">PASS</option>
-                          <option value="CONDITIONAL">
-                            CONDITIONAL
-                          </option>
-                          <option value="FAIL">FAIL</option>
-                        </select>
-                      </td>
-                      <td className="px-3 py-1.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => removeReading(index)}
-                          aria-label="Remove parameter"
-                          className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Date & Time *
+                </label>
+                <div className="relative">
+                  <CalendarClock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="datetime-local"
+                    value={testedAt}
+                    onChange={(event) => setTestedAt(event.target.value)}
+                    className="w-full rounded-md border bg-background pl-9 pr-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={addReading}
-              className="mt-1 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
-            >
-              + Add Parameter
-            </button>
           </div>
 
-          <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-            <label className="text-sm font-medium">Remarks</label>
+          {/* Atmospheric readings */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              2. Atmospheric Readings
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {readings.map((reading, index) => (
+                <ReadingInputCard
+                  key={index}
+                  reading={reading}
+                  index={index}
+                  isStandard={index < 4}
+                  onChange={(patch) => updateReading(index, patch)}
+                  onRemove={() => removeReading(index)}
+                />
+              ))}
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              {ADDITIONAL_GASES.map((gas) => (
+                <Button
+                  key={gas}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addOtherGas(gas)}
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  {gas}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Instrument details */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              3. Instrument Details
+            </h3>
+            
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Instrument</label>
+                <input
+                  type="text"
+                  value={instrument}
+                  onChange={(event) => setInstrument(event.target.value)}
+                  placeholder="e.g. GasAlert MicroClip XL"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Serial No. / ID
+                </label>
+                <input
+                  type="text"
+                  value={instrumentId}
+                  onChange={(event) => setInstrumentId(event.target.value)}
+                  placeholder="e.g. GD-001"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Calibration Status
+                </label>
+                <select
+                  value={calibrationStatus}
+                  onChange={(event) => setCalibrationStatus(event.target.value)}
+                  className={cn(
+                    "w-full rounded-md border bg-background px-3 py-2 text-sm",
+                    calibrationStatus === 'Expired' && "border-red-500 text-red-600"
+                  )}
+                >
+                  <option value="">Select status</option>
+                  <option value="Valid">Valid</option>
+                  <option value="Expired">Expired</option>
+                  <option value="Unknown">Unknown</option>
+                </select>
+                {calibrationStatus === 'Expired' && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Instrument calibration expired
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Remarks */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              4. Remarks (Optional)
+            </h3>
             <textarea
               value={remarks}
               onChange={(event) => setRemarks(event.target.value)}
@@ -418,177 +430,347 @@ export function GasTestSection({
           </div>
 
           {error && (
-            <p className="text-sm text-destructive sm:col-span-2 lg:col-span-3">
-              {error}
-            </p>
+            <p className="text-sm text-destructive">{error}</p>
           )}
 
-          <div className="flex justify-end gap-2 sm:col-span-2 lg:col-span-3">
-            <button
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 setShowForm(false)
                 setError('')
               }}
-              className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
             >
               Cancel
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
               onClick={handleCreate}
               disabled={saving}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Test'}
-            </button>
+              {saving ? 'Saving...' : 'Save Gas Test'}
+            </Button>
           </div>
         </div>
       )}
 
-      <div className="divide-y">
-        {tests.length === 0 ? (
-          <p className="p-6 text-sm text-muted-foreground">
-            No gas tests have been recorded for this permit.
-          </p>
-        ) : (
-          tests.map((test) => (
-            <div key={test.id} className="p-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="font-medium">
-                    Test at {formatDate(test.tested_at)}
-                  </p>
+      {/* Latest test display */}
+      {latestTest && (
+        <GasTestCard
+          test={latestTest}
+          isLatest={true}
+          canVerify={canVerify}
+          permitId={permitId}
+        />
+      )}
 
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Tester:{' '}
-                    {test.tester?.full_name ?? 'Unknown'}
-                  </p>
-                </div>
-
-                <StatusBadge status={test.status} />
-              </div>
-
-              {(test.instrument ||
-                test.instrument_id ||
-                test.calibration_status ||
-                test.test_location) && (
-                <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
-                  {test.instrument && (
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Instrument
-                      </dt>
-                      <dd className="text-sm font-medium">
-                        {test.instrument}
-                      </dd>
-                    </div>
-                  )}
-                  {test.instrument_id && (
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Instrument ID
-                      </dt>
-                      <dd className="text-sm font-medium">
-                        {test.instrument_id}
-                      </dd>
-                    </div>
-                  )}
-                  {test.calibration_status && (
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Calibration
-                      </dt>
-                      <dd className="text-sm font-medium">
-                        {test.calibration_status}
-                      </dd>
-                    </div>
-                  )}
-                  {test.test_location && (
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Test location
-                      </dt>
-                      <dd className="text-sm font-medium">
-                        {test.test_location}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-
-              {test.readings && test.readings.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {test.readings.map((reading) => (
-                    <Reading
-                      key={reading.id}
-                      label={reading.parameter}
-                      value={reading.reading}
-                      unit={reading.unit ?? ''}
-                      result={reading.result}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Reading label="O₂" value={test.o2} unit="%" />
-                  <Reading label="LEL" value={test.lel} unit="%" />
-                  <Reading label="H₂S" value={test.h2s} unit="ppm" />
-                  <Reading label="CO" value={test.co} unit="ppm" />
-                </div>
-              )}
-
-              {test.result && (
-                <p className="mt-3 text-sm">
-                  <span className="font-medium">Result: </span>
-                  <span
-                    className={
-                      test.result === 'FAIL'
-                        ? 'font-medium text-red-600'
-                        : test.result === 'CONDITIONAL'
-                          ? 'font-medium text-yellow-600'
-                          : 'font-medium text-green-600'
-                    }
-                  >
-                    {test.result}
-                  </span>
-                </p>
-              )}
-
-              {test.remarks && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {test.remarks}
-                </p>
-              )}
-
-              {test.status === 'verified' &&
-                test.verifier && (
-                  <p className="mt-3 text-xs font-medium text-green-600">
-                    ✓ Verified by{' '}
-                    {test.verifier.full_name} ·{' '}
-                    {formatDate(test.verified_at)}
-                  </p>
-                )}
-
-              {canVerify && test.status === 'pending' && (
-                <div className="mt-4">
-                  <VerifySafetyDocButton
-                    permitId={permitId}
-                    kind="gas-test"
-                    docId={test.id}
-                  />
-                </div>
-              )}
+      {/* Previous tests */}
+      {previousTests.length > 0 && (
+        <div className="border-t">
+          <button
+            type="button"
+            onClick={() => setShowPreviousTests(!showPreviousTests)}
+            className="flex w-full items-center justify-between px-6 py-4"
+          >
+            <span className="text-sm font-medium">
+              Previous Tests ({previousTests.length})
+            </span>
+            {showPreviousTests ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+          
+          {showPreviousTests && (
+            <div className="divide-y">
+              {previousTests.map((test) => (
+                <GasTestCard
+                  key={test.id}
+                  test={test}
+                  isLatest={false}
+                  canVerify={canVerify}
+                  permitId={permitId}
+                />
+              ))}
             </div>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {tests.length === 0 && (
+        <div className="p-6 text-center">
+          <FlaskConical className="mx-auto h-12 w-12 text-gray-400" />
+          <p className="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+            No gas test recorded
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Atmospheric testing is required before work begins.
+          </p>
+          {canAdd && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => setShowForm(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Record Gas Test
+            </Button>
+          )}
+        </div>
+      )}
     </section>
   )
 }
 
-function Reading({
+/* =========================================================
+   READING INPUT CARD
+   ========================================================= */
+
+function ReadingInputCard({
+  reading,
+  index,
+  isStandard,
+  onChange,
+  onRemove,
+}: {
+  reading: ReadingDraft
+  index: number
+  isStandard: boolean
+  onChange: (patch: Partial<ReadingDraft>) => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-medium">
+          {reading.parameter}
+        </label>
+        {!isStandard && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs text-muted-foreground hover:text-destructive"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          step="any"
+          value={reading.reading}
+          onChange={(e) => onChange({ reading: e.target.value })}
+          className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+          placeholder="0.0"
+        />
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {reading.unit}
+        </span>
+      </div>
+      
+      <select
+        value={reading.result}
+        onChange={(e) => 
+          onChange({ 
+            result: e.target.value as 'PASS' | 'CONDITIONAL' | 'FAIL' | '' 
+          })
+        }
+        className={cn(
+          "mt-2 w-full rounded-md border px-2 py-1.5 text-sm",
+          reading.result === 'PASS' && "border-green-500 text-green-600",
+          reading.result === 'CONDITIONAL' && "border-yellow-500 text-yellow-600",
+          reading.result === 'FAIL' && "border-red-500 text-red-600"
+        )}
+      >
+        <option value="">—</option>
+        <option value="PASS">PASS</option>
+        <option value="CONDITIONAL">CONDITIONAL</option>
+        <option value="FAIL">FAIL</option>
+      </select>
+    </div>
+  )
+}
+
+/* =========================================================
+   GAS TEST CARD
+   ========================================================= */
+
+function GasTestCard({
+  test,
+  isLatest,
+  canVerify,
+  permitId,
+}: {
+  test: GasTest
+  isLatest: boolean
+  canVerify: boolean
+  permitId: number
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className={cn(
+      "p-6",
+      isLatest && "bg-blue-50/50 dark:bg-blue-950/20"
+    )}>
+      {/* Result banner */}
+      <div className={cn(
+        "rounded-lg border-2 p-4 mb-4",
+        test.result === 'PASS' && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30",
+        test.result === 'CONDITIONAL' && "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30",
+        test.result === 'FAIL' && "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+      )}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {test.result === 'PASS' && (
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            )}
+            {test.result === 'CONDITIONAL' && (
+              <AlertTriangle className="h-8 w-8 text-yellow-600" />
+            )}
+            {test.result === 'FAIL' && (
+              <XCircle className="h-8 w-8 text-red-600" />
+            )}
+            <div>
+              <p className="text-2xl font-bold">
+                {test.result}
+              </p>
+              {isLatest && (
+                <p className="text-xs text-muted-foreground">
+                  Latest test · {getRelativeTime(test.tested_at)}
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <GasStatusBadge status={test.status} />
+        </div>
+
+        {/* Location and time */}
+        <div className="mt-3 flex flex-col gap-1 text-sm text-muted-foreground">
+          {test.test_location && (
+            <p className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              {test.test_location}
+            </p>
+          )}
+          <p className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            {formatDate(test.tested_at)}
+          </p>
+        </div>
+      </div>
+
+      {/* Readings */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {test.readings && test.readings.length > 0 ? (
+          test.readings.map((reading) => (
+            <ReadingDisplayCard
+              key={reading.id}
+              label={reading.parameter}
+              value={reading.reading}
+              unit={reading.unit ?? ''}
+              result={reading.result}
+            />
+          ))
+        ) : (
+          <>
+            <ReadingDisplayCard label="O₂" value={test.o2} unit="%" />
+            <ReadingDisplayCard label="LEL" value={test.lel} unit="%LEL" />
+            <ReadingDisplayCard label="H₂S" value={test.h2s} unit="ppm" />
+            <ReadingDisplayCard label="CO" value={test.co} unit="ppm" />
+          </>
+        )}
+      </div>
+
+      {/* Instrument details */}
+      {(test.instrument || test.instrument_id || test.calibration_status) && (
+        <div className="mt-4 rounded-lg border p-4">
+          <h4 className="text-sm font-medium mb-2">Instrument</h4>
+          <div className="space-y-1 text-sm">
+            {test.instrument && (
+              <p className="font-medium">{test.instrument}</p>
+            )}
+            {test.instrument_id && (
+              <p className="text-xs text-muted-foreground">
+                Serial: {test.instrument_id}
+              </p>
+            )}
+            {test.calibration_status && (
+              <p className={cn(
+                "text-xs flex items-center gap-1",
+                test.calibration_status === 'Expired' 
+                  ? "text-red-600" 
+                  : "text-green-600"
+              )}>
+                {test.calibration_status === 'Expired' ? (
+                  <AlertTriangle className="h-3 w-3" />
+                ) : (
+                  <CheckCircle2 className="h-3 w-3" />
+                )}
+                Calibration {test.calibration_status.toLowerCase()}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Remarks */}
+      {test.remarks && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {test.remarks}
+        </p>
+      )}
+
+      {/* Tester info */}
+      <p className="mt-3 text-xs text-muted-foreground">
+        Tested by {test.tester?.full_name ?? 'Unknown'}
+      </p>
+
+      {/* Verification */}
+      {test.status === 'verified' && test.verifier && (
+        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/30">
+          <div className="flex items-center gap-3">
+            <Shield className="h-5 w-5 text-green-600" />
+            <div>
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                SAFETY VERIFIED
+              </p>
+              <p className="text-xs text-green-600 dark:text-green-400">
+                {test.verifier.full_name} ·{' '}
+                {formatDate(test.verified_at)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {canVerify && test.status === 'pending' && (
+        <div className="mt-4 flex justify-end">
+          <VerifySafetyDocButton
+            permitId={permitId}
+            kind="gas-test"
+            docId={test.id}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* =========================================================
+   READING DISPLAY CARD
+   ========================================================= */
+
+function ReadingDisplayCard({
   label,
   value,
   unit,
@@ -599,23 +781,34 @@ function Reading({
   unit: string
   result?: 'PASS' | 'CONDITIONAL' | 'FAIL' | null
 }) {
-  const valueClass =
-    result === 'FAIL'
-      ? 'text-red-600'
-      : result === 'CONDITIONAL'
-        ? 'text-yellow-600'
-        : ''
-
   return (
-    <div className="rounded-lg border p-3">
-      <p className="text-xs text-muted-foreground">
+    <div className={cn(
+      "rounded-lg border p-4 text-center",
+      result === 'PASS' && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20",
+      result === 'CONDITIONAL' && "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/20",
+      result === 'FAIL' && "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
+    )}>
+      <p className="text-xs font-medium text-muted-foreground mb-1">
         {label}
       </p>
-      <p className={`mt-1 text-sm font-medium ${valueClass}`}>
-        {value === null ? '—' : `${value} ${unit}`}
+      <p className="text-2xl font-bold">
+        {value === null ? '—' : value}
+        {value !== null && unit && (
+          <span className="ml-1 text-sm font-normal text-muted-foreground">
+            {unit}
+          </span>
+        )}
       </p>
       {result && (
-        <p className={`mt-0.5 text-xs font-medium uppercase ${valueClass}`}>
+        <p className={cn(
+          "mt-2 inline-flex items-center gap-1 text-xs font-medium uppercase",
+          result === 'PASS' && "text-green-600",
+          result === 'CONDITIONAL' && "text-yellow-600",
+          result === 'FAIL' && "text-red-600"
+        )}>
+          {result === 'PASS' && <CheckCircle2 className="h-3 w-3" />}
+          {result === 'CONDITIONAL' && <AlertTriangle className="h-3 w-3" />}
+          {result === 'FAIL' && <XCircle className="h-3 w-3" />}
           {result}
         </p>
       )}
@@ -623,23 +816,61 @@ function Reading({
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-    verified: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-    rejected: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-  }
+/* =========================================================
+   BADGES
+   ========================================================= */
 
+function ResultBadge({ result }: { result: 'PASS' | 'CONDITIONAL' | 'FAIL' }) {
   return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
-        styles[status] ?? 'bg-muted text-muted-foreground'
-      }`}
-    >
-      {status.replaceAll('_', ' ')}
+    <span className={cn(
+      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
+      result === 'PASS' && "bg-green-100 text-green-700",
+      result === 'CONDITIONAL' && "bg-yellow-100 text-yellow-700",
+      result === 'FAIL' && "bg-red-100 text-red-700"
+    )}>
+      {result}
     </span>
   )
 }
+
+function GasStatusBadge({ status }: { status: string }) {
+  const configs: Record<string, { label: string; className: string; icon: any }> = {
+    pending: {
+      label: 'Pending verification',
+      className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+      icon: AlertTriangle,
+    },
+    verified: {
+      label: 'Safety verified',
+      className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
+      icon: Shield,
+    },
+    rejected: {
+      label: 'Rejected',
+      className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+      icon: XCircle,
+    },
+  }
+
+  const config = configs[status] || configs.pending
+  const Icon = config.icon
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
+        config.className
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {config.label}
+    </span>
+  )
+}
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
 
 function formatDate(value: string | null) {
   if (!value) return '—'
@@ -647,4 +878,22 @@ function formatDate(value: string | null) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+function getRelativeTime(value: string | null) {
+  if (!value) return '—'
+  
+  const date = new Date(value)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMinutes = Math.floor(diffMs / 60000)
+  
+  if (diffMinutes < 1) return 'just now'
+  if (diffMinutes < 60) return `${diffMinutes} min ago`
+  
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`
+  
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`
 }
