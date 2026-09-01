@@ -3,6 +3,18 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { 
+  FileText, 
+  MapPin, 
+  Clock, 
+  Users, 
+  Shield, 
+  HardHat,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  Info
+} from 'lucide-react'
 import {
   WorkerListEditor,
   type WorkerDraft,
@@ -19,6 +31,9 @@ import {
   CsePersonnelEditor,
   type CsePersonnelDraft,
 } from '@/components/permits/specialised/cse-personnel-editor'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 type PermitType = {
   id: number
@@ -102,7 +117,6 @@ export default function EditPermitForm({
   const supabase = createClient()
 
   const [permit, setPermit] = useState<Permit | null>(null)
-
   const [permitTypes, setPermitTypes] = useState<PermitType[]>([])
   const [areas, setAreas] = useState<Area[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
@@ -146,6 +160,31 @@ export default function EditPermitForm({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [dirtyFields, setDirtyFields] = useState<Set<string>>(new Set())
+
+  // Calculate duration
+  const duration = calculateDuration(plannedStart, plannedEnd)
+
+  // Calculate completion status
+  const completionChecks = [
+    { label: 'Work Details', complete: !!workTitle.trim(), icon: FileText },
+    { label: 'Location', complete: !!workLocation.trim() || !!areaId, icon: MapPin },
+    { label: 'Schedule', complete: !!plannedStart && !!plannedEnd, icon: Clock },
+    { label: 'Personnel', complete: workers.length > 0, icon: Users },
+    { label: 'PPE', complete: selectedPpeIds.size > 0, icon: HardHat },
+    { label: 'Safety Controls', complete: safetyControls.filter(c => c.is_required).length === 0 || safetyControls.filter(c => c.is_required).every(c => recommendedControlIds.has(c.id) || c.is_required), icon: Shield },
+  ]
+
+  if (selectedPermitType && ['HOT', 'CSE', 'WAH', 'ELEC'].includes(selectedPermitType.code)) {
+    completionChecks.push({
+      label: 'Specialised Requirements',
+      complete: Object.keys(specialDetails).length > 0,
+      icon: AlertTriangle,
+    })
+  }
+
+  const completedCount = completionChecks.filter(c => c.complete).length
+  const totalChecks = completionChecks.length
 
   useEffect(() => {
     if (!permitId || Number.isNaN(permitId)) {
@@ -166,8 +205,6 @@ export default function EditPermitForm({
         return
       }
 
-      // Resolve the acting user's company so entity dropdowns are scoped to
-      // the permitted company (same as the create form).
       const { data: profileRow } = await supabase
         .from('profiles')
         .select('company_id')
@@ -196,14 +233,10 @@ export default function EditPermitForm({
         .select('id, company_name')
         .eq('is_active', true)
 
-      // Company users see only their own company's entities.
       if (companyId !== null) {
         entityQuery = entityQuery.eq('company_id', companyId)
         areasQuery = areasQuery.eq('company_id', companyId)
-        equipmentQuery = equipmentQuery.eq(
-          'company_id',
-          companyId
-        )
+        equipmentQuery = equipmentQuery.eq('company_id', companyId)
       }
 
       const [
@@ -257,186 +290,72 @@ export default function EditPermitForm({
           `)
           .eq('id', permitId)
           .single(),
-
         entityQuery.order('name'),
-
         areasQuery.order('name'),
-
         equipmentQuery.order('name'),
-
         contractorsQuery.order('company_name'),
       ])
 
       if (permitResult.error || !permitResult.data) {
-        setError(
-          permitResult.error?.message ||
-            'Permit not found'
-        )
+        setError(permitResult.error?.message || 'Permit not found')
         setLoading(false)
         return
       }
 
-      const existingPermit =
-        permitResult.data as Permit
-
-      // -----------------------------------------------------
-      // Security check in the UI
-      // Server-side API also performs this check.
-      // -----------------------------------------------------
+      const existingPermit = permitResult.data as Permit
 
       if (existingPermit.requester_id !== user.id) {
-        setError(
-          'You are not the requester of this permit.'
-        )
+        setError('You are not the requester of this permit.')
         setLoading(false)
         return
       }
 
-      if (
-        existingPermit.status !== 'draft' &&
-        existingPermit.status !== 'rejected'
-      ) {
-        setError(
-          `This permit cannot be edited while its status is ${existingPermit.status}.`
-        )
+      if (existingPermit.status !== 'draft' && existingPermit.status !== 'rejected') {
+        setError(`This permit cannot be edited while its status is ${existingPermit.status}.`)
         setLoading(false)
         return
       }
 
       setPermit(existingPermit)
+      setPermitTypeId(String(existingPermit.permit_type_id))
+      setWorkTitle(existingPermit.work_title ?? '')
+      setWorkDescription(existingPermit.work_description ?? '')
+      setWorkLocation(existingPermit.work_location ?? '')
+      setWorkMethod(existingPermit.work_method ?? '')
+      setAreaId(existingPermit.area_id ? String(existingPermit.area_id) : '')
+      setEquipmentId(existingPermit.equipment_id ? String(existingPermit.equipment_id) : '')
+      setContractorId(existingPermit.contractor_id ? String(existingPermit.contractor_id) : '')
+      setPlannedStart(formatDateTimeLocal(existingPermit.planned_start))
+      setPlannedEnd(formatDateTimeLocal(existingPermit.planned_end))
+      setWorkers((existingPermit.workers ?? []).map((worker) => ({
+        full_name: worker.full_name,
+        id_number: worker.id_number ?? '',
+        nationality: worker.nationality,
+        induction_completed: worker.induction_completed,
+      })))
+      setStaffReferenceName(existingPermit.staff_reference_name ?? '')
+      setPpeOther(existingPermit.ppe_other ?? '')
+      setSelectedPpeIds(new Set((existingPermit.permit_ppe ?? []).filter((item) => item.is_selected).map((item) => item.ppe_item_id)))
+      setRecommendedControlIds(new Set((existingPermit.recommended_controls ?? []).filter((item) => item.is_selected).map((item) => item.safety_control_id)))
+      setSpecialDetails((existingPermit.special_details ?? {}) as SpecialDetailsState)
 
-      setPermitTypeId(
-        String(existingPermit.permit_type_id)
-      )
+      const workerIds = (existingPermit.workers ?? []).map((worker) => worker.id)
+      setCsePersonnel((existingPermit.cse_personnel ?? [])
+        .map((assignment) => ({
+          worker_index: workerIds.indexOf(assignment.worker_id),
+          responsibility: assignment.responsibility as 'entry_supervisor' | 'standby_attendant' | 'authorised_entrant',
+        }))
+        .filter((item) => item.worker_index >= 0))
 
-      setWorkTitle(
-        existingPermit.work_title ?? ''
-      )
-
-      setWorkDescription(
-        existingPermit.work_description ?? ''
-      )
-
-      setWorkLocation(
-        existingPermit.work_location ?? ''
-      )
-
-      setWorkMethod(
-        existingPermit.work_method ?? ''
-      )
-
-      setAreaId(
-        existingPermit.area_id
-          ? String(existingPermit.area_id)
-          : ''
-      )
-
-      setEquipmentId(
-        existingPermit.equipment_id
-          ? String(existingPermit.equipment_id)
-          : ''
-      )
-
-      setContractorId(
-        existingPermit.contractor_id
-          ? String(existingPermit.contractor_id)
-          : ''
-      )
-
-      setPlannedStart(
-        formatDateTimeLocal(
-          existingPermit.planned_start
-        )
-      )
-
-      setPlannedEnd(
-        formatDateTimeLocal(
-          existingPermit.planned_end
-        )
-      )
-
-      setWorkers(
-        (existingPermit.workers ?? []).map(
-          (worker) => ({
-            full_name: worker.full_name,
-            id_number: worker.id_number ?? '',
-            nationality: worker.nationality,
-            induction_completed:
-              worker.induction_completed,
-          })
-        )
-      )
-
-      setStaffReferenceName(
-        existingPermit.staff_reference_name ?? ''
-      )
-
-      setPpeOther(
-        existingPermit.ppe_other ?? ''
-      )
-
-      setSelectedPpeIds(
-        new Set(
-          (existingPermit.permit_ppe ?? [])
-            .filter((item) => item.is_selected)
-            .map((item) => item.ppe_item_id)
-        )
-      )
-
-      setRecommendedControlIds(
-        new Set(
-          (existingPermit.recommended_controls ?? [])
-            .filter((item) => item.is_selected)
-            .map((item) => item.safety_control_id)
-        )
-      )
-
-      // Phase E: specialised details + CSE personnel (by worker index).
-      setSpecialDetails(
-        (existingPermit.special_details ?? {}) as SpecialDetailsState
-      )
-
-      const workerIds = (existingPermit.workers ?? []).map(
-        (worker) => worker.id
-      )
-      setCsePersonnel(
-        (existingPermit.cse_personnel ?? [])
-          .map((assignment) => ({
-            worker_index: workerIds.indexOf(assignment.worker_id),
-            responsibility: assignment.responsibility as
-              | 'entry_supervisor'
-              | 'standby_attendant'
-              | 'authorised_entrant',
-          }))
-          .filter((item) => item.worker_index >= 0)
-      )
-
-      setPermitTypes(
-        permitTypesResult.data ?? []
-      )
-
-      setAreas(
-        areasResult.data ?? []
-      )
-
-      setEquipment(
-        equipmentResult.data ?? []
-      )
-
-      setContractors(
-        contractorsResult.data ?? []
-      )
-
+      setPermitTypes(permitTypesResult.data ?? [])
+      setAreas(areasResult.data ?? [])
+      setEquipment(equipmentResult.data ?? [])
+      setContractors(contractorsResult.data ?? [])
       setLoading(false)
     }
 
     loadData()
   }, [permitId, router, supabase])
-
-  // ---------------------------------------------------------
-  // Load PPE catalogue + type recommendations + safety controls
-  // for the currently selected permit type.
-  // ---------------------------------------------------------
 
   useEffect(() => {
     if (!permitTypeId) return
@@ -444,62 +363,37 @@ export default function EditPermitForm({
     let cancelled = false
 
     async function loadTypeConfig() {
-      const [itemsResult, mappingResult, controlsResult] =
-        await Promise.all([
-          supabase
-            .from('ppe_items')
-            .select('id, category, name')
-            .eq('is_active', true)
-            .order('sort_order'),
-          supabase
-            .from('permit_type_ppe')
-            .select('ppe_item_id, requirement')
-            .eq('permit_type_id', Number(permitTypeId)),
-          supabase
-            .from('permit_type_safety_controls')
-            .select(`
-              is_required,
-              is_recommended,
-              safety_control:safety_controls (
-                id,
-                code,
-                name
-              )
-            `)
-            .eq('permit_type_id', Number(permitTypeId)),
-        ])
+      const [itemsResult, mappingResult, controlsResult] = await Promise.all([
+        supabase.from('ppe_items').select('id, category, name').eq('is_active', true).order('sort_order'),
+        supabase.from('permit_type_ppe').select('ppe_item_id, requirement').eq('permit_type_id', Number(permitTypeId)),
+        supabase.from('permit_type_safety_controls').select(`
+          is_required,
+          is_recommended,
+          safety_control:safety_controls (
+            id,
+            code,
+            name
+          )
+        `).eq('permit_type_id', Number(permitTypeId)),
+      ])
 
       if (cancelled) return
       if (itemsResult.error) return
 
-      setPpeItems(
-        (itemsResult.data ?? []).map((item) => ({
-          id: item.id,
-          category: item.category,
-          name: item.name,
-        }))
-      )
+      setPpeItems((itemsResult.data ?? []).map((item) => ({
+        id: item.id,
+        category: item.category,
+        name: item.name,
+      })))
 
-      const recommendations = new Map<
-        number,
-        'recommended' | 'required'
-      >()
+      const recommendations = new Map<number, 'recommended' | 'required'>()
       for (const mapping of mappingResult.data ?? []) {
-        if (
-          mapping.requirement === 'recommended' ||
-          mapping.requirement === 'required'
-        ) {
-          recommendations.set(
-            mapping.ppe_item_id,
-            mapping.requirement
-          )
+        if (mapping.requirement === 'recommended' || mapping.requirement === 'required') {
+          recommendations.set(mapping.ppe_item_id, mapping.requirement)
         }
       }
       setPpeRecommendations(recommendations)
 
-      // Preserve existing valid selections and automatically add required
-      // (and recommended) PPE for the selected type so a required item is
-      // never left unchecked + disabled after a permit-type change.
       setSelectedPpeIds((current) => {
         const next = new Set(current)
         for (const [ppeItemId, requirement] of recommendations) {
@@ -510,24 +404,16 @@ export default function EditPermitForm({
         return next
       })
 
-      const controls: SafetyControlRow[] = (
-        controlsResult.data ?? []
-      )
+      const controls: SafetyControlRow[] = (controlsResult.data ?? [])
         .filter((item) => item.safety_control)
         .map((item) => {
-          const control = item.safety_control as unknown as {
-            id: number
-            code: string
-            name: string
-          }
+          const control = item.safety_control as unknown as { id: number; code: string; name: string }
           return {
             id: control.id,
             code: control.code,
             name: control.name,
             is_required: Boolean(item.is_required),
-            is_recommended: Boolean(
-              item.is_recommended
-            ),
+            is_recommended: Boolean(item.is_recommended),
           }
         })
       setSafetyControls(controls)
@@ -539,98 +425,51 @@ export default function EditPermitForm({
     }
   }, [permitTypeId, supabase])
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
     setError('')
 
-    // Client-side date validation (server also enforces it).
-    if (
-      plannedStart &&
-      plannedEnd &&
-      new Date(plannedEnd) <= new Date(plannedStart)
-    ) {
-      setError(
-        'Planned End must be later than Planned Start.'
-      )
+    if (plannedStart && plannedEnd && new Date(plannedEnd) <= new Date(plannedStart)) {
+      setError('Planned End must be later than Planned Start.')
       return
     }
 
     setSaving(true)
 
     try {
-      const response = await fetch(
-        `/api/permits/${permitId}/update`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            permit_type_id: Number(permitTypeId),
-            work_title: workTitle,
-            work_description:
-              workDescription || null,
-            work_location:
-              workLocation || null,
-            area_id: areaId
-              ? Number(areaId)
-              : null,
-            equipment_id: equipmentId
-              ? Number(equipmentId)
-              : null,
-            contractor_id: contractorId
-              ? Number(contractorId)
-              : null,
-            planned_start:
-              plannedStart || null,
-            planned_end:
-              plannedEnd || null,
-            work_method:
-              workMethod.trim() || null,
-            workers: workers.map((worker) => ({
-              full_name: worker.full_name.trim(),
-              id_number: worker.id_number.trim(),
-              nationality: worker.nationality ?? null,
-              induction_completed: Boolean(
-                worker.induction_completed
-              ),
-            })),
-            staff_reference_name:
-              staffReferenceName.trim() || null,
-            ppe_other:
-              ppeOther.trim() || null,
-            ppe_item_ids: Array.from(
-              selectedPpeIds
-            ),
-            recommended_control_ids: Array.from(
-              recommendedControlIds
-            ),
-            // Phase E: specialised details + CSE personnel.
-            special_details:
-              selectedPermitType &&
-              ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
-                selectedPermitType.code
-              )
-                ? specialDetails
-                : null,
-            cse_personnel:
-              selectedPermitType?.code === 'CSE'
-                ? csePersonnel
-                : null,
-          }),
-        }
-      )
+      const response = await fetch(`/api/permits/${permitId}/update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          permit_type_id: Number(permitTypeId),
+          work_title: workTitle,
+          work_description: workDescription || null,
+          work_location: workLocation || null,
+          area_id: areaId ? Number(areaId) : null,
+          equipment_id: equipmentId ? Number(equipmentId) : null,
+          contractor_id: contractorId ? Number(contractorId) : null,
+          planned_start: plannedStart || null,
+          planned_end: plannedEnd || null,
+          work_method: workMethod.trim() || null,
+          workers: workers.map((worker) => ({
+            full_name: worker.full_name.trim(),
+            id_number: worker.id_number.trim(),
+            nationality: worker.nationality ?? null,
+            induction_completed: Boolean(worker.induction_completed),
+          })),
+          staff_reference_name: staffReferenceName.trim() || null,
+          ppe_other: ppeOther.trim() || null,
+          ppe_item_ids: Array.from(selectedPpeIds),
+          recommended_control_ids: Array.from(recommendedControlIds),
+          special_details: selectedPermitType && ['HOT', 'CSE', 'WAH', 'ELEC'].includes(selectedPermitType.code) ? specialDetails : null,
+          cse_personnel: selectedPermitType?.code === 'CSE' ? csePersonnel : null,
+        }),
+      })
 
       const result = await response.json()
 
       if (!response.ok) {
-        setError(
-          result.error ||
-            'Unable to update permit.'
-        )
+        setError(result.error || 'Unable to update permit.')
         setSaving(false)
         return
       }
@@ -638,18 +477,26 @@ export default function EditPermitForm({
       router.push(`/permits/${permitId}`)
       router.refresh()
     } catch {
-      setError(
-        'Unable to connect to the server.'
-      )
+      setError('Unable to connect to the server.')
       setSaving(false)
     }
   }
 
+  function handleCancel() {
+    if (dirtyFields.size > 0) {
+      const confirmed = window.confirm('You have unsaved changes. Leave without saving?')
+      if (!confirmed) return
+    }
+    router.push(`/permits/${permitId}`)
+  }
+
   if (loading) {
     return (
-      <p className="text-muted-foreground">
-        Loading permit...
-      </p>
+      <div className="space-y-4 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/3 dark:bg-gray-700" />
+        <div className="h-32 bg-gray-100 rounded dark:bg-gray-800" />
+        <div className="h-32 bg-gray-100 rounded dark:bg-gray-800" />
+      </div>
     )
   }
 
@@ -662,105 +509,100 @@ export default function EditPermitForm({
   }
 
   return (
-    <div className="max-w-4xl">
-
-      <div>
-        <p className="text-sm text-muted-foreground">
-          {permit.permit_no}
-        </p>
-
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          Revise Permit
-        </h1>
-
-        <p className="mt-2 text-muted-foreground">
-          Update the permit before resubmitting it
-          for approval.
-        </p>
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Completion Progress */}
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">
+            Permit Completion
+          </span>
+          <span className="text-sm text-muted-foreground">
+            {completedCount} / {totalChecks} sections complete
+          </span>
+        </div>
+        <div className="h-2 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
+          <div 
+            className={cn(
+              "h-full transition-all",
+              completedCount === totalChecks ? "bg-green-500" : "bg-blue-500"
+            )}
+            style={{ width: `${totalChecks > 0 ? Math.round((completedCount / totalChecks) * 100) : 0}%` }}
+          />
+        </div>
       </div>
 
-      {permit.status === 'rejected' && (
-        <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-          <p className="font-medium text-destructive">
-            This permit was rejected.
-          </p>
-
-          <p className="mt-1 text-sm text-destructive/80">
-            Please review the rejection remarks
-            in the permit history and make the
-            necessary corrections.
-          </p>
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      <form
-        onSubmit={handleSubmit}
-        className="mt-8 space-y-8"
-      >
-
-        {/* Permit Information */}
-        <section className="rounded-xl border bg-background p-6">
-
-          <h2 className="text-lg font-semibold">
-            Permit Information
-          </h2>
-
-          <div className="mt-6 grid gap-6 md:grid-cols-2">
-
-            <Field
-              label="Permit Type"
-              required
-            >
+      {/* ① WORK & LOCATION */}
+      <section>
+        <SectionHeader
+          number={1}
+          title="Work & Location"
+          icon={FileText}
+          description="What work will be performed and where?"
+        />
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Permit Type" required>
               <select
                 value={permitTypeId}
-                onChange={(event) =>
-                  setPermitTypeId(
-                    event.target.value
-                  )
-                }
+                onChange={(e) => {
+                  setPermitTypeId(e.target.value)
+                  setDirtyFields(prev => new Set(prev).add('permitType'))
+                }}
                 required
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
               >
-                <option value="">
-                  Select permit type
-                </option>
-
+                <option value="">Select permit type</option>
                 {permitTypes.map((type) => (
-                  <option
-                    key={type.id}
-                    value={type.id}
-                  >
-                    {type.name}
-                  </option>
+                  <option key={type.id} value={type.id}>{type.name}</option>
                 ))}
               </select>
             </Field>
 
+            <Field label="Work Title" required>
+              <input
+                type="text"
+                value={workTitle}
+                onChange={(e) => {
+                  setWorkTitle(e.target.value)
+                  setDirtyFields(prev => new Set(prev).add('workTitle'))
+                }}
+                required
+                placeholder="e.g. Maintenance of clarifier tank"
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
+              />
+            </Field>
+          </div>
+
+          <Field label="Work Description">
+            <textarea
+              value={workDescription}
+              onChange={(e) => setWorkDescription(e.target.value)}
+              rows={3}
+              placeholder="Describe the work to be performed..."
+              className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
+            />
+          </Field>
+
+          <Field label="Work Method / Sequence">
+            <textarea
+              value={workMethod}
+              onChange={(e) => setWorkMethod(e.target.value)}
+              rows={3}
+              placeholder="Briefly describe how the work will be carried out, including the main sequence of activities..."
+              className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
+            />
+          </Field>
+
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="Area">
               <select
                 value={areaId}
-                onChange={(event) =>
-                  setAreaId(event.target.value)
-                }
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                onChange={(e) => setAreaId(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
               >
-                <option value="">
-                  Select area
-                </option>
-
+                <option value="">Select area</option>
                 {areas.map((area) => (
-                  <option
-                    key={area.id}
-                    value={area.id}
-                  >
-                    {area.name}
-                  </option>
+                  <option key={area.id} value={area.id}>{area.name}</option>
                 ))}
               </select>
             </Field>
@@ -768,55 +610,91 @@ export default function EditPermitForm({
             <Field label="Equipment">
               <select
                 value={equipmentId}
-                onChange={(event) =>
-                  setEquipmentId(
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                onChange={(e) => setEquipmentId(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
               >
-                <option value="">
-                  Select equipment
-                </option>
-
+                <option value="">Select equipment</option>
                 {equipment.map((item) => (
-                  <option
-                    key={item.id}
-                    value={item.id}
-                  >
-                    {item.name}
-                    {item.equipment_no
-                      ? ` (${item.equipment_no})`
-                      : ''}
+                  <option key={item.id} value={item.id}>
+                    {item.name}{item.equipment_no ? ` (${item.equipment_no})` : ''}
                   </option>
                 ))}
               </select>
             </Field>
 
+            <Field label="Work Location">
+              <input
+                type="text"
+                value={workLocation}
+                onChange={(e) => setWorkLocation(e.target.value)}
+                placeholder="Specific location"
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
+              />
+            </Field>
+          </div>
+        </div>
+      </section>
+
+      {/* ② WORK PERIOD */}
+      <section>
+        <SectionHeader
+          number={2}
+          title="Work Period"
+          icon={Clock}
+          description="When will the work take place?"
+        />
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Planned Start" required>
+              <input
+                type="datetime-local"
+                value={plannedStart}
+                onChange={(e) => setPlannedStart(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
+              />
+            </Field>
+
+            <Field label="Planned End" required>
+              <input
+                type="datetime-local"
+                value={plannedEnd}
+                onChange={(e) => setPlannedEnd(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
+              />
+            </Field>
+          </div>
+
+          {duration && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              Duration: {duration}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ③ PERSONNEL */}
+      <section>
+        <SectionHeader
+          number={3}
+          title="Personnel"
+          icon={Users}
+          description="Who will perform the work?"
+        />
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="Contractor">
               <select
                 value={contractorId}
-                onChange={(event) =>
-                  setContractorId(
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                onChange={(e) => setContractorId(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
               >
-                <option value="">
-                  Select contractor
-                </option>
-
-                {contractors.map(
-                  (contractor) => (
-                    <option
-                      key={contractor.id}
-                      value={contractor.id}
-                    >
-                      {contractor.company_name}
-                    </option>
-                  )
-                )}
+                <option value="">No contractor (internal work)</option>
+                {contractors.map((contractor) => (
+                  <option key={contractor.id} value={contractor.id}>
+                    {contractor.company_name}
+                  </option>
+                ))}
               </select>
             </Field>
 
@@ -825,211 +703,139 @@ export default function EditPermitForm({
                 <input
                   type="text"
                   value={staffReferenceName}
-                  onChange={(event) =>
-                    setStaffReferenceName(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  onChange={(e) => setStaffReferenceName(e.target.value)}
+                  placeholder="Contractor supervisor / reference"
+                  className="w-full rounded-md border bg-background px-3 py-2.5 text-sm"
                 />
               </Field>
             )}
-
-            <div className="md:col-span-2">
-              <Field
-                label="Work Title"
-              >
-                <input
-                  type="text"
-                  value={workTitle}
-                  onChange={(event) =>
-                    setWorkTitle(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-            </div>
-
-            <div className="md:col-span-2">
-              <Field label="Work Location">
-                <input
-                  type="text"
-                  value={workLocation}
-                  onChange={(event) =>
-                    setWorkLocation(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-            </div>
-
-            <div className="md:col-span-2">
-              <Field label="Work Description">
-                <textarea
-                  value={workDescription}
-                  onChange={(event) =>
-                    setWorkDescription(
-                      event.target.value
-                    )
-                  }
-                  rows={4}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-            </div>
-
-            <div className="md:col-span-2">
-              <Field label="Work Method / Sequence">
-                <textarea
-                  value={workMethod}
-                  onChange={(event) =>
-                    setWorkMethod(
-                      event.target.value
-                    )
-                  }
-                  rows={3}
-                  placeholder="Step-by-step method / sequence of work (optional)..."
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-              </Field>
-            </div>
-
           </div>
-        </section>
 
-        {/* Workers / Authorised Personnel */}
-        <section className="rounded-xl border bg-background p-6">
-          <h2 className="text-lg font-semibold">
-            Workers / Authorised Personnel
-          </h2>
-
-          <div className="mt-6">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium">
+                Workers / Authorised Personnel
+              </p>
+              <Badge variant={workers.length > 0 ? "success" : "secondary"}>
+                {workers.length} assigned
+              </Badge>
+            </div>
             <WorkerListEditor
               mode={contractorId ? 'contractor' : 'internal'}
               initial={workers}
               onChange={setWorkers}
             />
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Safety Requirements */}
-        <section className="rounded-xl border bg-background p-6">
-          <h2 className="text-lg font-semibold">
-            Safety Requirements
-          </h2>
+      {/* ④ PPE REQUIREMENTS */}
+      <section>
+        <SectionHeader
+          number={4}
+          title="PPE Requirements"
+          icon={HardHat}
+          description="Personal protective equipment for this work"
+        />
+        <div className="mt-4">
+          <PpeSelector
+            items={ppeItems}
+            recommendationByItemId={ppeRecommendations}
+            selectedIds={selectedPpeIds}
+            onToggle={(id) => {
+              const next = new Set(selectedPpeIds)
+              if (next.has(id)) next.delete(id)
+              else next.add(id)
+              setSelectedPpeIds(next)
+            }}
+            ppeOther={ppeOther}
+            onPpeOtherChange={setPpeOther}
+          />
+        </div>
+      </section>
 
-          <p className="mt-2 text-sm text-muted-foreground">
-            Required controls are enforced before approval. Recommended
-            controls are pre-selected and can be adjusted.
-          </p>
+      {/* ⑤ SAFETY CONTROLS */}
+      <section>
+        <SectionHeader
+          number={5}
+          title="Safety Controls"
+          icon={Shield}
+          description="Required and recommended controls"
+        />
+        <div className="mt-4 space-y-3">
+          {/* Required controls */}
+          {safetyControls.filter(c => c.is_required).length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                Required — cannot be removed
+              </p>
+              <div className="space-y-2">
+                {safetyControls.filter(c => c.is_required).map((control) => (
+                  <div key={control.id} className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50/50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/20">
+                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                    <span className="flex-1 text-sm">{control.name}</span>
+                    <Badge variant="info">Required</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <div className="mt-6 grid gap-2 sm:grid-cols-2">
-            {safetyControls.map((control) => {
-              const isRequired = control.is_required
-              const isRecommended =
-                control.is_recommended && !isRequired
-              const isChecked =
-                isRequired ||
-                recommendedControlIds.has(control.id)
-              return (
-                <label
-                  key={control.id}
-                  className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    disabled={isRequired}
-                    onChange={() => {
-                      const next = new Set(
-                        recommendedControlIds
-                      )
-                      if (next.has(control.id)) {
-                        next.delete(control.id)
-                      } else {
-                        next.add(control.id)
-                      }
-                      setRecommendedControlIds(next)
-                    }}
-                    className="h-4 w-4 rounded border"
-                  />
-                  <span>{control.name}</span>
-                  {isRequired && (
-                    <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                      REQUIRED
-                    </span>
-                  )}
-                  {isRecommended && (
-                    <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      Recommended
-                    </span>
-                  )}
-                </label>
-              )
-            })}
-          </div>
-        </section>
+          {/* Recommended controls */}
+          {safetyControls.filter(c => c.is_recommended && !c.is_required).length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                Recommended
+              </p>
+              <div className="space-y-2">
+                {safetyControls.filter(c => c.is_recommended && !c.is_required).map((control) => {
+                  const isChecked = recommendedControlIds.has(control.id)
+                  return (
+                    <label key={control.id} className="flex items-center gap-3 rounded-md border px-4 py-3 cursor-pointer hover:bg-muted/50">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          const next = new Set(recommendedControlIds)
+                          if (next.has(control.id)) next.delete(control.id)
+                          else next.add(control.id)
+                          setRecommendedControlIds(next)
+                        }}
+                        className="h-4 w-4"
+                      />
+                      <span className="flex-1 text-sm">{control.name}</span>
+                      <Badge variant="secondary">Recommended</Badge>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
-        {/* PPE Requirements */}
-        <section className="rounded-xl border bg-background p-6">
-          <h2 className="text-lg font-semibold">
-            PPE Requirements
-          </h2>
-
-          <p className="mt-2 text-sm text-muted-foreground">
-            Recommended PPE is based on the permit type. Adjust the
-            selection for the specific work and hazards.
-          </p>
-
-          <div className="mt-6">
-            <PpeSelector
-              items={ppeItems}
-              recommendationByItemId={ppeRecommendations}
-              selectedIds={selectedPpeIds}
-              onToggle={(id) => {
-                const next = new Set(selectedPpeIds)
-                if (next.has(id)) {
-                  next.delete(id)
-                } else {
-                  next.add(id)
-                }
-                setSelectedPpeIds(next)
-              }}
-              ppeOther={ppeOther}
-              onPpeOtherChange={setPpeOther}
-            />
-          </div>
-        </section>
-
-        {/* Specialised Permit Details (Phase E) */}
-        {selectedPermitType &&
-          ['HOT', 'CSE', 'WAH', 'ELEC'].includes(
-            selectedPermitType.code
-          ) && (
+      {/* ⑥ SPECIALISED REQUIREMENTS */}
+      {selectedPermitType && ['HOT', 'CSE', 'WAH', 'ELEC'].includes(selectedPermitType.code) && (
+        <section>
+          <SectionHeader
+            number={6}
+            title="Specialised Requirements"
+            icon={AlertTriangle}
+            description={`Additional requirements for ${selectedPermitType.name}`}
+          />
+          <div className="mt-4">
             <SpecialisedDetailsFields
               code={selectedPermitType.code}
               value={specialDetails}
               onChange={setSpecialDetails}
             />
-          )}
+          </div>
 
-        {/* CSE Personnel Responsibilities (Phase E) */}
-        {selectedPermitType?.code === 'CSE' && (
-          <section className="rounded-xl border bg-background p-6">
-            <h2 className="text-lg font-semibold">
-              Confined Space Personnel
-            </h2>
-
-            <p className="mt-2 text-sm text-muted-foreground">
-              Permit-level responsibilities assigned from the workers
-              listed on this permit.
-            </p>
-
+          {selectedPermitType.code === 'CSE' && (
             <div className="mt-6">
+              <h3 className="text-sm font-semibold mb-3">
+                Confined Space Personnel
+              </h3>
               <CsePersonnelEditor
                 workers={workers.map((worker, index) => ({
                   index,
@@ -1039,76 +845,78 @@ export default function EditPermitForm({
                 onChange={setCsePersonnel}
               />
             </div>
-          </section>
-        )}
-
-        {/* Planned Work Period */}
-        <section className="rounded-xl border bg-background p-6">
-
-          <h2 className="text-lg font-semibold">
-            Planned Work Period
-          </h2>
-
-          <div className="mt-6 grid gap-6 md:grid-cols-2">
-
-            <Field label="Planned Start">
-              <input
-                type="datetime-local"
-                value={plannedStart}
-                onChange={(event) =>
-                  setPlannedStart(
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Planned End">
-              <input
-                type="datetime-local"
-                value={plannedEnd}
-                onChange={(event) =>
-                  setPlannedEnd(
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              />
-            </Field>
-
-          </div>
+          )}
         </section>
+      )}
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3">
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                `/permits/${permitId}`
-              )
-            }
-            disabled={saving}
-            className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving
-              ? 'Saving...'
-              : 'Save Changes'}
-          </button>
-
+      {/* Review & Actions */}
+      <section className="border-t pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Review</h2>
+          <Badge variant={completedCount === totalChecks ? "success" : "warning"}>
+            {completedCount} / {totalChecks} complete
+          </Badge>
         </div>
 
-      </form>
+        {error && (
+          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </section>
+    </form>
+  )
+}
+
+/* =========================================================
+   SECTION HEADER
+   ========================================================= */
+
+function SectionHeader({
+  number,
+  title,
+  icon: Icon,
+  description,
+}: {
+  number: number
+  title: string
+  icon: any
+  description?: string
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+        {number}
+      </div>
+      <div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Icon className="h-5 w-5 text-blue-600" />
+          {title}
+        </h2>
+        {description && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -1130,51 +938,44 @@ function Field({
     <div>
       <label className="text-sm font-medium">
         {label}
-
-        {required && (
-          <span className="ml-1 text-destructive">
-            *
-          </span>
-        )}
+        {required && <span className="ml-1 text-destructive">*</span>}
       </label>
-
-      <div className="mt-2">
-        {children}
-      </div>
+      <div className="mt-2">{children}</div>
     </div>
   )
 }
 
 /* =========================================================
-   DATE FORMATTER
+   HELPERS
    ========================================================= */
 
-function formatDateTimeLocal(
-  value: string | null
-) {
-  if (!value) {
-    return ''
-  }
-
+function formatDateTimeLocal(value: string | null) {
+  if (!value) return ''
   const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-
+  if (Number.isNaN(date.getTime())) return ''
   const year = date.getFullYear()
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, '0')
-  const day = String(
-    date.getDate()
-  ).padStart(2, '0')
-  const hours = String(
-    date.getHours()
-  ).padStart(2, '0')
-  const minutes = String(
-    date.getMinutes()
-  ).padStart(2, '0')
-
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function calculateDuration(start: string, end: string): string | null {
+  if (!start || !end) return null
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null
+  if (endDate <= startDate) return null
+  
+  const diffMs = endDate.getTime() - startDate.getTime()
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+  
+  if (diffHours === 0) return `${diffMinutes} minutes`
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''}${diffMinutes > 0 ? ` ${diffMinutes} min` : ''}`
+  
+  const diffDays = Math.floor(diffHours / 24)
+  const remainingHours = diffHours % 24
+  return `${diffDays} day${diffDays !== 1 ? 's' : ''}${remainingHours > 0 ? ` ${remainingHours} hour${remainingHours !== 1 ? 's' : ''}` : ''}`
 }
