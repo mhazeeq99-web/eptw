@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
+import { SafetyStatusPill } from '../safety-status-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -371,25 +372,8 @@ export function WorkerBriefingSection({
 
           {/* Briefing record */}
           {initialRecord?.briefed_by && (
-            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/30">
-              <div className="flex items-center gap-3">
-                <Shield className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                    BRIEFING COMPLETED
-                  </p>
-                  <p className="text-xs text-green-600 dark:text-green-400">
-                    Conducted by {initialRecord.briefer?.full_name || 'Unknown'}
-                    {initialRecord.briefer?.role ? ` · ${initialRecord.briefer.role}` : ''}
-                    {initialRecord.briefed_at
-                      ? ` · ${new Intl.DateTimeFormat('en-MY', {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        }).format(new Date(initialRecord.briefed_at))}`
-                      : ''}
-                  </p>
-                </div>
-              </div>
+            <div className="mt-4">
+              <SafetyStatusPill status="verified" />
             </div>
           )}
 

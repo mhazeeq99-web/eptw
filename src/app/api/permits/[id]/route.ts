@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermitAccess } from '@/lib/permit-access'
 
 /**
@@ -317,4 +318,135 @@ export async function GET(
   }
 
   return NextResponse.json({ permit: data })
+}
+
+/**
+ * DELETE /api/permits/[id]
+ *
+ * Deletes a permit. Only DRAFT permits may be deleted, and only by their
+ * requester (or a platform admin). All related safety-document records are
+ * cleaned up with the permit.
+ */
+export async function DELETE(
+  _request: Request,
+  {
+    params,
+  }: {
+    params: Promise<{ id: string }>
+  }
+) {
+  const { id } = await params
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    )
+  }
+
+  // Authorization is enforced in-app via requirePermitAccess (requester or
+  // platform_admin only). The actual row deletions run through the admin
+  // client because authenticated users have no DELETE RLS policy on these
+  // tables — this mirrors how other privileged writes are performed.
+  const access = await requirePermitAccess(supabase, user, id)
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.error },
+      { status: access.status }
+    )
+  }
+
+  const permit = access.data.permit
+  const profile = access.data.profile
+
+  // Only drafts may be deleted. A platform admin may delete any draft;
+  // otherwise only the requester can delete their own draft.
+  if (permit.status !== 'draft') {
+    return NextResponse.json(
+      {
+        error:
+          'Only draft permits can be deleted. This permit is not a draft.',
+      },
+      { status: 400 }
+    )
+  }
+
+  if (
+    profile.role !== 'platform_admin' &&
+    permit.requester_id !== user.id
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'Only the permit requester can delete this draft',
+      },
+      { status: 403 }
+    )
+  }
+
+  const permitId = Number(id)
+  if (!Number.isInteger(permitId) || permitId <= 0) {
+    return NextResponse.json(
+      { error: 'Invalid permit id' },
+      { status: 400 }
+    )
+  }
+
+  const admin = await createAdminClient()
+
+  const relatedTables = [
+    'permit_workers',
+    'permit_ppe',
+    'permit_safety_controls',
+    'permit_recommended_controls',
+    'permit_approvals',
+    'permit_site_verifications',
+    'permit_worker_briefings',
+    'permit_emergency_arrangements',
+    'jhas',
+    'loto_isolation_points',
+    'gas_tests',
+    'permit_cse_personnel',
+    'hirarc_documents',
+    'permit_resume_checklists',
+    'permit_completion_checklists',
+    'permit_closure_checklists',
+    'permit_attachments',
+  ]
+
+  for (const table of relatedTables) {
+    const { error } = await admin
+      .from(table as 'permit_workers')
+      .delete()
+      .eq('permit_id', permitId)
+    if (error) {
+      console.error(
+        `Failed to clean up ${table} for permit ${permitId}:`,
+        error.message
+      )
+    }
+  }
+
+  const { error: deleteError } = await admin
+    .from('permits')
+    .delete()
+    .eq('id', permitId)
+
+  if (deleteError) {
+    console.error('Failed to delete permit:', deleteError)
+    return NextResponse.json(
+      {
+        error: deleteError?.message || 'Unable to delete the permit',
+      },
+      { status: 500 }
+    )
+  }
+
+  return NextResponse.json({ success: true })
 }

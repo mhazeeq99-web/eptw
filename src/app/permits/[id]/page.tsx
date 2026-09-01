@@ -770,9 +770,6 @@ export default async function PermitDetailsPage({
           </div>
         </Card>
 
-        {/* Compact Lifecycle Indicator */}
-        <CompactLifecycle status={permit.status} />
-
         {/* Main Content with Tabs */}
         <Tabs defaultValue="overview" className="mt-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
@@ -1323,83 +1320,6 @@ function getPpeStatus(ppe: Permit['permit_ppe']): string | undefined {
   return selectedPpe[0]?.verified ? 'verified' : 'pending'
 }
 
-function CompactLifecycle({ status }: { status: string }) {
-  const stages = [
-    { label: 'Created', key: 'created' },
-    { label: 'Submitted', key: 'submitted' },
-    { label: 'Verified', key: 'verified' },
-    { label: 'Approved', key: 'approved' },
-    { label: 'Active', key: 'active' },
-  ]
-  
-  const currentStageIndex = getCurrentStageIndex(status)
-  
-  return (
-    <div className="mt-4 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between">
-        {stages.map((stage, index) => {
-          const isCompleted = index < currentStageIndex
-          const isCurrent = index === currentStageIndex
-          
-          return (
-            <div key={stage.key} className="flex items-center flex-1">
-              <div className="flex flex-col items-center">
-                <div className={cn(
-                  "h-8 w-8 rounded-full flex items-center justify-center border-2",
-                  isCompleted ? "bg-green-500 border-green-500" : 
-                  isCurrent ? "bg-blue-500 border-blue-500" : 
-                  "bg-gray-200 border-gray-300 dark:bg-gray-700 dark:border-gray-600"
-                )}>
-                  {isCompleted ? (
-                    <CheckCircle2 className="h-4 w-4 text-white" />
-                  ) : isCurrent ? (
-                    <Activity className="h-4 w-4 text-white" />
-                  ) : (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {index + 1}
-                    </span>
-                  )}
-                </div>
-                <span className={cn(
-                  "mt-1 text-xs",
-                  isCompleted || isCurrent ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
-                )}>
-                  {stage.label}
-                </span>
-              </div>
-              {index < stages.length - 1 && (
-                <div className={cn(
-                  "flex-1 h-0.5 mx-2",
-                  isCompleted ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
-                )} />
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function getCurrentStageIndex(status: string): number {
-  switch (status) {
-    case 'draft':
-      return 0
-    case 'pending_approval':
-      return 1
-    case 'approved':
-    case 'issued':
-      return 2
-    case 'active':
-      return 3
-    case 'suspended':
-    case 'completed':
-    case 'closed':
-      return 4
-    default:
-      return 0
-  }
-}
 
 
 function WorkersList({ workers }: { workers: NonNullable<Permit['workers']> }) {

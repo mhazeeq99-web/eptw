@@ -988,6 +988,15 @@ export function JhaSection({
                 )
               }
               onEdit={() => handleEdit(jha)}
+              onVerified={() =>
+                setJhas((current) =>
+                  current.map((item) =>
+                    item.id === jha.id
+                      ? { ...item, status: 'verified' as const }
+                      : item
+                  )
+                )
+              }
             />
           ))
         )}
@@ -1393,6 +1402,7 @@ function JhaDisplayCard({
   expanded,
   onToggleExpand,
   onEdit,
+  onVerified,
 }: {
   jha: Jha
   canAdd: boolean
@@ -1401,6 +1411,7 @@ function JhaDisplayCard({
   expanded: boolean
   onToggleExpand: () => void
   onEdit: () => void
+  onVerified?: () => void
 }) {
   return (
     <div className="p-6">
@@ -1489,6 +1500,7 @@ function JhaDisplayCard({
             permitId={permitId}
             kind="jha"
             docId={jha.id}
+            onVerified={onVerified}
           />
         </div>
       )}

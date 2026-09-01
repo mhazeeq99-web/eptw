@@ -1,11 +1,10 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import {
   Printer,
   FileText,
-  XCircle,
-  PauseCircle,
   ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,6 +16,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { SubmitPermitButton } from './submit-permit-button'
 import { ResubmitPermitButton } from './resubmit-permit-button'
+import { RejectPermitButton } from './reject-permit-button'
+import { SuspendPermitButton } from './suspend-permit-button'
+import { CancelPermitButton } from './cancel-permit-button'
 
 type ActionButtonsProps = {
   id: number
@@ -36,12 +38,16 @@ type Action = {
 }
 
 /**
- * Client-side permit action bar (Print / PDF + primary + secondary dropdown).
+ * Client-side permit action bar (Print / PDF + primary + secondary actions).
  *
  * Lives in a client component so event handlers (e.g. "Edit Permit" navigation)
  * are created in the browser, not passed across the server→client boundary —
  * Next.js 16 forbids passing functions as props from a Server Component to a
  * Client Component.
+ *
+ * State-changing actions (Submit, Reject, Suspend, Cancel) are rendered as
+ * dedicated buttons that handle their own prompt/confirm/API calls and success
+ * dialogs. Only navigation shortcuts (Edit / Revise) live in the "More" menu.
  */
 export function PermitActionButtons({
   id,
@@ -90,10 +96,11 @@ export function PermitActionButtons({
     currentUserRole === 'safety_manager' ||
     currentUserRole === 'safety_coordinator'
 
-  const actions: Action[] = []
+  // Navigation-only shortcuts live in the "More" menu.
+  const menuActions: Action[] = []
 
   if (status === 'draft' && isRequester) {
-    actions.push({
+    menuActions.push({
       label: 'Edit Permit',
       icon: FileText,
       onClick: () => {
@@ -103,7 +110,7 @@ export function PermitActionButtons({
   }
 
   if (status === 'rejected' && isRequester) {
-    actions.push({
+    menuActions.push({
       label: 'Revise Permit',
       icon: FileText,
       onClick: () => {
@@ -112,22 +119,31 @@ export function PermitActionButtons({
     })
   }
 
+  // State-changing action buttons rendered inline next to Print / PDF.
+  const stateActions: ReactNode[] = []
+
   if (
     status === 'pending_approval' &&
     workflowStage === 'safety_approval' &&
     isSafety
   ) {
-    actions.push({
-      label: 'Reject Permit',
-      icon: XCircle,
-    })
+    stateActions.push(
+      <RejectPermitButton
+        key="reject"
+        permitId={id}
+        permitNo={permitNo}
+      />
+    )
   }
 
   if (status === 'active' && isSafety) {
-    actions.push({
-      label: 'Suspend Permit',
-      icon: PauseCircle,
-    })
+    stateActions.push(
+      <SuspendPermitButton
+        key="suspend"
+        permitId={id}
+        permitNo={permitNo}
+      />
+    )
   }
 
   if (
@@ -136,10 +152,13 @@ export function PermitActionButtons({
     ) &&
     (isRequester || isSafety)
   ) {
-    actions.push({
-      label: 'Cancel Permit',
-      icon: XCircle,
-    })
+    stateActions.push(
+      <CancelPermitButton
+        key="cancel"
+        permitId={id}
+        permitNo={permitNo}
+      />
+    )
   }
 
   return (
@@ -156,7 +175,9 @@ export function PermitActionButtons({
 
       {primaryAction}
 
-      {actions.length > 0 && (
+      {stateActions}
+
+      {menuActions.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline">
@@ -165,7 +186,7 @@ export function PermitActionButtons({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {actions.map((action, index) => (
+            {menuActions.map((action, index) => (
               <DropdownMenuItem key={index} onClick={action.onClick}>
                 {action.icon && <action.icon className="mr-2 h-4 w-4" />}
                 {action.label}

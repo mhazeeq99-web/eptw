@@ -8,10 +8,12 @@ export function VerifySafetyDocButton({
   permitId,
   kind,
   docId,
+  onVerified,
 }: {
   permitId: number
   kind: 'jha' | 'loto' | 'gas-test'
   docId: number
+  onVerified?: () => void
 }) {
   const router = useRouter()
 
@@ -25,10 +27,6 @@ export function VerifySafetyDocButton({
   }
 
   async function handleVerify() {
-    if (!window.confirm('Verify this item?')) {
-      return
-    }
-
     setLoading(true)
     setError('')
 
@@ -56,6 +54,7 @@ export function VerifySafetyDocButton({
       }
 
       notifyPermitChanged()
+      onVerified?.()
       router.refresh()
     } catch {
       setError('Unable to verify.')

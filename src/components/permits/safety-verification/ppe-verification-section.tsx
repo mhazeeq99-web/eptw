@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
+import { SafetyStatusPill } from '../safety-status-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -369,10 +370,7 @@ function PpeItemRow({
 
       <div className="flex items-center gap-2">
         {isVerified ? (
-          <Badge variant="success">
-            <CheckCircle2 className="mr-1 h-3 w-3" />
-            Verified
-          </Badge>
+          <SafetyStatusPill status="verified" />
         ) : needsAttention ? (
           isSelected ? (
             <Badge variant="warning">
@@ -407,26 +405,17 @@ function PpeStatusBadge({
   totalRequired: number
   allVerified: boolean
 }) {
+  if (allVerified) {
+    return <SafetyStatusPill status="verified" />
+  }
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        allVerified
-          ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
       )}
     >
-      {allVerified ? (
-        <>
-          <CheckCircle2 className="h-3 w-3" />
-          Verified
-        </>
-      ) : (
-        <>
-          <AlertTriangle className="h-3 w-3" />
-          {verifiedCount}/{totalRequired} Verified
-        </>
-      )}
+      <AlertTriangle className="h-3 w-3" />
+      {verifiedCount}/{totalRequired} Verified
     </span>
   )
 }

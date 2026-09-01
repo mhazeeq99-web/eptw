@@ -413,6 +413,16 @@ export async function PATCH(
         area_id: areaId,
         equipment_id: equipmentId,
         contractor_id: contractorId,
+        planned_start:
+          typeof body.planned_start === 'string' &&
+          body.planned_start.trim()
+            ? body.planned_start
+            : null,
+        planned_end:
+          typeof body.planned_end === 'string' &&
+          body.planned_end.trim()
+            ? body.planned_end
+            : null,
         worker_name: firstWorker?.full_name ?? null,
         worker_id: firstWorker?.id_number ?? null,
         staff_reference_name:

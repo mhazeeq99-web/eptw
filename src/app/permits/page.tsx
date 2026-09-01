@@ -31,6 +31,7 @@ import { formatDateTimeMY } from '@/lib/dates'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DeleteDraftButton } from '@/components/permits/delete-draft-button'
 
 type Permit = {
   id: number
@@ -40,6 +41,7 @@ type Permit = {
   planned_start: string | null
   planned_end: string | null
   valid_until: string | null
+  requester_id: string | null
   permit_type: {
     name: string
     code: string
@@ -102,6 +104,7 @@ export default async function PermitsPage({
       planned_start,
       planned_end,
       valid_until,
+      requester_id,
 
       permit_type:permit_types!permits_permit_type_id_fkey (
         name,
@@ -488,6 +491,14 @@ export default async function PermitsPage({
                                 <FileText className="h-3.5 w-3.5" />
                                 View
                               </Link>
+                              {permit.status === 'draft' &&
+                                user?.id &&
+                                permit.requester_id === user.id && (
+                                  <DeleteDraftButton
+                                    permitId={permit.id}
+                                    permitNo={permit.permit_no}
+                                  />
+                                )}
                             </div>
                           </td>
                         </tr>
