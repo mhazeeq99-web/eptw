@@ -24,8 +24,7 @@ import {
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
-import { VerifySafetyControlButton } from '@/components/permits/verify-safety-control-button'
-import { AddSafetyControlButton } from '@/components/permits/add-safety-control-button'
+import { SafetyControlsSection } from '@/components/permits/safety-controls-section'
 import { ApplicantDeclarationConfirm } from '@/components/permits/applicant-declaration-confirm'
 import { LifecyclePanel } from '@/components/permits/lifecycle-panel'
 import { JhaSection, type Jha, type HirarcDocument } from '@/components/permits/safety-documents/jha-section'
@@ -37,7 +36,7 @@ import { WorkerBriefingSection, type WorkerBriefingRecord } from '@/components/p
 import { PpeVerificationSection, type PpeVerificationItem } from '@/components/permits/safety-verification/ppe-verification-section'
 import { EmergencyArrangementsSection, type EmergencyArrangementsRecord } from '@/components/permits/safety-verification/emergency-arrangements-section'
 import { SafetyVerificationPanel } from '@/components/permits/safety-verification/safety-verification-panel'
-import { SafetyStatusPill } from '@/components/permits/safety-status-pill'
+import { PpeRequirementsSection } from '@/components/permits/ppe-requirements-section'
 import { SpecialisedPermitSection } from '@/components/permits/specialised/specialised-permit-section'
 import { formatDateTimeMY } from '@/lib/dates'
 import { BackButton } from '@/components/ui/back-button'
@@ -874,21 +873,6 @@ export default async function PermitDetailsPage({
                   </CardContent>
                 </Card>
 
-                {/* Worker Briefing */}
-                <WorkerBriefingSection
-                  permitId={permit.id}
-                  canEdit={canPerformSafetyVerification}
-                  requiresLoto={permit.permit_type?.requires_loto ?? false}
-                  requiresGas={permit.permit_type?.requires_gas_test ?? false}
-                  initialRecord={permit.worker_briefing as WorkerBriefingRecord | null}
-                  initialWorkers={(permit.workers ?? []).map((worker) => ({
-                    id: worker.id,
-                    full_name: worker.full_name,
-                    briefed: worker.briefed,
-                    acknowledged: worker.acknowledged,
-                  }))}
-                />
-
                 {/* Specialised Permit Details */}
                 <SpecialisedPermitSection
                   permitId={permit.id}
@@ -1040,43 +1024,17 @@ export default async function PermitDetailsPage({
             )}
 
             {/* Safety Controls */}
-            <section id="controls-section" className="mt-6 rounded-xl border bg-background">
-              <div className="flex items-center justify-between border-b px-6 py-4">
-                <div>
-                  <h2 className="flex items-center gap-2 font-semibold">
-                    <Shield className="h-5 w-5 text-blue-600" />
-                    Safety Controls
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Required and selected safety controls for this permit
-                  </p>
-                </div>
-                <AddSafetyControlButton
-                  permitId={permit.id}
-                  canAdd={canPerformSafetyVerification}
-                />
-              </div>
-              <div className="p-6">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {permit.safety_controls?.length ? (
-                    permit.safety_controls.map((control) => (
-                      <Requirement
-                        key={control.id}
-                        label={control.safety_control?.name ?? 'Safety Control'}
-                        required={control.is_required}
-                        status={control.status}
-                        permitId={permit.id}
-                        controlId={control.id}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground col-span-full">
-                      No safety controls configured for this permit.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </section>
+            <SafetyControlsSection
+              permitId={permit.id}
+              controls={(permit.safety_controls ?? []).map((c) => ({
+                id: c.id,
+                is_required: c.is_required,
+                status: c.status,
+                safety_control: c.safety_control,
+              }))}
+              canVerify={canPerformSafetyVerification}
+              canAdd={canPerformSafetyVerification}
+            />
 
             {/* Recommended Controls */}
             {permit.recommended_controls &&
@@ -1107,24 +1065,14 @@ export default async function PermitDetailsPage({
               )}
 
             {/* PPE Requirements */}
-            {(permit.permit_ppe && permit.permit_ppe.length > 0) || permit.ppe_other ? (
-              <section id="ppe-section" className="mt-6 rounded-xl border bg-background">
-                <div className="flex items-center justify-between border-b px-6 py-4">
-                  <div>
-                    <h2 className="flex items-center gap-2 font-semibold">
-                      <HardHat className="h-5 w-5 text-blue-600" />
-                      PPE Requirements
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Personal protective equipment required for this work
-                    </p>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <PpeDisplay permit={permit} />
-                </div>
-              </section>
-            ) : null}
+            <PpeRequirementsSection
+              permitId={permit.id}
+              permit={{
+                permit_ppe: permit.permit_ppe,
+                ppe_other: permit.ppe_other,
+              }}
+              canVerify={canPerformSafetyVerification}
+            />
 
             {/* Site Verification */}
             {permit.permit_type?.requires_site_verification !== false && (
@@ -1157,6 +1105,25 @@ export default async function PermitDetailsPage({
                 />
               </div>
             )}
+
+            {/* Worker Briefing */}
+            {(permit.workers && permit.workers.length > 0) || permit.permit_type?.requires_worker_briefing ? (
+              <div id="briefing-section">
+                <WorkerBriefingSection
+                  permitId={permit.id}
+                  canEdit={canPerformSafetyVerification}
+                  requiresLoto={permit.permit_type?.requires_loto ?? false}
+                  requiresGas={permit.permit_type?.requires_gas_test ?? false}
+                  initialRecord={permit.worker_briefing as WorkerBriefingRecord | null}
+                  initialWorkers={(permit.workers ?? []).map((worker) => ({
+                    id: worker.id,
+                    full_name: worker.full_name,
+                    briefed: worker.briefed,
+                    acknowledged: worker.acknowledged,
+                  }))}
+                />
+              </div>
+            ) : null}
 
             {/* Safety Approval Gate — separate final section before lifecycle */}
             {permit.status === 'pending_approval' || permit.status === 'draft' ? (
@@ -1644,105 +1611,7 @@ function TimelineItem({ approval, isLast }: { approval: PermitApproval; isLast: 
   )
 }
 
-function PpeDisplay({ permit }: { permit: Permit }) {
-  const categories: string[] = []
-  const selectedPpe = (permit.permit_ppe ?? [])
-    .filter((item) => item.is_selected)
-    .filter((item) => item.ppe_item)
 
-  for (const item of selectedPpe) {
-    const category = item.ppe_item?.category ?? 'Other'
-    if (!categories.includes(category)) {
-      categories.push(category)
-    }
-  }
-
-  const requiredVerified = selectedPpe.every(
-    (item) => item.verified === true
-  )
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <SafetyStatusPill
-          status={requiredVerified ? 'verified' : 'pending'}
-        />
-      </div>
-      {categories.map((category) => (
-        <div key={category}>
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
-            {category}
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {selectedPpe
-              .filter((item) => (item.ppe_item?.category ?? 'Other') === category)
-              .map((item) => (
-                <span
-                  key={item.ppe_item_id}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                    item.verified
-                      ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
-                      : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  )}
-                >
-                  {item.ppe_item?.name}
-                  {item.verified && <CheckCircle2 className="h-3 w-3 text-green-600" />}
-                </span>
-              ))}
-          </div>
-        </div>
-      ))}
-      {permit.ppe_other && (
-        <div>
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
-            Other
-          </h4>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{permit.ppe_other}</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Requirement({ label, required, status, permitId, controlId }: {
-  label: string
-  required: boolean
-  status?: string
-  permitId?: number
-  controlId?: number
-}) {
-  const isPending = status === 'pending'
-  const isVerified = status === 'verified'
-
-  return (
-    <div className={cn(
-      "rounded-lg border p-4 transition-colors",
-      isVerified && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20",
-      isPending && "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20"
-    )}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
-          <p className={cn(
-            "mt-1 text-sm",
-            required ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"
-          )}>
-            {required ? 'Required' : 'Not required'}
-          </p>
-        </div>
-        {status && (
-          <SafetyStatusPill status={status} />
-        )}
-      </div>
-      {isPending && permitId && controlId && (
-        <div className="mt-3">
-          <VerifySafetyControlButton permitId={permitId} controlId={controlId} />
-        </div>
-      )}
-    </div>
-  )
-}
 
 function StatusBadge({ status }: { status: string }) {
   const statusConfig: Record<string, { variant: string; label: string }> = {

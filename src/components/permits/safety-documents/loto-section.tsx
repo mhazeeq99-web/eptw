@@ -590,20 +590,9 @@ function LotoPointCard({
       </div>
 
       {/* Verification */}
-      {point.status === 'verified' && point.verifier && (
-        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/30">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <div>
-              <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                Verified
-              </p>
-              <p className="text-xs text-green-600 dark:text-green-400">
-                Verified by {point.verifier.full_name} ·{' '}
-                {formatDate(point.verified_at)}
-              </p>
-            </div>
-          </div>
+      {point.status === 'verified' && (
+        <div className="mt-4">
+          <SafetyStatusPill status="verified" />
         </div>
       )}
 
