@@ -36,7 +36,8 @@ export default async function EditPermitPage({
       permit_no,
       work_title,
       status,
-      updated_at
+      updated_at,
+      rejection_reason
     `)
     .eq('id', permitId)
     .single()
