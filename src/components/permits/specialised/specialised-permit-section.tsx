@@ -220,12 +220,7 @@ export function SpecialisedPermitSection({
   }
 
   return (
-    <section className={cn(
-      "mt-6 rounded-xl border-2 bg-background",
-      isComplete
-        ? "border-green-300 dark:border-green-800"
-        : config.borderColor
-    )}>
+    <section className="mt-6 rounded-xl border bg-background">
       {savedFlash && (
         <div className="flex items-center gap-2 border-b border-green-200 bg-green-50 px-6 py-3 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
           <CheckCircle2 className="h-4 w-4" />
@@ -235,24 +230,17 @@ export function SpecialisedPermitSection({
 
       {/* Header */}
       <div className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex items-start gap-3">
-          <div className={cn(
-            "rounded-lg p-2",
-            config.iconBg
-          )}>
-            <Icon className={cn("h-6 w-6", config.color)} />
-          </div>
-          <div>
-            <h2 className="flex items-center gap-2 font-semibold text-lg">
-              {config.title}
-              {editMode && (
-                <Badge variant="warning">Editing</Badge>
-              )}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {config.description}
-            </p>
-          </div>
+        <div>
+          <h2 className="flex items-center gap-2 font-semibold">
+            <Icon className="h-5 w-5 text-blue-600" />
+            {config.title}
+            {editMode && (
+              <Badge variant="warning">Editing</Badge>
+            )}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {config.description}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">

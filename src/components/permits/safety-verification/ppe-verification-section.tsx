@@ -20,6 +20,7 @@ import {
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
 import { SafetyStatusPill } from '../safety-status-pill'
+import { SectionVerifyButton } from '../section-verify-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -158,11 +159,15 @@ export function PpeVerificationSection({
           </p>
         </div>
 
-        <PpeStatusBadge 
-          verifiedCount={verifiedCount}
-          totalRequired={totalRequired}
-          allVerified={allRequiredVerified}
-        />
+        {canEdit && (
+          <SectionVerifyButton
+            verified={allRequiredVerified}
+            onVerify={async () => {
+              await handleBulkVerify()
+              return allRequiredVerified
+            }}
+          />
+        )}
       </div>
 
       {/* Readiness summary */}
@@ -392,30 +397,3 @@ function PpeItemRow({
   )
 }
 
-/* =========================================================
-   STATUS BADGE
-   ========================================================= */
-
-function PpeStatusBadge({
-  verifiedCount,
-  totalRequired,
-  allVerified,
-}: {
-  verifiedCount: number
-  totalRequired: number
-  allVerified: boolean
-}) {
-  if (allVerified) {
-    return <SafetyStatusPill status="verified" />
-  }
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
-      )}
-    >
-      <AlertTriangle className="h-3 w-3" />
-      {verifiedCount}/{totalRequired} Verified
-    </span>
-  )
-}

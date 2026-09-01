@@ -22,6 +22,7 @@ import {
   Eye
 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
+import { SectionVerifyButton } from '../section-verify-button'
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { SafetyStatusPill } from '../safety-status-pill'
 import { cn } from '@/lib/utils'
@@ -233,6 +234,7 @@ export function JhaSection({
   const satisfied = jhas.length > 0 || hirarc.length > 0
   const hasVerifiedJha = jhas.some((jha) => jha.status === 'verified')
   const hasUploadedHirarc = hirarc.length > 0
+  const isVerified = hasVerifiedJha || hasUploadedHirarc
 
   const methodLabels: string[] = []
   if (jhas.some((jha) => jha.status === 'verified')) {
@@ -240,6 +242,33 @@ export function JhaSection({
   }
   if (hirarc.length > 0) {
     methodLabels.push('Uploaded HIRARC')
+  }
+
+  async function handleVerifyAll(): Promise<boolean> {
+    const pendingJhas = jhas.filter((jha) => jha.status === 'pending')
+    for (const jha of pendingJhas) {
+      const response = await fetch(
+        `/api/permits/${permitId}/jha/${jha.id}/verify`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'verified' }),
+        }
+      )
+      if (!response.ok) {
+        throw new Error('Unable to verify JHA')
+      }
+      setJhas((current) =>
+        current.map((item) =>
+          item.id === jha.id
+            ? { ...item, status: 'verified' as const }
+            : item
+        )
+      )
+    }
+    notifyPermitChanged()
+    router.refresh()
+    return true
   }
 
   // Track unsaved changes
@@ -681,14 +710,12 @@ export function JhaSection({
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          {/* Status indicator */}
-          <SafetyStatusPill
-            status={
-              hasVerifiedJha || hasUploadedHirarc
-                ? 'verified'
-                : 'pending'
-            }
-          />
+          {canVerify && (
+            <SectionVerifyButton
+              verified={isVerified}
+              onVerify={handleVerifyAll}
+            />
+          )}
 
           {satisfied && (
             <span className="text-xs text-muted-foreground">

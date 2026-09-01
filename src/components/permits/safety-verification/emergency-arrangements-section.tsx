@@ -22,6 +22,7 @@ import {
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
 import { SafetyStatusPill } from '../safety-status-pill'
+import { SectionVerifyButton } from '../section-verify-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -186,12 +187,15 @@ export function EmergencyArrangementsSection({
           </p>
         </div>
 
-        <EmergencyStatusBadge 
-          confirmed={confirmed}
-          allReady={allReady}
-          readyCount={readyCount}
-          totalChecks={totalChecks}
-        />
+        {canEdit && (
+          <SectionVerifyButton
+            verified={confirmed && allReady}
+            onVerify={async () => {
+              await handleConfirm()
+              return allReady
+            }}
+          />
+        )}
       </div>
 
       {/* Readiness summary */}
@@ -517,54 +521,3 @@ function EmergencyResourceCard({
   )
 }
 
-/* =========================================================
-   STATUS BADGE
-   ========================================================= */
-
-function EmergencyStatusBadge({
-  confirmed,
-  allReady,
-  readyCount,
-  totalChecks,
-}: {
-  confirmed: boolean
-  allReady: boolean
-  readyCount: number
-  totalChecks: number
-}) {
-  let config: { label: string; className: string; icon: any }
-  
-  if (confirmed) {
-    config = {
-      label: 'Confirmed',
-      className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-      icon: Shield,
-    }
-  } else if (allReady) {
-    config = {
-      label: 'Ready',
-      className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-      icon: CheckCircle2,
-    }
-  } else {
-    config = {
-      label: 'Pending',
-      className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-      icon: AlertTriangle,
-    }
-  }
-  
-  const Icon = config.icon
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        config.className
-      )}
-    >
-      <Icon className="h-3 w-3" />
-      {config.label}
-    </span>
-  )
-}
