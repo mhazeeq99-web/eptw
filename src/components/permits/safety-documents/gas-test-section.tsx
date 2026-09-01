@@ -277,17 +277,26 @@ export function GasTestSection({
           )}
         </div>
 
-        {canAdd && !showForm && (
-          <Button
-            type="button"
-            onClick={() => setShowForm(true)}
-            variant="outline"
-            size="sm"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Record New Test
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <SafetyStatusPill
+            status={
+              tests.some((t) => t.status === 'verified')
+                ? 'verified'
+                : 'pending'
+            }
+          />
+          {canAdd && !showForm && (
+            <Button
+              type="button"
+              onClick={() => setShowForm(true)}
+              variant="outline"
+              size="sm"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Record New Test
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Form */}

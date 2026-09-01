@@ -669,7 +669,10 @@ export function JhaSection({
 
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
-          <h2 className="font-semibold">JHA / HIRARC</h2>
+          <h2 className="flex items-center gap-2 font-semibold">
+            <FileText className="h-5 w-5 text-blue-600" />
+            JHA / HIRARC
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Choose one method: fill a JHA/HIRARC in the system{' '}
             <span className="font-medium">or</span> upload an
@@ -683,9 +686,7 @@ export function JhaSection({
             status={
               hasVerifiedJha || hasUploadedHirarc
                 ? 'verified'
-                : satisfied
-                  ? 'completed'
-                  : 'pending'
+                : 'pending'
             }
           />
 

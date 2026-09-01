@@ -1005,30 +1005,25 @@ export default async function PermitDetailsPage({
               />
             </div>
 
-            {(permit.permit_type?.requires_loto ||
-              permit.permit_type?.requires_gas_test) && (
-              <div className="grid gap-6 lg:grid-cols-2">
-                {permit.permit_type?.requires_loto && (
-                  <div id="loto-section">
-                    <LotoSection
-                      permitId={permit.id}
-                      canAdd={canAddSafetyDocs}
-                      canVerify={canVerifySafetyDocs}
-                      initialPoints={permit.loto_points ?? []}
-                    />
-                  </div>
-                )}
+            {permit.permit_type?.requires_loto && (
+              <div id="loto-section">
+                <LotoSection
+                  permitId={permit.id}
+                  canAdd={canAddSafetyDocs}
+                  canVerify={canVerifySafetyDocs}
+                  initialPoints={permit.loto_points ?? []}
+                />
+              </div>
+            )}
 
-                {permit.permit_type?.requires_gas_test && (
-                  <div id="gas-test-section">
-                    <GasTestSection
-                      permitId={permit.id}
-                      canAdd={canAddSafetyDocs}
-                      canVerify={canVerifySafetyDocs}
-                      initialTests={permit.gas_tests ?? []}
-                    />
-                  </div>
-                )}
+            {permit.permit_type?.requires_gas_test && (
+              <div id="gas-test-section">
+                <GasTestSection
+                  permitId={permit.id}
+                  canAdd={canAddSafetyDocs}
+                  canVerify={canVerifySafetyDocs}
+                  initialTests={permit.gas_tests ?? []}
+                />
               </div>
             )}
 

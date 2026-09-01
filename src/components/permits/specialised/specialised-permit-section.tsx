@@ -22,6 +22,7 @@ import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { SafetyStatusPill } from '../safety-status-pill'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   SpecialisedDetailsFields,
@@ -233,12 +234,7 @@ export function SpecialisedPermitSection({
       )}
 
       {/* Header */}
-      <div className={cn(
-        "flex items-center justify-between border-b px-6 py-4",
-        isComplete
-          ? "bg-green-50/50 dark:bg-green-950/20"
-          : config.bgColor
-      )}>
+      <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-start gap-3">
           <div className={cn(
             "rounded-lg p-2",
@@ -260,10 +256,8 @@ export function SpecialisedPermitSection({
         </div>
 
         <div className="flex items-center gap-2">
-          <CompletionBadge 
-            isComplete={isComplete}
-            hasDetails={hasDetails}
-            hasPersonnel={hasPersonnel}
+          <SafetyStatusPill
+            status={isComplete ? 'verified' : 'pending'}
           />
           {canEdit && !editMode && (
             <Button
@@ -313,6 +307,10 @@ export function SpecialisedPermitSection({
                   value={details}
                   onChange={setDetails}
                   disabled={false}
+                  workers={initialWorkers.map((w) => ({
+                    id: w.id,
+                    full_name: w.full_name,
+                  }))}
                 />
               )}
             </div>
@@ -482,36 +480,6 @@ function ReadOnlySummary({
         </div>
       )}
     </div>
-  )
-}
-
-/* =========================================================
-   COMPLETION BADGE
-   ========================================================= */
-
-function CompletionBadge({
-  isComplete,
-  hasDetails,
-  hasPersonnel,
-}: {
-  isComplete: boolean
-  hasDetails: boolean
-  hasPersonnel: boolean
-}) {
-  if (isComplete) {
-    return (
-      <Badge variant="success">
-        <CheckCircle2 className="mr-1 h-3 w-3" />
-        Complete
-      </Badge>
-    )
-  }
-  
-  return (
-    <Badge variant="warning">
-      <AlertTriangle className="mr-1 h-3 w-3" />
-      Incomplete
-    </Badge>
   )
 }
 

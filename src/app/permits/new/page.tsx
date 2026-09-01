@@ -2021,6 +2021,10 @@ function NewPermitWorkspace() {
                       value={specialDetails}
                       onChange={setSpecialDetails}
                       embedded
+                      workers={workers.map((w, index) => ({
+                        id: index,
+                        full_name: w.full_name,
+                      }))}
                     />
                   </CollapsibleSection>
                 )}

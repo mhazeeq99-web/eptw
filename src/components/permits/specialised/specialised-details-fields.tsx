@@ -21,6 +21,11 @@ import { Badge } from '@/components/ui/badge'
 
 export type SpecialDetailsState = Record<string, unknown>
 
+export type DetailWorkerOption = {
+  id: number
+  full_name: string
+}
+
 function FieldGroup({
   title,
   icon,
@@ -275,6 +280,55 @@ function MultiSelect({
   )
 }
 
+function PersonSelect({
+  label,
+  workers,
+  value,
+  onChange,
+  disabled,
+  description,
+}: {
+  label: string
+  workers: DetailWorkerOption[]
+  value: string
+  onChange: (value: string | null) => void
+  disabled?: boolean
+  description?: string
+}) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        {description && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {description}
+          </p>
+        )}
+      </div>
+
+      <select
+        disabled={disabled}
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value || null)
+        }
+        className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="">
+          {workers.length > 0
+            ? 'Select a worker...'
+            : 'No workers listed on this permit'}
+        </option>
+        {workers.map((worker) => (
+          <option key={worker.id} value={worker.full_name}>
+            {worker.full_name}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function TextField({
   label,
   value,
@@ -370,6 +424,7 @@ export function SpecialisedDetailsFields({
   onChange,
   disabled,
   embedded,
+  workers = [],
 }: {
   code: string | null
   value: SpecialDetailsState
@@ -377,6 +432,8 @@ export function SpecialisedDetailsFields({
   disabled?: boolean
   /** Render without the outer card so the parent can wrap it in a section. */
   embedded?: boolean
+  /** Workers on the permit, used to select assigned personnel (e.g. fire watch). */
+  workers?: DetailWorkerOption[]
 }) {
   if (!code) return null
 
@@ -494,12 +551,13 @@ export function SpecialisedDetailsFields({
           </div>
 
           {value.fire_watch_required === true && (
-            <TextField
+            <PersonSelect
               label="Fire Watch Person"
+              workers={workers}
               value={str(value.fire_watch_person)}
               disabled={disabled}
-              placeholder="Name of the fire watch person"
-              onChange={(text) => update({ fire_watch_person: text })}
+              description="Assign a fire watch from the workers listed on this permit."
+              onChange={(name) => update({ fire_watch_person: name })}
             />
           )}
 
