@@ -18,7 +18,6 @@ import { PERMIT_CHANGED_EVENT } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
 export type ReadinessItemData = {
   key: string
@@ -53,7 +52,6 @@ export function SafetyVerificationPanel({
   const [approving, setApproving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [showAllItems, setShowAllItems] = useState(false)
 
   async function loadReadiness() {
     setLoading(true)
@@ -131,32 +129,8 @@ export function SafetyVerificationPanel({
     }
   }
 
-  const displayItems = items.filter(
-    (item) => item.status !== 'not_required'
-  )
-  
-  const completeItems = displayItems.filter(
-    (item) => item.status === 'complete'
-  )
-  
-  const incompleteItems = displayItems.filter(
-    (item) => item.status === 'incomplete'
-  )
-  
-  const failedItems = displayItems.filter(
-    (item) => item.status === 'failed'
-  )
-  
-  const blockingItems = displayItems.filter(
-    (item) => item.required && (item.status === 'incomplete' || item.status === 'failed')
-  )
-  
-  const totalRequired = displayItems.filter(item => item.required).length
-  const completedRequired = displayItems.filter(
-    item => item.required && item.status === 'complete'
-  ).length
-
-  const scrollToSection = (sectionId: string) => {
+  const scrollToSection = (sectionId: string | undefined) => {
+    if (!sectionId) return
     const element = document.getElementById(sectionId)
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -167,6 +141,23 @@ export function SafetyVerificationPanel({
       }, 2000)
     }
   }
+
+  const displayItems = items.filter(
+    (item) => item.status !== 'not_required'
+  )
+  
+  const completeItems = displayItems.filter(
+    (item) => item.status === 'complete'
+  )
+  
+  const blockingItems = displayItems.filter(
+    (item) => item.required && (item.status === 'incomplete' || item.status === 'failed')
+  )
+  
+  const totalRequired = displayItems.filter(item => item.required).length
+  const completedRequired = displayItems.filter(
+    item => item.required && item.status === 'complete'
+  ).length
 
   return (
     <section className="mt-6 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-background">
@@ -293,7 +284,7 @@ export function SafetyVerificationPanel({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => scrollToSection(item.sectionId!)}
+                              onClick={() => scrollToSection(item.sectionId)}
                               className="shrink-0"
                             >
                               Review
