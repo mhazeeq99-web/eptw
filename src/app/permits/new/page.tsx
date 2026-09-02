@@ -1171,6 +1171,18 @@ function NewPermitWorkspace() {
       return
     }
 
+    // Planned start/end are required to submit a permit.
+    if (mode === 'submit' && (!plannedStart || !plannedEnd)) {
+      setSubmissionErrors([
+        {
+          field: 'work-period',
+          message:
+            'Planned Start and Planned End are required before submitting the permit.',
+        },
+      ])
+      return
+    }
+
     // For submit mode only, run a quick client-side pre-check for the
     // obvious submission requirements so the user gets immediate feedback.
     // The server-side validator remains authoritative.
@@ -1872,14 +1884,14 @@ function NewPermitWorkspace() {
               <CollapsibleSection
                 id="work-period"
                 title="Work Period"
-                description="Optional planned start and end for the work window."
+                description="Required — the planned start and end for the work window."
                 icon={Calendar}
                 isOpen={openSections.has('work-period')}
                 onToggle={() => toggleSection('work-period')}
                 isComplete={!!plannedStart && !!plannedEnd}
               >
                 <div className="grid gap-6 sm:grid-cols-2">
-                  <Field label="Planned Start" icon={Calendar}>
+                  <Field label="Planned Start" icon={Calendar} required>
                     <input
                       type="datetime-local"
                       value={plannedStart}
@@ -1892,7 +1904,7 @@ function NewPermitWorkspace() {
                     />
                   </Field>
 
-                  <Field label="Planned End" icon={Calendar}>
+                  <Field label="Planned End" icon={Calendar} required>
                     <input
                       type="datetime-local"
                       value={plannedEnd}

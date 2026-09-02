@@ -19,10 +19,9 @@ export type SubmissionError = {
 }
 
 /**
- * Validates the planned work period. Both dates are optional; when only one
- * is present we require the other to be entered too, and when both are
- * present we require end strictly after start. The window is never silently
- * swapped.
+ * Validates the planned work period. Both dates are REQUIRED for a permit to
+ * be submitted (handed to the Safety Officer). When both are present, the end
+ * must be strictly after the start. The window is never silently swapped.
  */
 export function validateWorkPeriod(
   plannedStart: string | null | undefined,
@@ -33,34 +32,22 @@ export function validateWorkPeriod(
   const start = plannedStart ? new Date(plannedStart) : null
   const end = plannedEnd ? new Date(plannedEnd) : null
 
-  if (start && Number.isNaN(start.getTime())) {
+  if (!start || Number.isNaN(start.getTime())) {
     errors.push({
       field: 'planned_start',
-      message: 'Planned Start is not a valid date.',
+      message: 'Planned Start is required.',
     })
   }
-  if (end && Number.isNaN(end.getTime())) {
+  if (!end || Number.isNaN(end.getTime())) {
     errors.push({
       field: 'planned_end',
-      message: 'Planned End is not a valid date.',
+      message: 'Planned End is required.',
     })
   }
 
   const startValid = start && !Number.isNaN(start.getTime())
   const endValid = end && !Number.isNaN(end.getTime())
 
-  if (startValid && !endValid) {
-    errors.push({
-      field: 'planned_end',
-      message: 'Planned End is required when Planned Start is set.',
-    })
-  }
-  if (!startValid && endValid) {
-    errors.push({
-      field: 'planned_start',
-      message: 'Planned Start is required when Planned End is set.',
-    })
-  }
   if (
     startValid &&
     endValid &&
