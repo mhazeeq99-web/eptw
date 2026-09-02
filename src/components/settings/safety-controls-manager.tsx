@@ -384,67 +384,7 @@ export function SafetyControlsManager() {
         </div>
       </section>
 
-      {/* Control requirements for selected type */}
-      {selectedTypeId !== null && (
-        <section className="rounded-xl border bg-background">
-          <div className="border-b px-6 py-4">
-            <h2 className="font-semibold">
-              Required Controls —{' '}
-              {permitTypes.find((type) => type.id === selectedTypeId)
-                ?.name ?? 'Selected type'}
-            </h2>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Toggle which safety controls must be verified before
-              this permit type can be approved.
-            </p>
-          </div>
-
-          <div className="divide-y">
-            {controls.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground">
-                No safety controls exist yet. Create one below.
-              </p>
-            ) : (
-              controls.map((control) => {
-                const isRequired = requiredControlIds.has(control.id)
-
-                return (
-                  <div
-                    key={control.id}
-                    className="flex items-center justify-between p-4"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">
-                        {control.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {control.category ?? 'General'}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 text-sm">
-                        <Switch
-                          checked={isRequired}
-                          disabled={!control.is_active}
-                          onCheckedChange={(value) =>
-                            toggleRequired(control, value)
-                          }
-                          label={`${control.name} required`}
-                        />
-                        Required
-                      </label>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Safety controls catalog */}
+      {/* Merged Safety Controls: catalogue + required toggle in one table */}
       <section className="overflow-hidden rounded-xl border bg-background">
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div className="flex items-center gap-3">
@@ -452,8 +392,13 @@ export function SafetyControlsManager() {
             <div>
               <h2 className="font-semibold">Safety Controls</h2>
               <p className="text-sm text-muted-foreground">
-                The library of safety controls available to permit
-                types.
+                The library of safety controls. Use{' '}
+                {selectedTypeId !== null
+                  ? permitTypes.find((type) => type.id === selectedTypeId)
+                      ?.name ?? 'the selected permit type'
+                  : 'the selected permit type'}{' '}
+                Required toggle to decide which controls must be
+                verified before that permit type can be approved.
               </p>
             </div>
           </div>
@@ -531,51 +476,89 @@ export function SafetyControlsManager() {
                   <th className="px-6 py-3 text-left font-medium">Name</th>
                   <th className="px-6 py-3 text-left font-medium">Category</th>
                   <th className="px-6 py-3 text-left font-medium">Status</th>
+                  <th className="px-6 py-3 text-left font-medium">
+                    Required
+                    {selectedTypeId !== null
+                      ? ` — ${
+                          permitTypes.find(
+                            (type) => type.id === selectedTypeId
+                          )?.name ?? 'Selected type'
+                        }`
+                      : ''}
+                  </th>
                   <th className="px-6 py-3 text-right font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {controls.map((control) => (
-                  <tr key={control.id} className="hover:bg-muted/40">
-                    <td className="px-6 py-4 font-medium">{control.name}</td>
-                    <td className="px-6 py-4">{control.category ?? '—'}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
-                          control.is_active
-                            ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {control.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => toggleControl(control)}
-                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                {controls.map((control) => {
+                  const isRequired = requiredControlIds.has(control.id)
+                  return (
+                    <tr key={control.id} className="hover:bg-muted/40">
+                      <td className="px-6 py-4 font-medium">
+                        {control.name}
+                      </td>
+                      <td className="px-6 py-4">
+                        {control.category ?? '—'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium uppercase ${
+                            control.is_active
+                              ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
                         >
-                          {control.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
-
-                        {!control.is_system && (
+                          {control.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {selectedTypeId !== null ? (
+                          <label className="flex items-center gap-2 text-sm">
+                            <Switch
+                              checked={isRequired}
+                              disabled={!control.is_active}
+                              onCheckedChange={(value) =>
+                                toggleRequired(control, value)
+                              }
+                              label={`${control.name} required`}
+                            />
+                            Required
+                          </label>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            Select a permit type
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              deleteSafetyControl(control)
-                            }
-                            title="Delete this safety control"
-                            className="rounded-md border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                            onClick={() => toggleControl(control)}
+                            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
                           >
-                            Delete
+                            {control.is_active
+                              ? 'Deactivate'
+                              : 'Activate'}
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+
+                          {!control.is_system && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                deleteSafetyControl(control)
+                              }
+                              title="Delete this safety control"
+                              className="rounded-md border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
