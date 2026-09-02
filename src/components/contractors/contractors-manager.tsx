@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Users } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Users, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SearchableCombobox } from '@/components/company/searchable-combobox'
 import type { ComboboxOption } from '@/components/company/searchable-combobox'
+
+const PAGE_SIZE = 10
 
 type Contractor = {
   id: number
@@ -43,6 +45,20 @@ export function ContractorsManager() {
   const [authorizing, setAuthorizing] = useState(false)
   const [panelError, setPanelError] = useState('')
   const [panelSuccess, setPanelSuccess] = useState('')
+  const [page, setPage] = useState(1)
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(contractors.length / PAGE_SIZE)
+  )
+  const pageContractors = useMemo(() => {
+    const from = (page - 1) * PAGE_SIZE
+    return contractors.slice(from, from + PAGE_SIZE)
+  }, [contractors, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [contractors.length])
 
   const isAdmin =
     viewerRole === 'safety_manager' ||
@@ -359,7 +375,7 @@ export function ContractorsManager() {
               </thead>
 
               <tbody className="divide-y">
-                {contractors.map((contractor) => (
+                {pageContractors.map((contractor) => (
                   <tr
                     key={contractor.id}
                     className="hover:bg-muted/40"
@@ -433,6 +449,42 @@ export function ContractorsManager() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {contractors.length > PAGE_SIZE && (
+          <div className="flex flex-col gap-3 border-t px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {contractors.length} contractor
+              {contractors.length === 1 ? '' : 's'}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Prev
+              </button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() =>
+                  setPage((p) => Math.min(totalPages, p + 1))
+                }
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>

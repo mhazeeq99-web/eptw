@@ -26,6 +26,9 @@ import { StatusBadge, formatDate, getExpiryState } from '@/components/permits/st
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Pagination } from '@/components/ui/pagination'
+import { parsePage, pageHref, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
+import type { PostgrestFilterBuilder } from '@supabase/supabase-js'
 
 type Permit = {
   id: number
@@ -50,6 +53,7 @@ type SearchParams = {
   requester?: string
   date_from?: string
   date_to?: string
+  page?: string
 }
 
 export default async function ActivePermitsPage({
@@ -75,9 +79,87 @@ export default async function ActivePermitsPage({
   // Active permits (optionally expiring soon / expired)
   // ---------------------------------------------------------
 
-  let query = supabase
-    .from('permits')
-    .select(`
+  const page = parsePage(params.page)
+  const pageSize = DEFAULT_PAGE_SIZE
+
+  // Shared filter chain (permission scope + query params), applied identically
+  // to the head-count query and the page query so `total` and the slice agree.
+  const applyPermitFilters = (
+    query: PostgrestFilterBuilder<any, any, any, any>
+  ): PostgrestFilterBuilder<any, any, any, any> => {
+    let q = query
+
+    if (!scope.isPlatformAdmin) {
+      if (scope.companyId !== null) {
+        q = q.eq('company_id', scope.companyId)
+      } else if (scope.contractorId !== null) {
+        q = q.eq('contractor_id', scope.contractorId)
+      }
+    }
+
+    if (params.q) {
+      q = q.or(
+        `permit_no.ilike.%${escapeLike(params.q)}%,work_title.ilike.%${escapeLike(params.q)}%`
+      )
+    }
+
+    if (params.permit_type_id) {
+      q = q.eq('permit_type_id', Number(params.permit_type_id))
+    }
+
+    if (params.area_id) {
+      q = q.eq('area_id', Number(params.area_id))
+    }
+
+    if (params.contractor_id) {
+      q = q.eq('contractor_id', Number(params.contractor_id))
+    }
+
+    if (params.requester) {
+      q = q.filter(
+        'requester.full_name',
+        'ilike',
+        `%${escapeLike(params.requester)}%`
+      )
+    }
+
+    if (params.date_from) {
+      q = q.gte('actual_start', `${params.date_from}T00:00:00`)
+    }
+
+    if (params.date_to) {
+      q = q.lte('actual_start', `${params.date_to}T23:59:59`)
+    }
+
+    return q
+  }
+
+  // Head-count query: total rows matching the filters (no rows fetched).
+  const countQuery = applyPermitFilters(
+    supabase
+      .from('permits')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active')
+  )
+
+  const { count, error: countError } = await countQuery
+
+  if (countError) {
+    console.error('Failed to count active permits:', countError)
+  }
+
+  const total = count ?? 0
+
+  // Page query: same filters, ordered, restricted to the current page slice.
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const from = (currentPage - 1) * pageSize
+  const to = from + pageSize - 1
+
+  const query = applyPermitFilters(
+    supabase
+      .from('permits')
+      .select(`
       id,
       permit_no,
       work_title,
@@ -107,51 +189,10 @@ export default async function ActivePermitsPage({
         full_name
       )
     `)
-    .eq('status', 'active')
-
-  if (!scope.isPlatformAdmin) {
-    if (scope.companyId !== null) {
-      query = query.eq('company_id', scope.companyId)
-    } else if (scope.contractorId !== null) {
-      query = query.eq('contractor_id', scope.contractorId)
-    }
-  }
-
-  if (params.q) {
-    query = query.or(
-      `permit_no.ilike.%${escapeLike(params.q)}%,work_title.ilike.%${escapeLike(params.q)}%`
-    )
-  }
-
-  if (params.permit_type_id) {
-    query = query.eq('permit_type_id', Number(params.permit_type_id))
-  }
-
-  if (params.area_id) {
-    query = query.eq('area_id', Number(params.area_id))
-  }
-
-  if (params.contractor_id) {
-    query = query.eq('contractor_id', Number(params.contractor_id))
-  }
-
-  if (params.requester) {
-    query = query.filter(
-      'requester.full_name',
-      'ilike',
-      `%${escapeLike(params.requester)}%`
-    )
-  }
-
-  if (params.date_from) {
-    query = query.gte('actual_start', `${params.date_from}T00:00:00`)
-  }
-
-  if (params.date_to) {
-    query = query.lte('actual_start', `${params.date_to}T23:59:59`)
-  }
-
-  query = query.order('actual_start', { ascending: false })
+      .eq('status', 'active')
+  )
+    .order('actual_start', { ascending: false })
+    .range(from, to)
 
   const { data, error } = await query
 
@@ -187,7 +228,11 @@ export default async function ActivePermitsPage({
         .order('company_name'),
     ])
 
-  const activeCount = permits.length
+  // `activeCount` reflects the full filtered set via the head-count query;
+  // the expiring/expired counts are computed from the current page slice
+  // because expiry state is derived client-side and all rows are no longer
+  // fetched.
+  const activeCount = total
   const expiringCount = permits.filter(
     (permit) =>
       getExpiryState(
@@ -311,7 +356,7 @@ export default async function ActivePermitsPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="max-h-[600px]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
@@ -439,6 +484,14 @@ export default async function ActivePermitsPage({
                   </table>
                 </div>
               </ScrollArea>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                buildHref={(p) => pageHref('/permits/active', params, p)}
+                totalItems={total}
+                pageSize={pageSize}
+              />
             </CardContent>
           </Card>
         )}

@@ -23,9 +23,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { Pagination } from '@/components/ui/pagination'
+import { DeleteDraftButton } from '@/components/permits/delete-draft-button'
+import { DEFAULT_PAGE_SIZE, pageHref, parsePage } from '@/lib/pagination'
 
 type Permit = {
   id: number
+  requester_id: string | null
   permit_no: string
   work_title: string
   status: string
@@ -43,7 +47,11 @@ type Permit = {
 
 type ColorKey = 'blue' | 'green' | 'yellow' | 'purple'
 
-export default async function MyPermitsPage() {
+export default async function MyPermitsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const supabase = await createClient()
 
   const {
@@ -54,6 +62,29 @@ export default async function MyPermitsPage() {
     return null
   }
 
+  const { page: rawPage } = await searchParams
+  const page = parsePage(rawPage)
+  const pageSize = DEFAULT_PAGE_SIZE
+
+  // Head count for pagination totals (same filters as the slice query)
+  const { count, error: countError } = await supabase
+    .from('permits')
+    .select('id', { count: 'exact', head: true })
+    .eq('requester_id', user.id)
+
+  if (countError) {
+    console.error(
+      'Failed to count my permits:',
+      countError
+    )
+  }
+
+  const total = count ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const from = (currentPage - 1) * pageSize
+  const to = currentPage * pageSize - 1
+
   const { data, error } = await supabase
     .from('permits')
     .select(`
@@ -61,6 +92,7 @@ export default async function MyPermitsPage() {
       permit_no,
       work_title,
       status,
+      requester_id,
       planned_start,
       planned_end,
 
@@ -76,6 +108,7 @@ export default async function MyPermitsPage() {
     `)
     .eq('requester_id', user.id)
     .order('created_at', { ascending: false })
+    .range(from, to)
 
   if (error) {
     console.error(
@@ -89,7 +122,7 @@ export default async function MyPermitsPage() {
 
   // Calculate statistics
   const stats = {
-    total: permits.length,
+    total,
     active: permits.filter(p => p.status === 'active').length,
     pending: permits.filter(p => p.status === 'pending_approval' || p.status === 'submitted').length,
     completed: permits.filter(p => p.status === 'completed' || p.status === 'closed').length,
@@ -192,6 +225,7 @@ export default async function MyPermitsPage() {
                 icon={Activity}
                 iconColor="text-green-600 dark:text-green-400"
                 permits={activePermits}
+                userId={user.id}
               />
             )}
 
@@ -203,6 +237,7 @@ export default async function MyPermitsPage() {
                 icon={Clock}
                 iconColor="text-yellow-600 dark:text-yellow-400"
                 permits={pendingPermits}
+                userId={user.id}
               />
             )}
 
@@ -214,6 +249,7 @@ export default async function MyPermitsPage() {
                 icon={FileText}
                 iconColor="text-gray-600 dark:text-gray-400"
                 permits={draftPermits}
+                userId={user.id}
               />
             )}
 
@@ -225,10 +261,20 @@ export default async function MyPermitsPage() {
                 icon={CheckCircle2}
                 iconColor="text-purple-600 dark:text-purple-400"
                 permits={completedPermits}
+                userId={user.id}
               />
             )}
           </div>
         )}
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          buildHref={(p) => pageHref('/permits/mine', {}, p)}
+          totalItems={total}
+          pageSize={pageSize}
+        />
 
         {/* Help Note */}
         {permits.length > 0 && (
@@ -279,13 +325,15 @@ function PermitSection({
   description, 
   icon: Icon, 
   iconColor,
-  permits 
+  permits,
+  userId
 }: { 
   title: string
   description: string
   icon: any
   iconColor: string
-  permits: Permit[] 
+  permits: Permit[]
+  userId: string
 }) {
   return (
     <Card>
@@ -304,40 +352,49 @@ function PermitSection({
       <CardContent className="p-0">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {permits.map((permit) => (
-            <Link
-              key={permit.id}
-              href={`/permits/${permit.id}`}
-              className="group flex items-center justify-between p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
-            >
-              <div className="flex flex-1 items-center gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-blue-600 group-hover:underline dark:text-blue-400">
-                      {permit.permit_no}
+            <div key={permit.id} className="flex items-center">
+              <Link
+                href={`/permits/${permit.id}`}
+                className="group flex flex-1 items-center justify-between p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              >
+                <div className="flex flex-1 items-center gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-blue-600 group-hover:underline dark:text-blue-400">
+                        {permit.permit_no}
+                      </p>
+                      <StatusBadge status={permit.status} />
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {permit.work_title}
                     </p>
-                    <StatusBadge status={permit.status} />
-                  </div>
-                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {permit.work_title}
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {permit.planned_start ? formatDate(permit.planned_start) : 'No date'}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {permit.area?.name ?? 'No area'}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Wrench className="h-3 w-3" />
-                      {permit.permit_type?.name ?? 'No type'}
-                    </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {permit.planned_start ? formatDate(permit.planned_start) : 'No date'}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {permit.area?.name ?? 'No area'}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Wrench className="h-3 w-3" />
+                        {permit.permit_type?.name ?? 'No type'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
-            </Link>
+                <ChevronRight className="h-5 w-5 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+              </Link>
+              {permit.status === 'draft' && permit.requester_id === userId && (
+                <div className="shrink-0 pr-4">
+                  <DeleteDraftButton
+                    permitId={permit.id}
+                    permitNo={permit.permit_no}
+                  />
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </CardContent>

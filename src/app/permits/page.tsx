@@ -32,6 +32,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DeleteDraftButton } from '@/components/permits/delete-draft-button'
+import { Pagination } from '@/components/ui/pagination'
+import { parsePage, DEFAULT_PAGE_SIZE, pageHref } from '@/lib/pagination'
 
 type Permit = {
   id: number
@@ -65,6 +67,7 @@ type SearchParams = {
   date_from?: string
   date_to?: string
   expiry?: string
+  page?: string
 }
 
 export default async function PermitsPage({
@@ -94,36 +97,38 @@ export default async function PermitsPage({
   // Build the permit query with server-side filters
   // ---------------------------------------------------------
 
-  let query = supabase
-    .from('permits')
-    .select(`
-      id,
-      permit_no,
-      work_title,
-      status,
-      planned_start,
-      planned_end,
-      valid_until,
-      requester_id,
+  const page = parsePage(params.page)
+  const pageSize = DEFAULT_PAGE_SIZE
 
-      permit_type:permit_types!permits_permit_type_id_fkey (
-        name,
-        code
-      ),
+  const PERMIT_SELECT = `
+    id,
+    permit_no,
+    work_title,
+    status,
+    planned_start,
+    planned_end,
+    valid_until,
+    requester_id,
 
-      area:areas!permits_area_id_fkey (
-        name,
-        code
-      ),
+    permit_type:permit_types!permits_permit_type_id_fkey (
+      name,
+      code
+    ),
 
-      requester:profiles!permits_requester_id_fkey (
-        full_name
-      )
-    `)
+    area:areas!permits_area_id_fkey (
+      name,
+      code
+    ),
+
+    requester:profiles!permits_requester_id_fkey (
+      full_name
+    )
+  `
 
   // Company / contractor scoping (defense in depth on top of RLS).
+  const scope: { company_id?: number; contractor_id?: number } = {}
   if (profile?.company_id) {
-    query = query.eq('company_id', profile.company_id)
+    scope.company_id = profile.company_id
   } else if (profile?.role === 'contractor_admin') {
     const { data: membership } = await supabase
       .from('contractor_users')
@@ -133,64 +138,95 @@ export default async function PermitsPage({
       .single()
 
     if (membership) {
-      query = query.eq('contractor_id', membership.contractor_id)
+      scope.contractor_id = membership.contractor_id
     }
   }
 
-  const filters: string[] = []
+  // Shared filter builder so the COUNT query and the page slice always use
+  // exactly the same WHERE clause. The `expiry` param is intentionally NOT
+  // included here: it is a client-side derivation (getExpiryState) that
+  // cannot be expressed in SQL, so it is applied after slicing below.
+  const buildQuery = (select: string, opts?: { count?: 'exact'; head?: boolean }) => {
+    let query = supabase.from('permits').select(select, opts)
 
-  if (params.q) {
-    filters.push(
-      `permit_no.ilike.%${escapeLike(params.q)}%,work_title.ilike.%${escapeLike(params.q)}%`
-    )
+    if (scope.company_id) {
+      query = query.eq('company_id', scope.company_id)
+    }
+    if (scope.contractor_id) {
+      query = query.eq('contractor_id', scope.contractor_id)
+    }
+
+    const filters: string[] = []
+
+    if (params.q) {
+      filters.push(
+        `permit_no.ilike.%${escapeLike(params.q)}%,work_title.ilike.%${escapeLike(params.q)}%`
+      )
+    }
+
+    if (params.status) {
+      query = query.eq('status', params.status)
+    }
+
+    if (params.permit_type_id) {
+      query = query.eq(
+        'permit_type_id',
+        Number(params.permit_type_id)
+      )
+    }
+
+    if (params.area_id) {
+      query = query.eq('area_id', Number(params.area_id))
+    }
+
+    if (params.contractor_id) {
+      query = query.eq('contractor_id', Number(params.contractor_id))
+    }
+
+    if (params.requester) {
+      query = query.filter(
+        'requester.full_name',
+        'ilike',
+        `%${escapeLike(params.requester)}%`
+      )
+    }
+
+    if (params.date_from) {
+      query = query.gte('planned_start', `${params.date_from}T00:00:00`)
+    }
+
+    if (params.date_to) {
+      query = query.lte('planned_start', `${params.date_to}T23:59:59`)
+    }
+
+    if (filters.length > 0) {
+      query = query.or(filters.join(','))
+    }
+
+    return query
   }
 
-  if (params.status) {
-    query = query.eq('status', params.status)
-  }
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
 
-  if (params.permit_type_id) {
-    query = query.eq(
-      'permit_type_id',
-      Number(params.permit_type_id)
-    )
-  }
-
-  if (params.area_id) {
-    query = query.eq('area_id', Number(params.area_id))
-  }
-
-  if (params.contractor_id) {
-    query = query.eq('contractor_id', Number(params.contractor_id))
-  }
-
-  if (params.requester) {
-    query = query.filter(
-      'requester.full_name',
-      'ilike',
-      `%${escapeLike(params.requester)}%`
-    )
-  }
-
-  if (params.date_from) {
-    query = query.gte('planned_start', `${params.date_from}T00:00:00`)
-  }
-
-  if (params.date_to) {
-    query = query.lte('planned_start', `${params.date_to}T23:59:59`)
-  }
-
-  if (filters.length > 0) {
-    query = query.or(filters.join(','))
-  }
-
-  query = query.order('created_at', { ascending: false })
-
-  const { data, error } = await query
+  const [
+    { data, error },
+    { count },
+  ] = await Promise.all([
+    buildQuery(PERMIT_SELECT)
+      .order('created_at', { ascending: false })
+      .range(from, to),
+    buildQuery('id', { count: 'exact', head: true }),
+  ])
 
   if (error) {
     console.error('Failed to load permits:', error)
   }
+
+  // Total comes from the SQL COUNT query (expiry filter not included, so it
+  // is approximate for the expiring_soon/expired states — acceptable).
+  const total = count ?? 0
+  const totalPages = Math.ceil(total / pageSize)
 
   const permits = (data ?? []) as unknown as Permit[]
 
@@ -222,9 +258,11 @@ export default async function PermitsPage({
       params.expiry
   )
 
-  // Calculate statistics
+  // Calculate statistics. `total` comes from the SQL COUNT query (full
+  // dataset); the status breakdowns are computed over the current page
+  // slice since the full list is no longer fetched.
   const stats = {
-    total: filteredPermits.length,
+    total,
     active: filteredPermits.filter(p => p.status === 'active').length,
     pending: filteredPermits.filter(p => p.status === 'pending_approval').length,
     expiringSoon: filteredPermits.filter(p => {
@@ -404,7 +442,7 @@ export default async function PermitsPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="max-h-[600px]">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[680px] text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
@@ -507,6 +545,13 @@ export default async function PermitsPage({
                   </table>
                 </div>
               </ScrollArea>
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                buildHref={(p) => pageHref('/permits', params, p)}
+                totalItems={total}
+                pageSize={pageSize}
+              />
             </CardContent>
           </Card>
         )}

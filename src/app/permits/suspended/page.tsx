@@ -25,6 +25,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Pagination } from '@/components/ui/pagination'
+import { DEFAULT_PAGE_SIZE, pageHref, parsePage } from '@/lib/pagination'
 
 type Approval = {
   action: string
@@ -49,6 +51,7 @@ type SearchParams = {
   permit_type_id?: string
   area_id?: string
   contractor_id?: string
+  page?: string
 }
 
 export default async function SuspendedPermitsPage({
@@ -57,6 +60,9 @@ export default async function SuspendedPermitsPage({
   searchParams: Promise<SearchParams>
 }) {
   const params = await searchParams
+
+  const page = parsePage(params.page)
+  const pageSize = DEFAULT_PAGE_SIZE
 
   const supabase = await createClient()
 
@@ -70,6 +76,42 @@ export default async function SuspendedPermitsPage({
 
   if (!scope) return null
 
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  // Head-count query: same filters as the page query below.
+  let countQuery = supabase
+    .from('permits')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'suspended')
+
+  if (!scope.isPlatformAdmin) {
+    if (scope.companyId !== null) {
+      countQuery = countQuery.eq('company_id', scope.companyId)
+    } else if (scope.contractorId !== null) {
+      countQuery = countQuery.eq('contractor_id', scope.contractorId)
+    }
+  }
+
+  if (params.q) {
+    countQuery = countQuery.or(
+      `permit_no.ilike.%${escapeLike(params.q)}%,work_title.ilike.%${escapeLike(params.q)}%`
+    )
+  }
+
+  if (params.permit_type_id) {
+    countQuery = countQuery.eq('permit_type_id', Number(params.permit_type_id))
+  }
+
+  if (params.area_id) {
+    countQuery = countQuery.eq('area_id', Number(params.area_id))
+  }
+
+  if (params.contractor_id) {
+    countQuery = countQuery.eq('contractor_id', Number(params.contractor_id))
+  }
+
+  // Page query: same filters, plus ordering and the page slice.
   let query = supabase
     .from('permits')
     .select(`
@@ -124,9 +166,15 @@ export default async function SuspendedPermitsPage({
     query = query.eq('contractor_id', Number(params.contractor_id))
   }
 
-  query = query.order('updated_at', { ascending: false })
+  const [countResult, dataResult] = await Promise.all([
+    countQuery,
+    query.order('updated_at', { ascending: false }).range(from, to),
+  ])
 
-  const { data, error } = await query
+  const total = countResult.count ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const { data, error } = dataResult
 
   if (error) {
     console.error('Failed to load suspended permits:', error)
@@ -157,7 +205,8 @@ export default async function SuspendedPermitsPage({
     ])
 
   // Calculate statistics
-  const totalSuspended = permits.length
+  const totalSuspended = total
+  // withReason / recentSuspensions are computed from the current page slice.
   const withReason = permits.filter(p => p.suspension_reason).length
   const recentSuspensions = permits.filter(p => {
     const suspension = getLatestSuspension(p)
@@ -281,7 +330,7 @@ export default async function SuspendedPermitsPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="max-h-[600px]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
@@ -382,6 +431,13 @@ export default async function SuspendedPermitsPage({
                   </table>
                 </div>
               </ScrollArea>
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                buildHref={(p) => pageHref('/permits/suspended', params, p)}
+                totalItems={total}
+                pageSize={pageSize}
+              />
             </CardContent>
           </Card>
         )}

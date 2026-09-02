@@ -31,6 +31,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Pagination } from '@/components/ui/pagination'
+import { parsePage, pageHref, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 
 type Permit = {
   id: number
@@ -58,7 +60,11 @@ type Permit = {
   } | null
 }
 
-export default async function ApprovalQueuePage() {
+export default async function ApprovalQueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const supabase = await createClient()
 
   const {
@@ -108,17 +114,40 @@ export default async function ApprovalQueuePage() {
     .eq('status', 'pending_approval')
     .eq('workflow_stage', 'safety_approval')
 
+  let countQuery = supabase
+    .from('permits')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending_approval')
+    .eq('workflow_stage', 'safety_approval')
+
   if (!scope.isPlatformAdmin) {
     if (scope.companyId !== null) {
       query = query.eq('company_id', scope.companyId)
+      countQuery = countQuery.eq('company_id', scope.companyId)
     } else if (scope.contractorId !== null) {
       query = query.eq('contractor_id', scope.contractorId)
+      countQuery = countQuery.eq('contractor_id', scope.contractorId)
     }
   }
 
-  const { data: permits, error } = await query.order('created_at', {
-    ascending: false,
-  })
+  const { count, error: countError } = await countQuery
+
+  if (countError) {
+    console.error(
+      'Failed to count approval queue:',
+      countError
+    )
+  }
+
+  const total = count ?? 0
+  const pageSize = DEFAULT_PAGE_SIZE
+  const page = parsePage((await searchParams).page)
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  const { data: permits, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to)
 
   if (error) {
     console.error(
@@ -130,9 +159,10 @@ export default async function ApprovalQueuePage() {
   const approvalPermits =
     (permits ?? []) as unknown as Permit[]
 
-  // Calculate statistics
+  // Calculate statistics (total from the head-count query; the
+  // remaining breakdowns reflect the current page slice)
   const stats = {
-    total: approvalPermits.length,
+    total,
     contractorPermits: approvalPermits.filter(p => p.contractor).length,
     internalPermits: approvalPermits.filter(p => !p.contractor).length,
     urgentPermits: approvalPermits.filter(p => {
@@ -247,7 +277,7 @@ export default async function ApprovalQueuePage() {
         </div>
 
         {/* Approval List */}
-        {approvalPermits.length === 0 ? (
+        {total === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center p-12 text-center">
               <div className="rounded-full bg-green-100 p-4 dark:bg-green-900/50">
@@ -270,7 +300,7 @@ export default async function ApprovalQueuePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="max-h-[600px]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
@@ -391,12 +421,19 @@ export default async function ApprovalQueuePage() {
                   </table>
                 </div>
               </ScrollArea>
+              <Pagination
+                currentPage={page}
+                totalPages={Math.max(1, Math.ceil(total / pageSize))}
+                buildHref={(p) => pageHref('/permits/approvals', {}, p)}
+                totalItems={total}
+                pageSize={pageSize}
+              />
             </CardContent>
           </Card>
         )}
 
         {/* Help Note */}
-        {approvalPermits.length > 0 && (
+        {total > 0 && (
           <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-400" />
             <div>

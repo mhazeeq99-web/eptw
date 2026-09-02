@@ -29,6 +29,9 @@ import { StatusBadge, formatDate } from '@/components/permits/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Pagination } from '@/components/ui/pagination'
+import { parsePage, pageHref, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
+import type { PostgrestFilterBuilder } from '@supabase/supabase-js'
 
 type Permit = {
   id: number
@@ -57,6 +60,7 @@ type SearchParams = {
   requester?: string
   date_from?: string
   date_to?: string
+  page?: string
 }
 
 export default async function PermitHistoryPage({
@@ -65,6 +69,11 @@ export default async function PermitHistoryPage({
   searchParams: Promise<SearchParams>
 }) {
   const params = await searchParams
+
+  const page = parsePage(params.page)
+  const pageSize = DEFAULT_PAGE_SIZE
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
 
   const supabase = await createClient()
 
@@ -92,82 +101,105 @@ export default async function PermitHistoryPage({
     historyCutoff = await resolveHistoryCutoff(plan.max_history_years)
   }
 
-  let query = supabase
-    .from('permits')
-    .select(`
-      id,
-      permit_no,
-      work_title,
-      status,
-      updated_at,
+  // Applies the shared history filters (status scope, retention cutoff,
+  // access scope, search/filter params) to a permits query. Used by both the
+  // head-count query and the page-slice query so totals and rows always agree.
+  const applyHistoryFilters = (
+    query: PostgrestFilterBuilder<any, any, any, any>
+  ): PostgrestFilterBuilder<any, any, any, any> => {
+    let q = query.in('status', HISTORY_STATUSES)
 
-      permit_type:permit_types!permits_permit_type_id_fkey (
-        name
-      ),
-
-      area:areas!permits_area_id_fkey (
-        name
-      ),
-
-      requester:profiles!permits_requester_id_fkey (
-        full_name
-      )
-    `)
-    .in('status', HISTORY_STATUSES)
-
-  if (historyCutoff) {
-    query = query.gte('updated_at', historyCutoff)
-  }
-
-  if (!scope.isPlatformAdmin) {
-    if (scope.companyId !== null) {
-      query = query.eq('company_id', scope.companyId)
-    } else if (scope.contractorId !== null) {
-      query = query.eq('contractor_id', scope.contractorId)
+    if (historyCutoff) {
+      q = q.gte('updated_at', historyCutoff)
     }
+
+    if (!scope.isPlatformAdmin) {
+      if (scope.companyId !== null) {
+        q = q.eq('company_id', scope.companyId)
+      } else if (scope.contractorId !== null) {
+        q = q.eq('contractor_id', scope.contractorId)
+      }
+    }
+
+    if (params.q) {
+      q = q.or(
+        `permit_no.ilike.%${escapeLike(params.q)}%,work_title.ilike.%${escapeLike(params.q)}%`
+      )
+    }
+
+    if (params.status && HISTORY_STATUSES.includes(params.status)) {
+      q = q.eq('status', params.status)
+    }
+
+    if (params.permit_type_id) {
+      q = q.eq('permit_type_id', Number(params.permit_type_id))
+    }
+
+    if (params.area_id) {
+      q = q.eq('area_id', Number(params.area_id))
+    }
+
+    if (params.contractor_id) {
+      q = q.eq('contractor_id', Number(params.contractor_id))
+    }
+
+    if (params.requester) {
+      q = q.filter(
+        'requester.full_name',
+        'ilike',
+        `%${escapeLike(params.requester)}%`
+      )
+    }
+
+    if (params.date_from) {
+      q = q.gte('updated_at', `${params.date_from}T00:00:00`)
+    }
+
+    if (params.date_to) {
+      q = q.lte('updated_at', `${params.date_to}T23:59:59`)
+    }
+
+    return q
   }
 
-  if (params.q) {
-    query = query.or(
-      `permit_no.ilike.%${escapeLike(params.q)}%,work_title.ilike.%${escapeLike(params.q)}%`
-    )
+  // Head-count query (same filters, no row data) for the total.
+  const { count, error: countError } = await applyHistoryFilters(
+    supabase.from('permits').select('id', { count: 'exact', head: true })
+  )
+
+  if (countError) {
+    console.error('Failed to count permit history:', countError)
   }
 
-  if (params.status && HISTORY_STATUSES.includes(params.status)) {
-    query = query.eq('status', params.status)
-  }
+  const total = count ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
-  if (params.permit_type_id) {
-    query = query.eq('permit_type_id', Number(params.permit_type_id))
-  }
+  // Page-slice query (same filters, ordered, restricted to the page range).
+  const { data, error } = await applyHistoryFilters(
+    supabase
+      .from('permits')
+      .select(`
+        id,
+        permit_no,
+        work_title,
+        status,
+        updated_at,
 
-  if (params.area_id) {
-    query = query.eq('area_id', Number(params.area_id))
-  }
+        permit_type:permit_types!permits_permit_type_id_fkey (
+          name
+        ),
 
-  if (params.contractor_id) {
-    query = query.eq('contractor_id', Number(params.contractor_id))
-  }
+        area:areas!permits_area_id_fkey (
+          name
+        ),
 
-  if (params.requester) {
-    query = query.filter(
-      'requester.full_name',
-      'ilike',
-      `%${escapeLike(params.requester)}%`
-    )
-  }
-
-  if (params.date_from) {
-    query = query.gte('updated_at', `${params.date_from}T00:00:00`)
-  }
-
-  if (params.date_to) {
-    query = query.lte('updated_at', `${params.date_to}T23:59:59`)
-  }
-
-  query = query.order('updated_at', { ascending: false })
-
-  const { data, error } = await query
+        requester:profiles!permits_requester_id_fkey (
+          full_name
+        )
+      `)
+  )
+    .order('updated_at', { ascending: false })
+    .range(from, to)
 
   if (error) {
     console.error('Failed to load permit history:', error)
@@ -197,9 +229,10 @@ export default async function PermitHistoryPage({
         .order('company_name'),
     ])
 
-  // Calculate statistics
+  // Statistics — total from the head-count query, per-status counts from the
+  // current page slice.
   const stats = {
-    total: permits.length,
+    total,
     completed: permits.filter(p => p.status === 'completed').length,
     closed: permits.filter(p => p.status === 'closed').length,
     rejected: permits.filter(p => p.status === 'rejected').length,
@@ -296,7 +329,7 @@ export default async function PermitHistoryPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="max-h-[600px]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
@@ -382,6 +415,13 @@ export default async function PermitHistoryPage({
                   </table>
                 </div>
               </ScrollArea>
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                buildHref={(p) => pageHref('/permits/history', params, p)}
+                totalItems={total}
+                pageSize={pageSize}
+              />
             </CardContent>
           </Card>
         )}

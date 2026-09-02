@@ -11,10 +11,13 @@ import {
   BadgeCheck,
   Users,
   Wrench,
-  Layers
+  Layers,
+  FileText,
+  MapPin,
+  CreditCard,
+  MessageSquare
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
-import { SettingsManager } from '@/components/company/settings-manager'
 import { NotificationPreferences } from '@/components/settings/notification-preferences'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
@@ -27,8 +30,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
  *   Centre). Company operational configuration is NOT shown to Platform Admin
  *   (it lives under the dedicated Configuration navigation instead).
  * - Company users (safety_manager / safety_coordinator / internal_staff):
- *   render the existing company-level configuration (SettingsManager +
- *   NotificationPreferences), scoped to their own company.
+ *   render a Settings HUB: a grid of cards linking to the individual settings
+ *   sub-pages (Permit Types, Safety Controls & Required Controls, Areas,
+ *   Equipment, Contractors, Users, Notification Preferences, Subscription,
+ *   Feedback), each scoped to their own company.
  */
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -193,18 +198,101 @@ export default async function SettingsPage() {
                 Company Configuration
               </p>
               <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                Manage your company's operational settings, including permit types, areas, equipment, and safety configurations.
+                Manage your company&apos;s operational settings, including permit types, areas, equipment, and safety configurations.
               </p>
             </div>
           </div>
 
-          {/* Company Settings */}
-          <SettingsManager />
-
-          {/* Notification Preferences */}
-          <NotificationPreferences />
+          {/* Settings Hub */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <HubCard
+              href="/settings/permit-types"
+              icon={<FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Permit Types"
+              description="Permit categories and their document requirements"
+            />
+            <HubCard
+              href="/settings/safety-controls"
+              icon={<ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Safety Controls & Required Controls"
+              description="Safety control library and per-permit-type requirements"
+            />
+            <HubCard
+              href="/areas"
+              icon={<MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Areas"
+              description="Manage work areas within your organization"
+            />
+            <HubCard
+              href="/equipment"
+              icon={<Wrench className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Equipment"
+              description="Manage equipment and machinery for permits"
+            />
+            <HubCard
+              href="/contractors"
+              icon={<Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Contractors"
+              description="Manage contractor companies and their access"
+            />
+            <HubCard
+              href="/company/users"
+              icon={<Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Users"
+              description="Manage user accounts, roles and access"
+            />
+            <HubCard
+              href="/settings/notification-preferences"
+              icon={<Bell className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Notification Preferences"
+              description="Choose which events send you email notifications"
+            />
+            <HubCard
+              href="/settings/subscription"
+              icon={<CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Subscription"
+              description="Your company's plan, usage and billing"
+            />
+            <HubCard
+              href="/settings/feedback"
+              icon={<MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+              title="Feedback"
+              description="Share your feedback on ePTW"
+            />
+          </div>
         </div>
       )}
     </DashboardShell>
+  )
+}
+
+/**
+ * Link-style card used in the company Settings hub grid.
+ */
+function HubCard({
+  href,
+  icon,
+  title,
+  description,
+}: {
+  href: string
+  icon: React.ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-start gap-3 rounded-xl border bg-background p-5 shadow-sm transition-all hover:shadow-md"
+    >
+      <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="font-medium text-gray-900 dark:text-white">{title}</p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{description}</p>
+      </div>
+      <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-gray-400 transition-transform group-hover:translate-x-1" />
+    </Link>
   )
 }

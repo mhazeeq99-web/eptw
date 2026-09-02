@@ -5,7 +5,11 @@ import {
   Plus,
   UserRound,
   ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
+
+const PAGE_SIZE = 10
 
 type CompanyUser = {
   id: string
@@ -68,6 +72,15 @@ export function UserManagement() {
   const [position, setPosition] = useState('')
 
   const [saving, setSaving] = useState(false)
+
+  // Per-section pagination: each role group is paginated independently.
+  const [scPage, setScPage] = useState(1)
+  const [staffPage, setStaffPage] = useState(1)
+
+  const slice = (list: CompanyUser[], pageNum: number) => {
+    const from = (pageNum - 1) * PAGE_SIZE
+    return list.slice(from, from + PAGE_SIZE)
+  }
 
   async function loadUsers() {
 
@@ -333,33 +346,73 @@ export function UserManagement() {
       ) : (
         <div className="space-y-6">
 
-          <UserSection
-            title="Safety Coordinators"
-            description="Safety personnel who can participate in the safety review process."
-            icon={ShieldCheck}
-            users={safetyCoordinators}
-            onAdd={() =>
-              openAddForm('safety_coordinator')
-            }
-            onToggleStatus={toggleUserStatus}
-            onRoleChange={changeUserRole}
-            onResendInvitation={resendInvitation}
-            resendingId={resendingId}
-          />
+          <div>
+            <UserSection
+              title="Safety Coordinators"
+              description="Safety personnel who can participate in the safety review process."
+              icon={ShieldCheck}
+              users={slice(safetyCoordinators, scPage)}
+              onAdd={() =>
+                openAddForm('safety_coordinator')
+              }
+              onToggleStatus={toggleUserStatus}
+              onRoleChange={changeUserRole}
+              onResendInvitation={resendInvitation}
+              resendingId={resendingId}
+            />
+            {safetyCoordinators.length > PAGE_SIZE && (
+              <SectionPagination
+                total={safetyCoordinators.length}
+                page={scPage}
+                totalPages={Math.ceil(
+                  safetyCoordinators.length / PAGE_SIZE
+                )}
+                onPrev={() => setScPage((p) => Math.max(1, p - 1))}
+                onNext={() =>
+                  setScPage((p) =>
+                    Math.min(
+                      Math.ceil(safetyCoordinators.length / PAGE_SIZE),
+                      p + 1
+                    )
+                  )
+                }
+              />
+            )}
+          </div>
 
-          <UserSection
-            title="Internal Staff"
-            description="Company employees who create and submit internal permits."
-            icon={UserRound}
-            users={internalStaff}
-            onAdd={() =>
-              openAddForm('internal_staff')
-            }
-            onToggleStatus={toggleUserStatus}
-            onRoleChange={changeUserRole}
-            onResendInvitation={resendInvitation}
-            resendingId={resendingId}
-          />
+          <div>
+            <UserSection
+              title="Internal Staff"
+              description="Company employees who create and submit internal permits."
+              icon={UserRound}
+              users={slice(internalStaff, staffPage)}
+              onAdd={() =>
+                openAddForm('internal_staff')
+              }
+              onToggleStatus={toggleUserStatus}
+              onRoleChange={changeUserRole}
+              onResendInvitation={resendInvitation}
+              resendingId={resendingId}
+            />
+            {internalStaff.length > PAGE_SIZE && (
+              <SectionPagination
+                total={internalStaff.length}
+                page={staffPage}
+                totalPages={Math.ceil(
+                  internalStaff.length / PAGE_SIZE
+                )}
+                onPrev={() => setStaffPage((p) => Math.max(1, p - 1))}
+                onNext={() =>
+                  setStaffPage((p) =>
+                    Math.min(
+                      Math.ceil(internalStaff.length / PAGE_SIZE),
+                      p + 1
+                    )
+                  )
+                }
+              />
+            )}
+          </div>
 
         </div>
       )}
@@ -737,5 +790,54 @@ function UserSection({
       )}
 
     </section>
+  )
+}
+
+function SectionPagination({
+  total,
+  page,
+  totalPages,
+  onPrev,
+  onNext,
+}: {
+  total: number
+  page: number
+  totalPages: number
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const from = (page - 1) * PAGE_SIZE + 1
+  const to = Math.min(page * PAGE_SIZE, total)
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-t-0 bg-background px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm text-muted-foreground">
+        {from}–{to} of {total} user{total === 1 ? '' : 's'}
+      </p>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={onPrev}
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Prev
+        </button>
+        <span className="text-sm text-muted-foreground">
+          Page {page} of {totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={onNext}
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
   )
 }
