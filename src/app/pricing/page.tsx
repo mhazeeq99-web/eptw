@@ -16,7 +16,12 @@ import {
   Crown,
   ArrowRight,
   BadgeCheck,
-  Info
+  Info,
+  Gift,
+  Rocket,
+  Infinity,
+  HardDrive,
+  CalendarDays
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
@@ -43,7 +48,6 @@ function planRow(plan: Plan, key: keyof Plan): string {
   return String(value)
 }
 
-/** "Not included" when the plan has 0-byte attachment storage (Free). */
 function storageLabel(plan: Plan | undefined): string {
   if (!plan) return '—'
   const bytes = plan.max_storage_bytes ?? 0
@@ -119,25 +123,32 @@ export default async function PricingPage() {
 
   return (
     <DashboardShell>
-      <div className="mx-auto max-w-6xl space-y-12">
-        {/* Header */}
-        <div className="text-center">
-          <Badge variant="secondary" className="mb-4">
-            <Sparkles className="mr-2 h-3 w-3" />
+      <div className="mx-auto max-w-6xl space-y-16">
+        {/* Header with animated gradient */}
+        <div className="relative text-center">
+          <div className="absolute inset-0 -z-10 bg-gradient-to-b from-blue-50/50 via-transparent to-transparent dark:from-blue-950/20" />
+          
+          <Badge 
+            variant="secondary" 
+            className="mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border-blue-200/50 dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-300 dark:border-blue-800/30"
+          >
+            <Sparkles className="mr-2 h-3.5 w-3.5" />
             Start digitising your PTW process
           </Badge>
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+          
+          <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent dark:from-white dark:via-gray-200 dark:to-white">
             Simple, Transparent Pricing
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Two plans. Free keeps the core PTW workflow genuinely useful —
-            create, submit, approve and close permits with JHA/JSA, LOTO, gas
-            testing and safety controls. Pro adds photos, documents and
+          
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+            Two plans. Free keeps the core PTW workflow genuinely useful — 
+            create, submit, approve and close permits with JHA/JSA, LOTO, gas 
+            testing and safety controls. Pro adds photos, documents and 
             supporting evidence for your complete digital PTW system.
           </p>
         </div>
 
-        {/* Pricing Cards */}
+        {/* Pricing Cards with enhanced styling */}
         <div className="grid gap-8 md:grid-cols-2">
           {[freePlan, proPlan]
             .filter((plan): plan is Plan => Boolean(plan))
@@ -149,44 +160,50 @@ export default async function PricingPage() {
                 <Card
                   key={plan.code}
                   className={cn(
-                    "relative overflow-hidden transition-all duration-300",
+                    "relative overflow-hidden transition-all duration-500 hover:scale-[1.02]",
                     isPro 
-                      ? "border-blue-200 shadow-2xl shadow-blue-100/50 dark:border-blue-800 dark:shadow-blue-900/20" 
-                      : "hover:shadow-lg",
-                    isCurrent && "ring-2 ring-green-500/50"
+                      ? "border-2 border-blue-200 shadow-2xl shadow-blue-200/50 dark:border-blue-700/50 dark:shadow-blue-900/30" 
+                      : "border border-gray-200 hover:shadow-xl dark:border-gray-700",
+                    isCurrent && "ring-2 ring-green-500/50 ring-offset-2",
+                    "animate-in fade-in slide-in-from-bottom-6 duration-700"
                   )}
                 >
+                  {/* Background gradient for Pro */}
                   {isPro && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2">
-                      <Badge className="rounded-t-none rounded-b-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <Crown className="mr-1 h-3 w-3" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-transparent dark:from-blue-950/20 dark:via-indigo-950/10" />
+                  )}
+
+                  {/* Popular badge with improved styling */}
+                  {isPro && (
+                    <div className="absolute -right-8 top-6 rotate-45">
+                      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-lg">
                         Most Popular
-                      </Badge>
+                      </div>
                     </div>
                   )}
 
-                  <CardHeader className={cn("pb-6", isPro && "pt-10")}>
+                  <CardHeader className={cn("relative pb-6", isPro && "pt-8")}>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-4">
                         <div className={cn(
-                          "rounded-xl p-3",
+                          "rounded-2xl p-3.5 shadow-lg transition-all duration-300",
                           isPro 
-                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg shadow-blue-600/20" 
-                            : "bg-gray-100 dark:bg-gray-800"
+                            ? "bg-gradient-to-br from-blue-600 to-indigo-600 shadow-blue-600/30" 
+                            : "bg-gradient-to-br from-gray-200 to-gray-300 shadow-gray-400/20 dark:from-gray-700 dark:to-gray-800"
                         )}>
                           {isPro ? (
-                            <Zap className="h-6 w-6 text-white" />
+                            <Rocket className="h-7 w-7 text-white" />
                           ) : (
-                            <Shield className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                            <Gift className="h-7 w-7 text-gray-700 dark:text-gray-300" />
                           )}
                         </div>
                         <div>
-                          <CardTitle className="text-2xl">
+                          <CardTitle className="text-2xl font-bold">
                             {plan.name}
                           </CardTitle>
                           {isCurrent && (
-                            <Badge variant="success" className="mt-1">
-                              <BadgeCheck className="mr-1 h-3 w-3" />
+                            <Badge variant="success" className="mt-1.5 bg-emerald-500/10 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-800/30">
+                              <BadgeCheck className="mr-1.5 h-3 w-3" />
                               Current Plan
                             </Badge>
                           )}
@@ -194,18 +211,19 @@ export default async function PricingPage() {
                       </div>
                     </div>
 
-                    <div className="mt-6">
+                    <div className="mt-8">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                        <span className="text-5xl font-extrabold text-gray-900 dark:text-white">
                           {formatPrice(plan.price_monthly, plan.currency)}
                         </span>
-                        <span className="text-lg text-gray-500 dark:text-gray-400">
+                        <span className="text-lg font-medium text-gray-500 dark:text-gray-400">
                           /month
                         </span>
                       </div>
+                      
                       {isPro ? (
-                        <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
-                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        <div className="mt-3 rounded-xl border border-blue-200/60 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:border-blue-800/30 dark:from-blue-950/30 dark:to-indigo-950/30">
+                          <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">
                             or{' '}
                             {plan.price_annual != null
                               ? `${plan.currency} ${Number(
@@ -219,23 +237,32 @@ export default async function PricingPage() {
                           </p>
                         </div>
                       ) : (
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          Free forever for small teams
+                        <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                            </span>
+                            Free forever for small teams
+                          </span>
                         </p>
                       )}
                     </div>
                   </CardHeader>
 
-                  <CardContent>
-                    <Separator className="mb-6" />
+                  <CardContent className="relative">
+                    <Separator className={cn(
+                      "mb-6",
+                      isPro ? "bg-gradient-to-r from-transparent via-blue-200 to-transparent dark:via-blue-800" : ""
+                    )} />
 
-                    <div className="space-y-4">
-                      <PlanFeature icon={Building2} label="Sites" value={formatLimit(plan.max_sites)} />
-                      <PlanFeature icon={FileCheck} label="Monthly PTWs" value={formatLimit(plan.max_monthly_permits)} />
-                      <PlanFeature icon={FileCheck} label="Active PTWs" value={formatLimit(plan.max_active_permits)} />
-                      <PlanFeature icon={Database} label="Attachment storage" value={storageLabel(plan)} />
-                      <PlanFeature icon={Clock} label="History retention" value={retentionLabel(plan)} />
-                      <PlanFeature icon={Zap} label="Photos & document attachments" value={(plan.max_storage_bytes ?? 0) > 0 ? 'Yes' : 'Not included'} />
+                    <div className="space-y-3.5">
+                      <PlanFeature icon={Building2} label="Sites" value={formatLimit(plan.max_sites)} isPro={isPro} />
+                      <PlanFeature icon={FileCheck} label="Monthly PTWs" value={formatLimit(plan.max_monthly_permits)} isPro={isPro} />
+                      <PlanFeature icon={FileCheck} label="Active PTWs" value={formatLimit(plan.max_active_permits)} isPro={isPro} />
+                      <PlanFeature icon={HardDrive} label="Attachment storage" value={storageLabel(plan)} isPro={isPro} />
+                      <PlanFeature icon={CalendarDays} label="History retention" value={retentionLabel(plan)} isPro={isPro} />
+                      <PlanFeature icon={ImageIcon} label="Photos & documents" value={(plan.max_storage_bytes ?? 0) > 0 ? 'Yes' : 'Not included'} isPro={isPro} />
                     </div>
 
                     <div className="mt-8">
@@ -244,18 +271,18 @@ export default async function PricingPage() {
                           {isCurrent ? (
                             <Link
                               href="/settings/subscription"
-                              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              className="group flex w-full items-center justify-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold text-gray-700 transition-all hover:border-gray-300 hover:bg-gray-50 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-700"
                             >
                               View Subscription
-                              <ArrowRight className="h-4 w-4" />
+                              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                             </Link>
                           ) : (
                             <Link
                               href="/settings/subscription"
-                              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 transition-all hover:shadow-blue-700/30"
+                              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition-all hover:shadow-xl hover:shadow-blue-600/40 hover:scale-[1.02] active:scale-[0.98]"
                             >
                               Start Pro
-                              <ArrowRight className="h-4 w-4" />
+                              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                             </Link>
                           )}
                           <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
@@ -266,10 +293,10 @@ export default async function PricingPage() {
                         <>
                           <Link
                             href="/settings/subscription"
-                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            className="group flex w-full items-center justify-center gap-2 rounded-xl border-2 border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-700 transition-all hover:border-gray-400 hover:bg-gray-50 hover:shadow-md dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700"
                           >
                             Get Started
-                            <ArrowRight className="h-4 w-4" />
+                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                           </Link>
                           <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
                             {isCurrent
@@ -285,10 +312,14 @@ export default async function PricingPage() {
             })}
         </div>
 
-        {/* Comparison Tables */}
+        {/* Comparison Tables with improved styling */}
         <div className="space-y-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 px-6 py-2 dark:from-blue-900/30 dark:to-indigo-900/30">
+              <Star className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Detailed Comparison</span>
+            </div>
+            <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white">
               Compare Plans in Detail
             </h2>
             <p className="mt-2 text-gray-600 dark:text-gray-400">
@@ -296,17 +327,19 @@ export default async function PricingPage() {
             </p>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-blue-600" />
+          <Card className="overflow-hidden border-0 shadow-xl shadow-gray-100/50 dark:shadow-gray-900/30">
+            <div className="bg-gradient-to-r from-blue-600/5 to-indigo-600/5 px-6 py-5 dark:from-blue-600/10 dark:to-indigo-600/10">
+              <CardTitle className="flex items-center gap-2.5 text-xl">
+                <div className="rounded-lg bg-blue-600/10 p-2 dark:bg-blue-600/20">
+                  <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
                 Plan Limits
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="mt-1">
                 Capacity and usage limits for each plan
               </CardDescription>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <CardContent className="p-0">
               <ComparisonTable
                 rows={limitRows}
                 freeLabel={freePlan?.name ?? 'Free'}
@@ -315,17 +348,19 @@ export default async function PricingPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-blue-600" />
+          <Card className="overflow-hidden border-0 shadow-xl shadow-gray-100/50 dark:shadow-gray-900/30">
+            <div className="bg-gradient-to-r from-blue-600/5 to-indigo-600/5 px-6 py-5 dark:from-blue-600/10 dark:to-indigo-600/10">
+              <CardTitle className="flex items-center gap-2.5 text-xl">
+                <div className="rounded-lg bg-blue-600/10 p-2 dark:bg-blue-600/20">
+                  <Star className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
                 Features
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="mt-1">
                 Available features and capabilities
               </CardDescription>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <CardContent className="p-0">
               <ComparisonTable
                 rows={featureRows}
                 freeLabel={freePlan?.name ?? 'Free'}
@@ -335,21 +370,28 @@ export default async function PricingPage() {
           </Card>
         </div>
 
-        {/* FAQ / Help Section */}
-        <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-8 dark:from-gray-800 dark:to-gray-800">
-          <div className="text-center">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+        {/* FAQ / Help Section with enhanced design */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 p-10 text-center shadow-2xl shadow-blue-600/30 dark:shadow-blue-900/40">
+          {/* Decorative elements */}
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+          <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+          
+          <div className="relative z-10">
+            <div className="mx-auto mb-4 inline-flex rounded-full bg-white/20 p-3 backdrop-blur-sm">
+              <Users className="h-6 w-6 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-white">
               Need Help Choosing a Plan?
             </h3>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
+            <p className="mt-2 text-blue-100">
               Contact our team for a personalized recommendation
             </p>
             <Link
               href="/contact"
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-6 py-2.5 text-sm font-medium text-blue-600 shadow-sm transition-colors hover:bg-blue-50 dark:bg-gray-700 dark:text-blue-400 dark:hover:bg-gray-600"
+              className="group mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-sm font-semibold text-blue-600 shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95 dark:bg-gray-900 dark:text-blue-400 dark:hover:bg-gray-800"
             >
               Contact Sales
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         </div>
@@ -358,16 +400,52 @@ export default async function PricingPage() {
   )
 }
 
-function PlanFeature({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+// Icons that were missing
+function ImageIcon(props: any) {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-800">
-          <Icon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  )
+}
+
+function PlanFeature({ icon: Icon, label, value, isPro }: { icon: any; label: string; value: string; isPro?: boolean }) {
+  const isYes = value === 'Yes'
+  const isNotIncluded = value === 'Not included'
+  
+  return (
+    <div className="group flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
+      <div className="flex items-center gap-3.5">
+        <div className={cn(
+          "rounded-lg p-2 transition-colors",
+          isPro ? "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+          "group-hover:bg-opacity-70"
+        )}>
+          <Icon className="h-4 w-4" />
         </div>
         <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
       </div>
-      <span className="text-sm font-medium text-gray-900 dark:text-white">{value}</span>
+      <span className={cn(
+        "text-sm font-medium",
+        isYes ? "text-emerald-600 dark:text-emerald-400" : "",
+        isNotIncluded ? "text-gray-400 dark:text-gray-500" : "",
+        !isYes && !isNotIncluded ? "text-gray-900 dark:text-white" : ""
+      )}>
+        {value}
+      </span>
     </div>
   )
 }
@@ -394,14 +472,14 @@ function ComparisonTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200 dark:border-gray-700">
-            <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">
+          <tr className="border-b-2 border-gray-200 dark:border-gray-700">
+            <th className="px-6 py-4 text-left font-semibold text-gray-500 dark:text-gray-400">
               Capability
             </th>
-            <th className="px-6 py-4 text-center font-medium text-gray-900 dark:text-white">
+            <th className="px-6 py-4 text-center font-semibold text-gray-700 dark:text-gray-300">
               {freeLabel}
             </th>
-            <th className="px-6 py-4 text-center font-medium text-blue-600 dark:text-blue-400">
+            <th className="px-6 py-4 text-center font-semibold bg-gradient-to-r from-blue-600/5 to-indigo-600/5 dark:from-blue-600/10 dark:to-indigo-600/10 text-blue-700 dark:text-blue-400">
               {proLabel}
             </th>
           </tr>
@@ -411,7 +489,7 @@ function ComparisonTable({
             <tr 
               key={row.label} 
               className={cn(
-                "transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50",
+                "transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/30",
                 index !== rows.length - 1 && "border-b border-gray-100 dark:border-gray-800"
               )}
             >
@@ -421,7 +499,7 @@ function ComparisonTable({
               <td className="px-6 py-4 text-center">
                 <ValueCell value={row.free} />
               </td>
-              <td className="px-6 py-4 text-center">
+              <td className="px-6 py-4 text-center bg-gradient-to-r from-blue-600/5 to-indigo-600/5 dark:from-blue-600/10 dark:to-indigo-600/10">
                 <ValueCell value={row.pro} highlight />
               </td>
             </tr>
@@ -439,14 +517,14 @@ function ValueCell({ value, highlight }: { value: string; highlight?: boolean })
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5",
-      highlight && "font-medium text-gray-900 dark:text-white"
+      highlight && "font-semibold text-gray-900 dark:text-white"
     )}>
       {yes ? (
         <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
       ) : no ? (
-        <Minus className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+        <Minus className="h-4 w-4 text-gray-400 dark:text-gray-500" />
       ) : (
-        <Info className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+        <Info className="h-4 w-4 text-gray-400 dark:text-gray-500" />
       )}
       {value}
     </span>
