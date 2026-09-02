@@ -20,11 +20,14 @@ export function SectionVerifyButton({
   onVerify,
   label = 'Verify',
   className,
+  canVerify = true,
 }: {
   verified: boolean
   onVerify: () => Promise<boolean>
   label?: string
   className?: string
+  /** When false, the button is hidden entirely (e.g. internal staff). */
+  canVerify?: boolean
 }) {
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
@@ -54,6 +57,10 @@ export function SectionVerifyButton({
         Verified
       </span>
     )
+  }
+
+  if (!canVerify) {
+    return null
   }
 
   return (

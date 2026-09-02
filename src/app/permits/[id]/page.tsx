@@ -216,6 +216,8 @@ type Permit = {
     remarks: string | null
   } | null
   special_details: Record<string, unknown> | null
+  special_verified_by: string | null
+  special_verified_at: string | null
   cse_personnel: Array<{
     id: number
     worker_id: number
@@ -382,6 +384,8 @@ export default async function PermitDetailsPage({
         remarks
       ),
       special_details,
+      special_verified_by,
+      special_verified_at,
       cse_personnel:permit_cse_personnel (
         id,
         worker_id,
@@ -1002,6 +1006,10 @@ export default async function PermitDetailsPage({
                   })
                 )}
                 canEdit={canAddSafetyDocs}
+                canVerify={canVerifySafetyDocs}
+                initiallyVerified={Boolean(
+                  permit.special_verified_at
+                )}
               />
             </div>
 

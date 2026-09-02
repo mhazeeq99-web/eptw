@@ -90,6 +90,8 @@ export function SpecialisedPermitSection({
   initialWorkers,
   initialPersonnel,
   canEdit,
+  canVerify = false,
+  initiallyVerified = false,
 }: {
   permitId: number
   code: string | null
@@ -97,6 +99,10 @@ export function SpecialisedPermitSection({
   initialWorkers: DetailWorker[]
   initialPersonnel: CsePersonnelRow[]
   canEdit: boolean
+  /** SM/SC can verify the requirements; internal staff cannot. */
+  canVerify?: boolean
+  /** Whether a safety verifier has already verified the requirements. */
+  initiallyVerified?: boolean
 }) {
   const router = useRouter()
 
@@ -123,6 +129,7 @@ export function SpecialisedPermitSection({
   const [showDetails, setShowDetails] = useState(true)
   const [showPersonnel, setShowPersonnel] = useState(true)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [verified, setVerified] = useState(initiallyVerified)
 
   const hasSpecialisedCode =
     code === 'HOT' || code === 'CSE' || code === 'WAH' || code === 'ELEC'
@@ -245,15 +252,30 @@ export function SpecialisedPermitSection({
 
         <div className="flex items-center gap-2">
           <SectionVerifyButton
-            verified={isComplete}
+            verified={verified}
+            canVerify={canVerify}
             onVerify={async () => {
               if (!isComplete) {
                 // Requirements are not filled yet — open the editor so the
                 // verifier can complete them before marking verified.
+                setError('Complete the requirements before verifying.')
                 setEditMode(true)
                 return false
               }
+              const response = await fetch(
+                `/api/permits/${permitId}/special-details/verify`,
+                { method: 'POST' }
+              )
+              if (!response.ok) {
+                const result = await response.json()
+                throw new Error(
+                  result.error ||
+                    'Unable to verify requirements'
+                )
+              }
+              setVerified(true)
               notifyPermitChanged()
+              router.refresh()
               return true
             }}
           />
