@@ -9,13 +9,8 @@ import {
   Info,
   Mail,
   BadgeCheck,
-  Users,
-  Wrench,
   Layers,
-  FileText,
-  MapPin,
-  CreditCard,
-  MessageSquare
+  FileText
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { NotificationPreferences } from '@/components/settings/notification-preferences'
@@ -31,9 +26,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
  *   (it lives under the dedicated Configuration navigation instead).
  * - Company users (safety_manager / safety_coordinator / internal_staff):
  *   render a Settings HUB: a grid of cards linking to the individual settings
- *   sub-pages (Permit Types, Safety Controls & Required Controls, Areas,
- *   Equipment, Contractors, Users, Notification Preferences, Subscription,
- *   Feedback), each scoped to their own company.
+ *   sub-pages that are NOT already in the sidebar (Permit Types, Safety
+ *   Controls & Required Controls, Notification Preferences). Items already in
+ *   the sidebar (Areas, Equipment, Contractors, Users, Subscription, Feedback)
+ *   are intentionally not repeated here.
  */
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -218,46 +214,10 @@ export default async function SettingsPage() {
               description="Safety control library and per-permit-type requirements"
             />
             <HubCard
-              href="/areas"
-              icon={<MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-              title="Areas"
-              description="Manage work areas within your organization"
-            />
-            <HubCard
-              href="/equipment"
-              icon={<Wrench className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-              title="Equipment"
-              description="Manage equipment and machinery for permits"
-            />
-            <HubCard
-              href="/contractors"
-              icon={<Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-              title="Contractors"
-              description="Manage contractor companies and their access"
-            />
-            <HubCard
-              href="/company/users"
-              icon={<Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-              title="Users"
-              description="Manage user accounts, roles and access"
-            />
-            <HubCard
               href="/settings/notification-preferences"
               icon={<Bell className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
               title="Notification Preferences"
               description="Choose which events send you email notifications"
-            />
-            <HubCard
-              href="/settings/subscription"
-              icon={<CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-              title="Subscription"
-              description="Your company's plan, usage and billing"
-            />
-            <HubCard
-              href="/settings/feedback"
-              icon={<MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-              title="Feedback"
-              description="Share your feedback on ePTW"
             />
           </div>
         </div>
