@@ -72,9 +72,11 @@ export function SafetyControlsSection({
           {canAdd && (
             <AddSafetyControlButton permitId={permitId} canAdd={canAdd} />
           )}
-          {canVerify && (
-            <SectionVerifyButton verified={allVerified} onVerify={handleVerify} />
-          )}
+          <SectionVerifyButton
+            verified={allVerified}
+            canVerify={canVerify}
+            onVerify={handleVerify}
+          />
         </div>
       </div>
       <div className="p-6">

@@ -16,7 +16,6 @@ import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { SectionVerifyButton } from '../section-verify-button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
 export type SiteChecklistTemplateItem = {
@@ -202,21 +201,7 @@ export function SiteVerificationSection({
           </p>
         </div>
 
-        {canEdit && (
-          <SectionVerifyButton
-            verified={status === 'verified'}
-            onVerify={async () => {
-              const failed = items.some((item) => item.status === 'fail')
-              const nextStatus = failed
-                ? 'failed'
-                : requiredUnchecked.length > 0
-                  ? 'not_verified'
-                  : 'verified'
-              await handleSave()
-              return nextStatus === 'verified'
-            }}
-          />
-        )}
+        <SafetyStatusPill status={status} />
       </div>
 
       {/* Progress summary */}

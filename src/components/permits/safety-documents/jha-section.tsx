@@ -710,12 +710,11 @@ export function JhaSection({
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          {canVerify && (
-            <SectionVerifyButton
-              verified={isVerified}
-              onVerify={handleVerifyAll}
-            />
-          )}
+          <SectionVerifyButton
+            verified={isVerified}
+            canVerify={canVerify}
+            onVerify={handleVerifyAll}
+          />
 
           {satisfied && (
             <span className="text-xs text-muted-foreground">

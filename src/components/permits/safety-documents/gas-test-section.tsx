@@ -314,12 +314,11 @@ export function GasTestSection({
               Record New Test
             </Button>
           )}
-          {canVerify && (
-            <SectionVerifyButton
-              verified={hasVerifiedTest}
-              onVerify={handleVerifyAll}
-            />
-          )}
+          <SectionVerifyButton
+            verified={hasVerifiedTest}
+            canVerify={canVerify}
+            onVerify={handleVerifyAll}
+          />
         </div>
       </div>
 

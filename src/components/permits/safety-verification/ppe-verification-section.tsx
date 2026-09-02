@@ -159,15 +159,14 @@ export function PpeVerificationSection({
           </p>
         </div>
 
-        {canEdit && (
-          <SectionVerifyButton
-            verified={allRequiredVerified}
-            onVerify={async () => {
-              await handleBulkVerify()
-              return allRequiredVerified
-            }}
-          />
-        )}
+        <SectionVerifyButton
+          verified={allRequiredVerified}
+          canVerify={canEdit}
+          onVerify={async () => {
+            await handleBulkVerify()
+            return allRequiredVerified
+          }}
+        />
       </div>
 
       {/* Readiness summary */}

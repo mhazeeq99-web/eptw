@@ -79,9 +79,11 @@ export function PpeRequirementsSection({
             Personal protective equipment required for this work
           </p>
         </div>
-        {canVerify && (
-          <SectionVerifyButton verified={allVerified} onVerify={handleVerify} />
-        )}
+        <SectionVerifyButton
+          verified={allVerified}
+          canVerify={canVerify}
+          onVerify={handleVerify}
+        />
       </div>
 
       <div className="p-6">

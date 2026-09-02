@@ -57,6 +57,7 @@ export async function getPermitSafetyReadiness(
       status,
       workflow_stage,
       special_details,
+      special_verified_at,
       permit_type:permit_types (
         id,
         code,
@@ -480,6 +481,9 @@ export async function getPermitSafetyReadiness(
   if (specialisedLabel) {
     const details = (permit as { special_details?: unknown })
       ?.special_details as Record<string, unknown> | null | undefined
+    const specialVerifiedAt = (
+      permit as { special_verified_at?: unknown }
+    )?.special_verified_at as string | null | undefined
 
     const isComplete = (() => {
       if (!details || typeof details !== 'object') return false
@@ -511,14 +515,21 @@ export async function getPermitSafetyReadiness(
       }
     })()
 
+    // The specialised requirements must be BOTH completed AND verified by a
+    // Safety Manager / Safety Coordinator before approval. Internal staff and
+    // contractor admin cannot self-certify this section.
+    const isVerified = isComplete && Boolean(specialVerifiedAt)
+
     push(
       'special_details',
       specialisedLabel,
       true,
-      isComplete ? 'complete' : 'incomplete',
-      isComplete
+      isVerified ? 'complete' : 'incomplete',
+      isVerified
         ? null
-        : `Approval blocked: ${specialisedLabel} have not been completed.`,
+        : isComplete
+          ? `Approval blocked: ${specialisedLabel} have not been verified by a Safety Manager / Safety Coordinator.`
+          : `Approval blocked: ${specialisedLabel} have not been completed.`,
       85
     )
   }

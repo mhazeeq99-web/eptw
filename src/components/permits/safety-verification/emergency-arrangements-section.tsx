@@ -187,15 +187,14 @@ export function EmergencyArrangementsSection({
           </p>
         </div>
 
-        {canEdit && (
-          <SectionVerifyButton
-            verified={confirmed && allReady}
-            onVerify={async () => {
-              await handleConfirm()
-              return allReady
-            }}
-          />
-        )}
+        <SectionVerifyButton
+          verified={confirmed && allReady}
+          canVerify={canEdit}
+          onVerify={async () => {
+            await handleConfirm()
+            return allReady
+          }}
+        />
       </div>
 
       {/* Readiness summary */}

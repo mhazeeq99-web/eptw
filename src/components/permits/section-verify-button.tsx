@@ -1,15 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 /**
  * Standardized "Verify" button for the top-right of safety sections.
  *
- * When the section is not yet verified it shows a normal "Verify" button.
- * When verified it shows a green pill with a tick icon and "Verified".
+ * - verified   -> green pill with a tick and "Verified"
+ * - canVerify  -> normal "Verify" button
+ * - otherwise  -> yellow "Pending" pill (visible to non-verifiers, e.g.
+ *                 internal staff / contractor admin, so the section state is
+ *                 always visible)
  *
  * The parent supplies an async `onVerify` that performs the actual
  * verification (server call) and returns success; the button manages its own
@@ -26,7 +29,7 @@ export function SectionVerifyButton({
   onVerify: () => Promise<boolean>
   label?: string
   className?: string
-  /** When false, the button is hidden entirely (e.g. internal staff). */
+  /** When false, the button is hidden and a "Pending" pill is shown instead. */
   canVerify?: boolean
 }) {
   const [verifying, setVerifying] = useState(false)
@@ -60,7 +63,17 @@ export function SectionVerifyButton({
   }
 
   if (!canVerify) {
-    return null
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300",
+          className
+        )}
+      >
+        <Circle className="h-3 w-3" />
+        Pending
+      </span>
+    )
   }
 
   return (

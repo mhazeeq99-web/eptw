@@ -16,7 +16,6 @@ import {
 import { notifyPermitChanged } from '@/lib/permit-changed'
 import { cn } from '@/lib/utils'
 import { SafetyStatusPill } from '../safety-status-pill'
-import { SectionVerifyButton } from '../section-verify-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -263,15 +262,9 @@ export function WorkerBriefingSection({
           </p>
         </div>
 
-        {canEdit && (
-          <SectionVerifyButton
-            verified={briefed}
-            onVerify={async () => {
-              await handleMarkBriefed()
-              return topicsComplete && workersComplete
-            }}
-          />
-        )}
+        <SafetyStatusPill
+          status={briefed ? 'verified' : 'pending'}
+        />
       </div>
 
       <div className="p-6 space-y-8">

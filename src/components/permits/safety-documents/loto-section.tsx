@@ -245,12 +245,11 @@ export function LotoSection({
               Add Isolation Point
             </Button>
           )}
-          {canVerify && (
-            <SectionVerifyButton
-              verified={allVerified}
-              onVerify={handleVerifyAll}
-            />
-          )}
+          <SectionVerifyButton
+            verified={allVerified}
+            canVerify={canVerify}
+            onVerify={handleVerifyAll}
+          />
         </div>
       </div>
 

@@ -251,6 +251,16 @@ export function SpecialisedPermitSection({
         </div>
 
         <div className="flex items-center gap-2">
+          {canEdit && !editMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditMode(true)}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Requirements
+            </Button>
+          )}
           <SectionVerifyButton
             verified={verified}
             canVerify={canVerify}
@@ -279,16 +289,6 @@ export function SpecialisedPermitSection({
               return true
             }}
           />
-          {canEdit && !editMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditMode(true)}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Requirements
-            </Button>
-          )}
         </div>
       </div>
 
