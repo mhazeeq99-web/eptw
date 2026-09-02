@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Download, Paperclip, Trash2 } from 'lucide-react'
+import { Download, Lock, Paperclip, Trash2 } from 'lucide-react'
 
 export type Attachment = {
   id: number
@@ -22,6 +23,10 @@ export function AttachmentsSection({
   permitId,
   canUpload,
   canDelete,
+  attachmentsEnabled,
+  isCompanyOnFreePlan,
+  isCompanyAdmin,
+  isContractor,
   initialAttachments,
   embedded,
   onAttachmentsChange,
@@ -29,6 +34,11 @@ export function AttachmentsSection({
   permitId: number
   canUpload: boolean
   canDelete: boolean
+  /** Whether the PTW-owning company's plan allows attachments (Free = false). */
+  attachmentsEnabled?: boolean
+  isCompanyOnFreePlan?: boolean
+  isCompanyAdmin?: boolean
+  isContractor?: boolean
   initialAttachments: Attachment[]
   embedded?: boolean
   onAttachmentsChange?: (count: number) => void
@@ -45,12 +55,24 @@ export function AttachmentsSection({
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
+  const uploadBlockedByPlan =
+    !attachmentsEnabled && canUpload
+
   async function handleFileSelected(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
     const file = event.target.files?.[0]
 
     if (!file) return
+
+    if (!attachmentsEnabled) {
+      setError(
+        isContractor
+          ? 'Attachments are available on Pro. This company is currently using the Free plan. Contact the company\u2019s Safety Manager to upgrade.'
+          : 'Attachments are available on Pro. This company is currently using the Free plan.'
+      )
+      return
+    }
 
     setError('')
     setUploading(true)
@@ -215,15 +237,22 @@ export function AttachmentsSection({
           </p>
         </div>
 
-        {canUpload && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
-          >
-            {uploading ? 'Uploading...' : 'Upload File'}
-          </button>
+        {canUpload && !attachmentsEnabled ? (
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground dark:border-gray-700">
+            <Lock className="h-3.5 w-3.5" />
+            Attachments on Pro
+          </span>
+        ) : (
+          canUpload && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            >
+              {uploading ? 'Uploading...' : 'Upload File'}
+            </button>
+          )
         )}
 
         <input
@@ -237,6 +266,35 @@ export function AttachmentsSection({
       {error && (
         <div className="border-b px-6 py-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {uploadBlockedByPlan && (
+        <div className="border-b bg-muted/20 px-6 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Lock className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">
+                  Attachments available on Pro
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isContractor
+                    ? 'Upload photos, documents and supporting evidence with your permits. This company is currently on the Free plan — contact the company\u2019s Safety Manager to upgrade.'
+                    : 'Upload photos, documents and supporting evidence with your permits. This company is currently on the Free plan.'}
+                </p>
+              </div>
+            </div>
+
+            {!isContractor && isCompanyAdmin && (
+              <Link
+                href="/pricing"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Upgrade to Pro
+              </Link>
+            )}
+          </div>
         </div>
       )}
 

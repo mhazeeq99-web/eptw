@@ -73,6 +73,10 @@ function buildUsageRows(entitlements: Entitlements): UsageRow[] {
       usage: usage.storageBytes,
       limit: plan.max_storage_bytes,
       noun: 'storage',
+      detail:
+        plan.max_storage_bytes <= 0
+          ? 'Not included on the Free plan. Upgrade to Pro for 5 GB.'
+          : undefined,
     },
     {
       label: 'Sites',
@@ -220,10 +224,21 @@ export default async function SubscriptionPage() {
                     <h2 className="text-2xl font-bold">
                       {plan.name} Plan
                     </h2>
-                    <p className="text-lg text-white/90">
-                      {formatPrice(plan.price_monthly, plan.currency)}
-                      <span className="text-sm text-white/70">/month</span>
-                    </p>
+                    <div>
+                      <p className="text-lg text-white/90">
+                        {formatPrice(plan.price_monthly, plan.currency)}
+                        <span className="text-sm text-white/70">/month</span>
+                      </p>
+                      {isPro && plan.price_annual != null && (
+                        <p className="text-sm text-white/80">
+                          or {plan.currency}{' '}
+                          {Number(plan.price_annual).toLocaleString(
+                            'en-MY'
+                          )}
+                          /year · Save RM298/year
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -279,7 +294,9 @@ export default async function SubscriptionPage() {
                     You're on the Free Plan
                   </p>
                   <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                    Upgrade to Pro for more capacity: more users, unlimited permits and more storage.
+                    Free keeps your full core PTW workflow. Upgrade to Pro to
+                    add photo/document attachments (5 GB), more sites and
+                    users, and 10-year history.
                   </p>
                   <Link
                     href="/pricing"
@@ -436,11 +453,17 @@ function formatUsage(row: UsageRow): string {
   if (row.limit == null) {
     return formatBytesIfStorage(row.label, row.usage)
   }
+  if (row.limit <= 0) {
+    return row.label === 'Storage'
+      ? 'Not included'
+      : `${formatBytesIfStorage(row.label, row.usage)} / ${formatBytesIfStorage(row.label, row.limit)}`
+  }
   return `${formatBytesIfStorage(row.label, row.usage)} / ${formatBytesIfStorage(row.label, row.limit)}`
 }
 
 function remainingText(row: UsageRow): string {
   if (row.limit == null) return 'Unlimited'
+  if (row.limit <= 0) return 'Upgrade to Pro'
   const remaining = Math.max(row.limit - row.usage, 0)
   return `${formatBytesIfStorage(row.label, remaining)} remaining`
 }

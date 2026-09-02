@@ -5,7 +5,7 @@ import AboutUsContent from './about-us-content'
 export const metadata: Metadata = {
   title: 'ePTW | Electronic Permit to Work System Malaysia — Digital PTW Software',
   description:
-    "ePTW is Malaysia's electronic Permit to Work system. Digitalise contractor PTW, HIRARC/JHA, approvals & audit trails. From RM99/year. Trusted by manufacturing, oil & gas, construction.",
+    "ePTW is Malaysia's electronic Permit to Work system. Digitalise contractor PTW, HIRARC/JHA, approvals & audit trails. Free plan for small teams, Pro from RM149/month. Trusted by manufacturing, oil & gas, construction.",
   alternates: {
     canonical: 'https://www.eptw.com.my/about-us',
   },

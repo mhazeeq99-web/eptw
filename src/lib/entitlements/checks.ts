@@ -183,8 +183,23 @@ export async function canAddSite(
 }
 
 /**
+ * Server-side check: does the company's plan permit attachment uploads at all?
+ *
+ * Free companies have max_storage_bytes = 0, so attachments are blocked for
+ * EVERYONE using that company's PTWs — including authorized contractors. The
+ * plan belongs to the PTW-owning company, never to the individual user.
+ */
+export function planAllowsAttachments(plan: Plan): boolean {
+  return (plan.max_storage_bytes ?? 0) > 0
+}
+
+/**
  * Server-side check: may the company upload an attachment of the given size
  * (current usage + new file size <= plan storage limit)?
+ *
+ * The plan is resolved from the PTW-owning company's subscription (the caller
+ * passes companyId from the permit). A Free company (0-byte allowance) is
+ * always rejected — usage 0 + any size > 0.
  */
 export async function canUploadAttachment(
   admin: SupabaseClient,
@@ -192,18 +207,41 @@ export async function canUploadAttachment(
   sizeBytes: number
 ): Promise<EntitlementResult> {
   const plan = await getCompanyPlan(admin, companyId)
+
+  if (!planAllowsAttachments(plan)) {
+    return {
+      ok: false,
+      error:
+        'Attachments are available on Pro. This company is currently using the Free plan. Contact the company\u2019s Safety Manager to upgrade.',
+      usage: 0,
+      limit: 0,
+      planCode: plan.code,
+    }
+  }
+
   const usage = await getStorageUsage(admin, companyId)
 
   if (usage + sizeBytes > plan.max_storage_bytes) {
-    return limitError(
-      plan,
+    return {
+      ok: false,
+      error: `This company has reached its ${plan.name} attachment storage limit (${formatStorageLimit(plan.max_storage_bytes)}). Free up space or contact support.`,
       usage,
-      plan.max_storage_bytes,
-      'attachment storage'
-    )
+      limit: plan.max_storage_bytes,
+      planCode: plan.code,
+    }
   }
 
   return okResult(usage, plan.max_storage_bytes, plan.code)
+}
+
+function formatStorageLimit(value: number | null): string {
+  if (value == null) return 'Unlimited'
+  const gb = value / (1024 * 1024 * 1024)
+  if (gb >= 1) {
+    return `${gb % 1 === 0 ? gb.toFixed(0) : gb.toFixed(1)} GB`
+  }
+  const mb = value / (1024 * 1024)
+  return `${mb.toFixed(0)} MB`
 }
 
 /**

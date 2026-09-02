@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermitAccess } from '@/lib/permit-access'
+import { canUploadAttachment } from '@/lib/entitlements'
 
 export async function GET(
   request: Request,
@@ -156,6 +158,36 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: 'Filename and storage path are required' },
       { status: 400 }
+    )
+  }
+
+  // Company-level attachment entitlement (server-side). The plan of the
+  // PTW-owning company decides whether ANY user (including contractors) may
+  // attach files to this permit. Free companies (0-byte allowance) are always
+  // blocked, even if a signed URL was obtained through another path.
+  if (access.data.permit.company_id == null) {
+    return NextResponse.json(
+      { error: 'Permit has no company; storage limit cannot be resolved' },
+      { status: 400 }
+    )
+  }
+
+  const sizeBytes = Number(body.size_bytes ?? 0)
+  const storageCheck = await canUploadAttachment(
+    createAdminClient(),
+    access.data.permit.company_id,
+    Number.isFinite(sizeBytes) && sizeBytes > 0 ? sizeBytes : 1
+  )
+
+  if (!storageCheck.ok) {
+    return NextResponse.json(
+      {
+        error: storageCheck.error,
+        usage: storageCheck.usage,
+        limit: storageCheck.limit,
+        plan: storageCheck.planCode,
+      },
+      { status: 403 }
     )
   }
 

@@ -12,6 +12,8 @@ export type Plan = {
   code: string
   name: string
   price_monthly: number
+  /** Annual price in the same currency (null when not offered). */
+  price_annual: number | null
   currency: string
   is_active: boolean
   // Numeric limits (null = unlimited)

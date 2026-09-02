@@ -14,6 +14,7 @@ export {
   canCreateUser,
   canAddSite,
   canUploadAttachment,
+  planAllowsAttachments,
   canUseFeature,
 } from './checks'
 export {

@@ -24,6 +24,8 @@ import {
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getCompanyPlan, planAllowsAttachments } from '@/lib/entitlements'
 import { SafetyControlsSection } from '@/components/permits/safety-controls-section'
 import { ApplicantDeclarationConfirm } from '@/components/permits/applicant-declaration-confirm'
 import { LifecyclePanel } from '@/components/permits/lifecycle-panel'
@@ -117,6 +119,7 @@ type PermitSafetyControl = {
 
 type Permit = {
   id: number
+  company_id: number | null
   supervisor_id: string | null
   permit_no: string
   work_title: string
@@ -289,6 +292,7 @@ export default async function PermitDetailsPage({
     .from('permits')
     .select(`
       id,
+      company_id,
       supervisor_id,
       permit_no,
       work_title,
@@ -596,6 +600,37 @@ export default async function PermitDetailsPage({
   }
 
   const permit = data as unknown as Permit
+
+  // ---------------------------------------------------------
+  // Attachment entitlement — resolved from the PTW-owning company's
+  // subscription (NOT the current user's role/plan). Contractors raising a
+  // PTW for a Free company are blocked from uploads; Pro companies allow
+  // authorized users (including contractors) to attach files.
+  // ---------------------------------------------------------
+
+  let attachmentsEnabled = true
+  let isCompanyOnFreePlan = false
+  let isCompanyOnProPlan = false
+
+  if (permit.company_id != null) {
+    try {
+      const plan = await getCompanyPlan(
+        createAdminClient(),
+        permit.company_id
+      )
+      attachmentsEnabled = planAllowsAttachments(plan)
+      isCompanyOnFreePlan = plan.code === 'free'
+      isCompanyOnProPlan = plan.code === 'pro'
+    } catch {
+      // Fall back to allowing the UI (server routes still enforce).
+      attachmentsEnabled = true
+    }
+  }
+
+  const canUploadStatus =
+    permit.status !== 'closed' && permit.status !== 'cancelled'
+  const canUploadAttachments = canUploadStatus && attachmentsEnabled
+  const isRequester = user?.id === permit.requester?.id
 
   // ---------------------------------------------------------
   // Safety-document permissions (JHA / LOTO / gas testing)
@@ -984,6 +1019,9 @@ export default async function PermitDetailsPage({
                 canVerify={canVerifySafetyDocs}
                 initialJhas={permit.jhas ?? []}
                 initialHirarc={permit.hirarc_documents ?? []}
+                attachmentsEnabled={attachmentsEnabled}
+                isCompanyAdmin={currentUserRole === 'safety_manager' || currentUserRole === 'platform_admin'}
+                isContractor={currentUserRole === 'contractor_admin'}
               />
             </div>
 
@@ -1155,8 +1193,12 @@ export default async function PermitDetailsPage({
           <TabsContent value="documents" className="mt-6 space-y-6">
             <AttachmentsSection
               permitId={permit.id}
-              canUpload={permit.status !== 'closed' && permit.status !== 'cancelled'}
+              canUpload={canUploadAttachments}
               canDelete={currentUserRole === 'safety_manager' || currentUserRole === 'platform_admin'}
+              attachmentsEnabled={attachmentsEnabled}
+              isCompanyOnFreePlan={isCompanyOnFreePlan}
+              isCompanyAdmin={currentUserRole === 'safety_manager' || currentUserRole === 'platform_admin'}
+              isContractor={currentUserRole === 'contractor_admin'}
               initialAttachments={permit.attachments ?? []}
             />
           </TabsContent>

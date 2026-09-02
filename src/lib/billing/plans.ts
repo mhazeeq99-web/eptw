@@ -44,7 +44,7 @@ export async function ensureHitPayProPlan(
 
   const form = new URLSearchParams()
   form.append('name', 'ePTW Pro')
-  form.append('description', 'ePTW Pro subscription (RM99/month)')
+  form.append('description', 'ePTW Pro subscription (RM149/month)')
   form.append('currency', proPlan.currency ?? 'MYR')
   form.append('amount', String(proPlan.price_monthly))
   form.append('cycle', 'monthly')

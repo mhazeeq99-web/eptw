@@ -296,6 +296,10 @@ function NewPermitWorkspace() {
     new Set(['permit-info', 'work-desc'])
   )
 
+  // Company-level attachment entitlement for UI gating (server enforces).
+  const [attachmentsEnabled, setAttachmentsEnabled] = useState(true)
+  const [companyPlanCode, setCompanyPlanCode] = useState<string | null>(null)
+
   const selectedPermitType = permitTypes.find(
     (type) => type.id === Number(permitTypeId)
   )
@@ -855,6 +859,49 @@ function NewPermitWorkspace() {
 
     loadCompanyData()
   }, [companyId, supabase])
+
+  // Resolve the selected company's plan for attachment UI gating. The
+  // server-side upload endpoints remain authoritative; this only drives the
+  // locked "Attachments on Pro" state in the form.
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCompanyPlan() {
+      if (!companyId) {
+        setAttachmentsEnabled(true)
+        setCompanyPlanCode(null)
+        return
+      }
+
+      try {
+        const response = await fetch(
+          `/api/company/plan?company_id=${encodeURIComponent(companyId)}`
+        )
+        const body = await response.json()
+
+        if (!cancelled) {
+          if (response.ok) {
+            setAttachmentsEnabled(body.attachments_enabled === true)
+            setCompanyPlanCode(body.plan_code ?? null)
+          } else {
+            // Fall back to allowing the UI; the server still enforces.
+            setAttachmentsEnabled(true)
+            setCompanyPlanCode(null)
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setAttachmentsEnabled(true)
+          setCompanyPlanCode(null)
+        }
+      }
+    }
+
+    loadCompanyPlan()
+    return () => {
+      cancelled = true
+    }
+  }, [companyId])
 
   // ---------------------------------------------------------
   // Load safety controls
@@ -1881,6 +1928,9 @@ function NewPermitWorkspace() {
                   embedded
                   saveRef={jhaSaveRef}
                   onJhasChange={setJhaCount}
+                  attachmentsEnabled={attachmentsEnabled}
+                  isCompanyAdmin={profile?.role === 'safety_manager' || profile?.role === 'platform_admin'}
+                  isContractor={isContractor}
                 />
               </CollapsibleSection>
 
@@ -2112,6 +2162,10 @@ function NewPermitWorkspace() {
                   permitId={draftPermitId}
                   canUpload={true}
                   canDelete={false}
+                  attachmentsEnabled={attachmentsEnabled}
+                  isCompanyOnFreePlan={companyPlanCode === 'free'}
+                  isCompanyAdmin={profile?.role === 'safety_manager' || profile?.role === 'platform_admin'}
+                  isContractor={isContractor}
                   initialAttachments={
                     editPermitData?.attachments ?? EMPTY_ATTACHMENTS
                   }

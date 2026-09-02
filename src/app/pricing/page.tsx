@@ -43,6 +43,14 @@ function planRow(plan: Plan, key: keyof Plan): string {
   return String(value)
 }
 
+/** "Not included" when the plan has 0-byte attachment storage (Free). */
+function storageLabel(plan: Plan | undefined): string {
+  if (!plan) return '—'
+  const bytes = plan.max_storage_bytes ?? 0
+  if (bytes <= 0) return 'Not included'
+  return formatBytes(bytes)
+}
+
 function retentionLabel(plan: Plan | undefined): string {
   if (!plan) return '—'
   const years = plan.max_history_years
@@ -92,7 +100,7 @@ export default async function PricingPage() {
     { label: 'Internal Staff', free: planRow(freePlan, 'max_internal_staff'), pro: planRow(proPlan, 'max_internal_staff'), category: 'limits' },
     { label: 'PTWs per calendar month', free: planRow(freePlan, 'max_monthly_permits'), pro: planRow(proPlan, 'max_monthly_permits'), category: 'limits' },
     { label: 'Active PTWs at one time', free: planRow(freePlan, 'max_active_permits'), pro: planRow(proPlan, 'max_active_permits'), category: 'limits' },
-    { label: 'Attachment storage', free: planRow(freePlan, 'max_storage_bytes'), pro: planRow(proPlan, 'max_storage_bytes'), category: 'limits' },
+    { label: 'Attachment storage', free: storageLabel(freePlan), pro: storageLabel(proPlan), category: 'limits' },
     { label: 'Permit history retention', free: retentionLabel(freePlan), pro: retentionLabel(proPlan), category: 'limits' },
   ]
 
@@ -106,6 +114,7 @@ export default async function PricingPage() {
     { label: 'Basic Reports', free: planRow(freePlan, 'feature_basic_reports'), pro: planRow(proPlan, 'feature_basic_reports'), category: 'features' },
     { label: 'Basic Notifications', free: planRow(freePlan, 'feature_notifications'), pro: planRow(proPlan, 'feature_notifications'), category: 'features' },
     { label: 'Printable Permit', free: planRow(freePlan, 'feature_printable_permit'), pro: planRow(proPlan, 'feature_printable_permit'), category: 'features' },
+    { label: 'Photos & document attachments', free: 'Not included', pro: 'Yes', category: 'features' },
   ]
 
   return (
@@ -115,16 +124,16 @@ export default async function PricingPage() {
         <div className="text-center">
           <Badge variant="secondary" className="mb-4">
             <Sparkles className="mr-2 h-3 w-3" />
-            Flexible Plans for Every Team
+            Start digitising your PTW process
           </Badge>
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
             Simple, Transparent Pricing
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Core safety functionality — PTW, JHA/JSA, LOTO, gas testing,
-            safety controls, audit history and printable permits — is
-            available on every plan. Plans differ in scale and advanced
-            capabilities.
+            Two plans. Free keeps the core PTW workflow genuinely useful —
+            create, submit, approve and close permits with JHA/JSA, LOTO, gas
+            testing and safety controls. Pro adds photos, documents and
+            supporting evidence for your complete digital PTW system.
           </p>
         </div>
 
@@ -194,9 +203,24 @@ export default async function PricingPage() {
                           /month
                         </span>
                       </div>
-                      {isPro && (
+                      {isPro ? (
+                        <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            or{' '}
+                            {plan.price_annual != null
+                              ? `${plan.currency} ${Number(
+                                  plan.price_annual
+                                ).toLocaleString('en-MY')}`
+                              : ''}{' '}
+                            /year
+                          </p>
+                          <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-300">
+                            Save RM298/year with annual billing
+                          </p>
+                        </div>
+                      ) : (
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          Billed monthly · Cancel anytime
+                          Free forever for small teams
                         </p>
                       )}
                     </div>
@@ -209,8 +233,9 @@ export default async function PricingPage() {
                       <PlanFeature icon={Building2} label="Sites" value={formatLimit(plan.max_sites)} />
                       <PlanFeature icon={FileCheck} label="Monthly PTWs" value={formatLimit(plan.max_monthly_permits)} />
                       <PlanFeature icon={FileCheck} label="Active PTWs" value={formatLimit(plan.max_active_permits)} />
-                      <PlanFeature icon={Database} label="Storage" value={formatBytes(plan.max_storage_bytes)} />
+                      <PlanFeature icon={Database} label="Attachment storage" value={storageLabel(plan)} />
                       <PlanFeature icon={Clock} label="History retention" value={retentionLabel(plan)} />
+                      <PlanFeature icon={Zap} label="Photos & document attachments" value={(plan.max_storage_bytes ?? 0) > 0 ? 'Yes' : 'Not included'} />
                     </div>
 
                     <div className="mt-8">
@@ -229,7 +254,7 @@ export default async function PricingPage() {
                               href="/settings/subscription"
                               className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 transition-all hover:shadow-blue-700/30"
                             >
-                              Upgrade to Pro
+                              Start Pro
                               <ArrowRight className="h-4 w-4" />
                             </Link>
                           )}
@@ -238,14 +263,20 @@ export default async function PricingPage() {
                           </p>
                         </>
                       ) : (
-                        <div className="rounded-lg bg-gray-50 p-4 text-center dark:bg-gray-800">
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Your Current Plan
+                        <>
+                          <Link
+                            href="/settings/subscription"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                          >
+                            Get Started
+                            <ArrowRight className="h-4 w-4" />
+                          </Link>
+                          <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                            {isCurrent
+                              ? 'Your Current Plan — free forever'
+                              : 'Free forever — no credit card required'}
                           </p>
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Free forever for small teams
-                          </p>
-                        </div>
+                        </>
                       )}
                     </div>
                   </CardContent>

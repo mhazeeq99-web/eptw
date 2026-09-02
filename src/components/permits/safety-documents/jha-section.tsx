@@ -19,7 +19,8 @@ import {
   ArrowRight,
   MoreVertical,
   Edit,
-  Eye
+  Eye,
+  Lock
 } from 'lucide-react'
 import { VerifySafetyDocButton } from './verify-button'
 import { SectionVerifyButton } from '../section-verify-button'
@@ -187,6 +188,9 @@ export function JhaSection({
   embedded,
   saveRef,
   onJhasChange,
+  attachmentsEnabled = true,
+  isCompanyAdmin = false,
+  isContractor = false,
 }: {
   permitId: number
   canAdd: boolean
@@ -201,6 +205,10 @@ export function JhaSection({
   >
   /** Notify the parent whenever the number of saved JHA records changes. */
   onJhasChange?: (count: number) => void
+  /** Whether the PTW-owning company's plan allows attachments (Free = false). */
+  attachmentsEnabled?: boolean
+  isCompanyAdmin?: boolean
+  isContractor?: boolean
 }) {
   const router = useRouter()
 
@@ -777,24 +785,48 @@ export function JhaSection({
             
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (!attachmentsEnabled) {
+                  setUploadError(
+                    isContractor
+                      ? 'Attachments are available on Pro. This company is currently using the Free plan. Contact the company\u2019s Safety Manager to upgrade.'
+                      : 'Attachments are available on Pro. This company is currently using the Free plan.'
+                  )
+                  return
+                }
+                fileInputRef.current?.click()
+              }}
               disabled={uploading}
               className="rounded-lg border-2 border-gray-200 p-6 text-left transition-all hover:border-blue-500 hover:shadow-md disabled:opacity-50 dark:border-gray-700 dark:hover:border-blue-400"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/50">
-                  <FileSpreadsheet className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  {attachmentsEnabled ? (
+                    <FileSpreadsheet className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Lock className="h-6 w-6 text-gray-400 dark:text-gray-500" />
+                  )}
                 </div>
                 <h3 className="font-semibold text-lg">
                   Upload HIRARC
                 </h3>
+                {!attachmentsEnabled && (
+                  <span className="rounded-md border border-gray-200 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground dark:border-gray-700">
+                    Pro
+                  </span>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Upload an existing HIRARC document from your
-                company's safety management system.
+                {attachmentsEnabled
+                  ? "Upload an existing HIRARC document from your company's safety management system."
+                  : 'Uploading HIRARC documents is available on Pro.'}
               </p>
               <span className="mt-4 inline-block text-sm font-medium text-green-600 dark:text-green-400">
-                {uploading ? 'Uploading...' : 'Upload HIRARC →'}
+                {attachmentsEnabled
+                  ? uploading
+                    ? 'Uploading...'
+                    : 'Upload HIRARC →'
+                  : 'Available on Pro'}
               </span>
             </button>
           </div>
@@ -1047,10 +1079,24 @@ export function JhaSection({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (!attachmentsEnabled) {
+                  setUploadError(
+                    isContractor
+                      ? 'Attachments are available on Pro. This company is currently using the Free plan. Contact the company\u2019s Safety Manager to upgrade.'
+                      : 'Attachments are available on Pro. This company is currently using the Free plan.'
+                  )
+                  return
+                }
+                fileInputRef.current?.click()
+              }}
               disabled={uploading}
             >
-              {uploading ? 'Uploading...' : '+ Upload'}
+              {attachmentsEnabled
+                ? uploading
+                  ? 'Uploading...'
+                  : '+ Upload'
+                : 'Pro'}
             </Button>
           )}
         </div>

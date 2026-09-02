@@ -149,8 +149,8 @@ export default function AboutUsContent() {
                   <span>Approval workflow</span>
                 </div>
                 <div className="about-hero-stat">
-                  <strong>RM99</strong>
-                  <span>per year (intro)</span>
+                  <strong>RM0</strong>
+                  <span>to start (Free plan)</span>
                 </div>
               </div>
             </div>
@@ -522,8 +522,8 @@ export default function AboutUsContent() {
               Simple, transparent pricing for Malaysian businesses
             </h2>
             <p className="about-section-subtitle">
-              Get started for less than the cost of a single safety incident
-              report.
+              Free for small teams. Pro at RM149/month (or RM1,490/year) for
+              your complete digital PTW system.
             </p>
             <div className="about-pricing-card">
               <p
@@ -533,14 +533,11 @@ export default function AboutUsContent() {
                   marginBottom: 4,
                 }}
               >
-                ePTW Annual Plan
+                ePTW Pro
               </p>
               <div className="about-price">
-                RM99 <small>/ year</small>
+                RM149 <small>/ month</small>
               </div>
-              <p className="about-price-note">
-                Introductory price — locked for first 2 years
-              </p>
               <p
                 style={{
                   marginBottom: 8,
@@ -548,7 +545,11 @@ export default function AboutUsContent() {
                   color: 'var(--atext-secondary)',
                 }}
               >
-                Then <strong>RM149 / year</strong>
+                or <strong>RM1,490 / year</strong> — save RM298/year
+              </p>
+              <p className="about-price-note">
+                Free plan also available — full core PTW workflow, no
+                attachment storage.
               </p>
               <ul
                 style={{
@@ -563,8 +564,8 @@ export default function AboutUsContent() {
                 <li style={{ padding: '6px 0' }}>✓ Unlimited contractors</li>
                 <li style={{ padding: '6px 0' }}>✓ Full audit trail</li>
                 <li style={{ padding: '6px 0' }}>✓ HIRARC/JHA module</li>
+                <li style={{ padding: '6px 0' }}>✓ Photo/document attachments (5 GB)</li>
                 <li style={{ padding: '6px 0' }}>✓ Mobile-friendly access</li>
-                <li style={{ padding: '6px 0' }}>✓ Email support</li>
               </ul>
               <a
                 href="#cta"
