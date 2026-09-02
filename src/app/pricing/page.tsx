@@ -3,31 +3,33 @@ import { redirect } from 'next/navigation'
 import { 
   Check, 
   Minus, 
-  Sparkles, 
   Shield, 
   Building2, 
-  Users, 
   FileCheck, 
   Database, 
   Clock, 
   ChevronRight,
   Star,
-  Zap,
-  Crown,
   ArrowRight,
   BadgeCheck,
-  Info,
-  Gift,
-  Rocket,
-  Infinity,
   HardDrive,
-  CalendarDays
+  Camera,
+  FileText,
+  FolderOpen,
+  Layers,
+  Users,
+  ClipboardCheck,
+  AlertCircle,
+  BarChart3,
+  Bell,
+  Printer,
+  LayoutDashboard
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCompanyPlan, type Plan } from '@/lib/entitlements'
-import { formatBytes, formatLimit, formatPrice } from '@/lib/entitlements/format'
+import { formatBytes, formatPrice } from '@/lib/entitlements/format'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -123,222 +125,417 @@ export default async function PricingPage() {
 
   return (
     <DashboardShell>
-      <div className="mx-auto max-w-6xl space-y-16">
-        {/* Header with animated gradient */}
-        <div className="relative text-center">
-          <div className="absolute inset-0 -z-10 bg-gradient-to-b from-blue-50/50 via-transparent to-transparent dark:from-blue-950/20" />
-          
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-14 text-center">
           <Badge 
-            variant="secondary" 
-            className="mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border-blue-200/50 dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-300 dark:border-blue-800/30"
+            variant="outline" 
+            className="mb-4 border-blue-200 bg-blue-50/60 px-3 py-0.5 text-xs font-medium uppercase tracking-wider text-blue-700 dark:border-blue-800/30 dark:bg-blue-950/20 dark:text-blue-400"
           >
-            <Sparkles className="mr-2 h-3.5 w-3.5" />
-            Start digitising your PTW process
+            Pricing
           </Badge>
           
-          <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent dark:from-white dark:via-gray-200 dark:to-white">
-            Simple, Transparent Pricing
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+            Simple, transparent pricing for digital PTW
           </h1>
           
-          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-gray-600 dark:text-gray-400">
-            Two plans. Free keeps the core PTW workflow genuinely useful — 
-            create, submit, approve and close permits with JHA/JSA, LOTO, gas 
-            testing and safety controls. Pro adds photos, documents and 
-            supporting evidence for your complete digital PTW system.
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-relaxed text-gray-600 dark:text-gray-400">
+            Start with the core PTW workflow. Upgrade when your operation needs 
+            more capacity and supporting evidence.
           </p>
         </div>
 
-        {/* Pricing Cards with enhanced styling */}
-        <div className="grid gap-8 md:grid-cols-2">
+        {/* Pricing Cards */}
+        <div className="grid gap-6 md:grid-cols-2 md:gap-8">
           {[freePlan, proPlan]
             .filter((plan): plan is Plan => Boolean(plan))
             .map((plan) => {
               const isCurrent = currentPlanCode === plan.code
               const isPro = plan.code === 'pro'
+              const isFree = plan.code === 'free'
               
               return (
-                <Card
+                <div
                   key={plan.code}
                   className={cn(
-                    "relative overflow-hidden transition-all duration-500 hover:scale-[1.02]",
+                    "relative flex flex-col rounded-xl border bg-white transition-shadow duration-200 dark:bg-gray-900",
                     isPro 
-                      ? "border-2 border-blue-200 shadow-2xl shadow-blue-200/50 dark:border-blue-700/50 dark:shadow-blue-900/30" 
-                      : "border border-gray-200 hover:shadow-xl dark:border-gray-700",
-                    isCurrent && "ring-2 ring-green-500/50 ring-offset-2",
-                    "animate-in fade-in slide-in-from-bottom-6 duration-700"
+                      ? "border-blue-200 shadow-md dark:border-blue-800/40 dark:shadow-blue-900/5" 
+                      : "border-gray-200 shadow-sm dark:border-gray-700",
+                    isCurrent && "ring-2 ring-emerald-500/40 ring-offset-1",
+                    "hover:shadow-md"
                   )}
                 >
-                  {/* Background gradient for Pro */}
+                  {/* Pro accent line */}
                   {isPro && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-transparent dark:from-blue-950/20 dark:via-indigo-950/10" />
+                    <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl bg-blue-600 dark:bg-blue-500" />
                   )}
 
-                  {/* Popular badge with improved styling */}
+                  {/* Pro badge */}
                   {isPro && (
-                    <div className="absolute -right-8 top-6 rotate-45">
-                      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-lg">
-                        Most Popular
-                      </div>
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-blue-600 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow-sm dark:bg-blue-700">
+                        Recommended
+                      </Badge>
                     </div>
                   )}
 
-                  <CardHeader className={cn("relative pb-6", isPro && "pt-8")}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "rounded-2xl p-3.5 shadow-lg transition-all duration-300",
-                          isPro 
-                            ? "bg-gradient-to-br from-blue-600 to-indigo-600 shadow-blue-600/30" 
-                            : "bg-gradient-to-br from-gray-200 to-gray-300 shadow-gray-400/20 dark:from-gray-700 dark:to-gray-800"
-                        )}>
-                          {isPro ? (
-                            <Rocket className="h-7 w-7 text-white" />
-                          ) : (
-                            <Gift className="h-7 w-7 text-gray-700 dark:text-gray-300" />
-                          )}
-                        </div>
-                        <div>
-                          <CardTitle className="text-2xl font-bold">
-                            {plan.name}
-                          </CardTitle>
-                          {isCurrent && (
-                            <Badge variant="success" className="mt-1.5 bg-emerald-500/10 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-800/30">
-                              <BadgeCheck className="mr-1.5 h-3 w-3" />
-                              Current Plan
-                            </Badge>
-                          )}
-                        </div>
+                  <div className={cn(
+                    "flex flex-1 flex-col p-6 sm:p-8",
+                    isPro && "pt-7"
+                  )}>
+                    {/* Plan header */}
+                    <div className="mb-5 flex items-start justify-between">
+                      <div>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          {plan.name}
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {isFree ? 'Start digitising your PTW process' : 'Complete digital PTW management'}
+                        </p>
                       </div>
+                      {isCurrent && (
+                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                          <BadgeCheck className="mr-1 h-3 w-3" />
+                          Current
+                        </Badge>
+                      )}
                     </div>
 
-                    <div className="mt-8">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-extrabold text-gray-900 dark:text-white">
+                    {/* Price */}
+                    <div className="mb-6">
+                      <div className="flex items-baseline">
+                        <span className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
                           {formatPrice(plan.price_monthly, plan.currency)}
                         </span>
-                        <span className="text-lg font-medium text-gray-500 dark:text-gray-400">
+                        <span className="ml-1.5 text-base font-medium text-gray-500 dark:text-gray-400">
                           /month
                         </span>
                       </div>
                       
-                      {isPro ? (
-                        <div className="mt-3 rounded-xl border border-blue-200/60 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:border-blue-800/30 dark:from-blue-950/30 dark:to-indigo-950/30">
-                          <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                            or{' '}
-                            {plan.price_annual != null
-                              ? `${plan.currency} ${Number(
-                                  plan.price_annual
-                                ).toLocaleString('en-MY')}`
-                              : ''}{' '}
-                            /year
-                          </p>
-                          <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-300">
-                            Save RM298/year with annual billing
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                            </span>
-                            Free forever for small teams
-                          </span>
+                      {isFree ? (
+                        <p className="mt-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                          Free forever
                         </p>
+                      ) : (
+                        <div className="mt-1.5 space-y-0.5">
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            or {plan.price_annual != null
+                              ? `${plan.currency} ${Number(plan.price_annual).toLocaleString('en-MY')}`
+                              : ''} /year
+                          </p>
+                          <Badge variant="outline" className="border-emerald-200 bg-emerald-50/60 text-[11px] text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/20 dark:text-emerald-400">
+                            Save RM298/year
+                          </Badge>
+                        </div>
                       )}
                     </div>
-                  </CardHeader>
 
-                  <CardContent className="relative">
-                    <Separator className={cn(
-                      "mb-6",
-                      isPro ? "bg-gradient-to-r from-transparent via-blue-200 to-transparent dark:via-blue-800" : ""
-                    )} />
-
-                    <div className="space-y-3.5">
-                      <PlanFeature icon={Building2} label="Sites" value={formatLimit(plan.max_sites)} isPro={isPro} />
-                      <PlanFeature icon={FileCheck} label="Monthly PTWs" value={formatLimit(plan.max_monthly_permits)} isPro={isPro} />
-                      <PlanFeature icon={FileCheck} label="Active PTWs" value={formatLimit(plan.max_active_permits)} isPro={isPro} />
-                      <PlanFeature icon={HardDrive} label="Attachment storage" value={storageLabel(plan)} isPro={isPro} />
-                      <PlanFeature icon={CalendarDays} label="History retention" value={retentionLabel(plan)} isPro={isPro} />
-                      <PlanFeature icon={ImageIcon} label="Photos & documents" value={(plan.max_storage_bytes ?? 0) > 0 ? 'Yes' : 'Not included'} isPro={isPro} />
+                    {/* Feature list */}
+                    <div className="mb-8 flex-1 space-y-3">
+                      {isFree ? (
+                        <div className="space-y-2.5">
+                          <FeatureItem icon={ClipboardCheck} label="Core PTW workflow" />
+                          <FeatureItem icon={FileCheck} label="JHA / JSA" />
+                          <FeatureItem icon={Shield} label="LOTO" />
+                          <FeatureItem icon={AlertCircle} label="Gas Testing" />
+                          <FeatureItem icon={Layers} label="Safety Controls" />
+                          <FeatureItem icon={LayoutDashboard} label="Basic Dashboard" />
+                          <FeatureItem icon={BarChart3} label="Basic Reports" />
+                          <FeatureItem icon={Bell} label="Basic Notifications" />
+                          <FeatureItem icon={Printer} label="Printable Permit" />
+                          <FeatureItem icon={Users} label="Contractor PTW" />
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="rounded-lg bg-gray-50/80 p-3 dark:bg-gray-800/50">
+                            <FeatureItem icon={Check} label="Everything in Free" emphasized />
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <Separator className="flex-1" />
+                            <span className="text-[10px] font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                              Plus
+                            </span>
+                            <Separator className="flex-1" />
+                          </div>
+                          
+                          <div className="space-y-2.5">
+                            {/* Star feature */}
+                            <div className="rounded-lg border border-blue-200/60 bg-blue-50/60 p-3 dark:border-blue-800/30 dark:bg-blue-950/20">
+                              <div className="flex items-start gap-3">
+                                <div className="mt-0.5 flex-shrink-0">
+                                  <Camera className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    Photos & document attachments
+                                  </div>
+                                  <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-300">
+                                    Attach photos and supporting documents directly to your PTW records
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <FeatureItem icon={HardDrive} label="More storage" />
+                            <FeatureItem icon={Building2} label="More sites" />
+                            <FeatureItem icon={FileCheck} label="Higher PTW limits" />
+                            <FeatureItem icon={Clock} label="Longer history retention" />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="mt-8">
-                      {plan.code === 'pro' ? (
+                    {/* CTA */}
+                    <div className="mt-auto">
+                      {isPro ? (
                         <>
                           {isCurrent ? (
                             <Link
                               href="/settings/subscription"
-                              className="group flex w-full items-center justify-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold text-gray-700 transition-all hover:border-gray-300 hover:bg-gray-50 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-700"
+                              className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                             >
                               View Subscription
-                              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                             </Link>
                           ) : (
                             <Link
                               href="/settings/subscription"
-                              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition-all hover:shadow-xl hover:shadow-blue-600/40 hover:scale-[1.02] active:scale-[0.98]"
+                              className="block w-full rounded-lg bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-blue-700 dark:hover:bg-blue-800"
                             >
                               Start Pro
-                              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                             </Link>
                           )}
-                          <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
-                            Online payment coming soon
-                          </p>
                         </>
                       ) : (
-                        <>
-                          <Link
-                            href="/settings/subscription"
-                            className="group flex w-full items-center justify-center gap-2 rounded-xl border-2 border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-700 transition-all hover:border-gray-400 hover:bg-gray-50 hover:shadow-md dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700"
-                          >
-                            Get Started
-                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                          </Link>
-                          <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
-                            {isCurrent
-                              ? 'Your Current Plan — free forever'
-                              : 'Free forever — no credit card required'}
-                          </p>
-                        </>
+                        <Link
+                          href="/settings/subscription"
+                          className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          {isCurrent ? 'Current Plan' : 'Get Started'}
+                        </Link>
+                      )}
+                      
+                      {isFree && !isCurrent && (
+                        <p className="mt-2.5 text-center text-xs text-gray-500 dark:text-gray-400">
+                          No credit card required
+                        </p>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )
             })}
         </div>
 
-        {/* Comparison Tables with improved styling */}
-        <div className="space-y-8">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 px-6 py-2 dark:from-blue-900/30 dark:to-indigo-900/30">
-              <Star className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Detailed Comparison</span>
-            </div>
-            <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white">
-              Compare Plans in Detail
+        {/* Reassurance strip */}
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-gray-200 pt-8 dark:border-gray-700">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span>No credit card required</span>
+          </div>
+          <span className="hidden text-gray-300 dark:text-gray-600 sm:inline">·</span>
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Free forever</span>
+          </div>
+          <span className="hidden text-gray-300 dark:text-gray-600 sm:inline">·</span>
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Upgrade anytime</span>
+          </div>
+        </div>
+
+        {/* Why upgrade to Pro section */}
+        <div className="mt-16">
+          <div className="mb-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Why upgrade to Pro?
             </h2>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              The key difference that matters for operational safety
+            </p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-5">
+            {/* PTW record mockup */}
+            <div className="lg:col-span-3">
+              <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Permit Record
+                    </div>
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                      PTW-2026-00124
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-emerald-200 text-[11px] text-emerald-700 dark:border-emerald-800 dark:text-emerald-400">
+                    Active
+                  </Badge>
+                </div>
+                
+                {/* Details */}
+                <div className="mt-3 space-y-2.5">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="w-16 font-medium text-gray-500 dark:text-gray-400">Work:</span>
+                    <span className="text-gray-900 dark:text-white">Pump Maintenance — Line 3</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="w-16 font-medium text-gray-500 dark:text-gray-400">Location:</span>
+                    <span className="text-gray-900 dark:text-white">North Plant, Area B</span>
+                  </div>
+                  
+                  <Separator className="my-1.5" />
+                  
+                  {/* Safety checks */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-gray-700 dark:text-gray-300">JHA / JSA completed</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-gray-700 dark:text-gray-300">Safety Controls verified</span>
+                    </div>
+                  </div>
+                  
+                  <Separator className="my-1.5" />
+                  
+                  {/* Attachments - strongest visual subsection */}
+                  <div className="rounded-lg border border-blue-200/60 bg-blue-50/60 p-3 dark:border-blue-800/30 dark:bg-blue-950/20">
+                    <div className="flex items-center gap-2">
+                      <FolderOpen className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                        Attachments
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-3">
+                      <span className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                        <Camera className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        3 photos
+                      </span>
+                      <span className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                        <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        2 documents
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+                    Illustrative example only
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Value proposition */}
+            <div className="lg:col-span-2">
+              <div className="flex h-full flex-col justify-center space-y-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
+                      <FolderOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Keep permit evidence together
+                    </h3>
+                  </div>
+                  
+                  <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                    Attach photos and supporting documents directly to your PTW records. 
+                    The permit, safety documentation, and supporting evidence stay 
+                    together in one place.
+                  </p>
+                </div>
+                
+                <div className="flex items-start gap-3 rounded-lg border border-gray-100 p-3 dark:border-gray-700">
+                  <div className="mt-0.5 flex-shrink-0 rounded-full bg-emerald-100 p-1 dark:bg-emerald-900/30">
+                    <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      Complete digital records
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Build a complete trail for compliance and audit purposes
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PTW Flow Visualization - Improved mobile */}
+          <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-5 dark:border-gray-700 dark:bg-gray-800/50">
+            {/* Desktop: Horizontal */}
+            <div className="hidden sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-0">
+              <FlowStep icon={ClipboardCheck} label="PTW" variant="core" />
+              <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={FileCheck} label="JHA / JSA" variant="core" />
+              <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={Layers} label="Safety Controls" variant="core" />
+              <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={Camera} label="Photos" variant="pro" />
+              <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={FileText} label="Documents" variant="pro" />
+              <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={FolderOpen} label="Permit Record" variant="pro" />
+            </div>
+
+            {/* Mobile: Vertical */}
+            <div className="flex flex-col items-center gap-2 sm:hidden">
+              <FlowStep icon={ClipboardCheck} label="PTW" variant="core" />
+              <ArrowDown className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={FileCheck} label="JHA / JSA" variant="core" />
+              <ArrowDown className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={Layers} label="Safety Controls" variant="core" />
+              <ArrowDown className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={Camera} label="Photos" variant="pro" />
+              <ArrowDown className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={FileText} label="Documents" variant="pro" />
+              <ArrowDown className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+              <FlowStep icon={FolderOpen} label="Permit Record" variant="pro" />
+            </div>
+            
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500" />
+                Core workflow
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400" />
+                Pro features
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Comparison Tables */}
+        <div className="mt-16 space-y-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Compare plans in detail
+            </h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               See what's included in each plan
             </p>
           </div>
 
-          <Card className="overflow-hidden border-0 shadow-xl shadow-gray-100/50 dark:shadow-gray-900/30">
-            <div className="bg-gradient-to-r from-blue-600/5 to-indigo-600/5 px-6 py-5 dark:from-blue-600/10 dark:to-indigo-600/10">
-              <CardTitle className="flex items-center gap-2.5 text-xl">
-                <div className="rounded-lg bg-blue-600/10 p-2 dark:bg-blue-600/20">
-                  <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <Card className="overflow-hidden border-gray-200 shadow-sm dark:border-gray-700">
+            <CardHeader className="border-b border-gray-100 pb-3 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <div className="rounded-md bg-blue-100 p-1.5 dark:bg-blue-900/30">
+                  <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                Plan Limits
-              </CardTitle>
-              <CardDescription className="mt-1">
+                <CardTitle className="text-base font-semibold">Plan limits</CardTitle>
+              </div>
+              <CardDescription className="text-sm">
                 Capacity and usage limits for each plan
               </CardDescription>
-            </div>
+            </CardHeader>
             <CardContent className="p-0">
               <ComparisonTable
                 rows={limitRows}
@@ -348,18 +545,18 @@ export default async function PricingPage() {
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden border-0 shadow-xl shadow-gray-100/50 dark:shadow-gray-900/30">
-            <div className="bg-gradient-to-r from-blue-600/5 to-indigo-600/5 px-6 py-5 dark:from-blue-600/10 dark:to-indigo-600/10">
-              <CardTitle className="flex items-center gap-2.5 text-xl">
-                <div className="rounded-lg bg-blue-600/10 p-2 dark:bg-blue-600/20">
-                  <Star className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <Card className="overflow-hidden border-gray-200 shadow-sm dark:border-gray-700">
+            <CardHeader className="border-b border-gray-100 pb-3 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <div className="rounded-md bg-blue-100 p-1.5 dark:bg-blue-900/30">
+                  <Star className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                Features
-              </CardTitle>
-              <CardDescription className="mt-1">
+                <CardTitle className="text-base font-semibold">Core features</CardTitle>
+              </div>
+              <CardDescription className="text-sm">
                 Available features and capabilities
               </CardDescription>
-            </div>
+            </CardHeader>
             <CardContent className="p-0">
               <ComparisonTable
                 rows={featureRows}
@@ -370,28 +567,23 @@ export default async function PricingPage() {
           </Card>
         </div>
 
-        {/* FAQ / Help Section with enhanced design */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 p-10 text-center shadow-2xl shadow-blue-600/30 dark:shadow-blue-900/40">
-          {/* Decorative elements */}
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-          <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-          
-          <div className="relative z-10">
-            <div className="mx-auto mb-4 inline-flex rounded-full bg-white/20 p-3 backdrop-blur-sm">
-              <Users className="h-6 w-6 text-white" />
+        {/* Contact section */}
+        <div className="mt-16 rounded-xl border border-gray-200 bg-gray-50/80 p-6 text-center dark:border-gray-700 dark:bg-gray-800/50">
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                Not sure which plan fits your operation?
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                We'll help you choose the right setup for your PTW workflow.
+              </p>
             </div>
-            <h3 className="text-2xl font-bold text-white">
-              Need Help Choosing a Plan?
-            </h3>
-            <p className="mt-2 text-blue-100">
-              Contact our team for a personalized recommendation
-            </p>
             <Link
               href="/contact"
-              className="group mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-sm font-semibold text-blue-600 shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95 dark:bg-gray-900 dark:text-blue-400 dark:hover:bg-gray-800"
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-5 py-2.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-blue-800/30 dark:bg-gray-800 dark:text-blue-400 dark:hover:bg-gray-700"
             >
-              Contact Sales
-              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              Talk to us
+              <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -400,8 +592,68 @@ export default async function PricingPage() {
   )
 }
 
-// Icons that were missing
-function ImageIcon(props: any) {
+// Helper Components
+
+function FeatureItem({ 
+  icon: Icon, 
+  label, 
+  emphasized = false
+}: { 
+  icon: any
+  label: string
+  emphasized?: boolean
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex-shrink-0">
+        <Icon className={cn(
+          "h-4 w-4",
+          emphasized ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"
+        )} />
+      </div>
+      <span className={cn(
+        "text-sm",
+        emphasized ? "font-medium text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400"
+      )}>
+        {label}
+      </span>
+    </div>
+  )
+}
+
+function FlowStep({ 
+  icon: Icon, 
+  label,
+  variant = 'core'
+}: { 
+  icon: any
+  label: string
+  variant?: 'core' | 'pro'
+}) {
+  const isPro = variant === 'pro'
+  
+  return (
+    <div className="flex items-center gap-2 rounded-md px-2.5 py-1.5">
+      <div className={cn(
+        "rounded p-1",
+        isPro ? "bg-blue-100 dark:bg-blue-900/30" : "bg-gray-100 dark:bg-gray-700"
+      )}>
+        <Icon className={cn(
+          "h-3.5 w-3.5",
+          isPro ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
+        )} />
+      </div>
+      <span className={cn(
+        "text-sm font-medium",
+        isPro ? "text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-300"
+      )}>
+        {label}
+      </span>
+    </div>
+  )
+}
+
+function ArrowDown(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}
@@ -415,47 +667,9 @@ function ImageIcon(props: any) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <polyline points="21 15 16 10 5 21" />
+      <path d="M12 5v14" />
+      <path d="M19 12l-7 7-7-7" />
     </svg>
-  )
-}
-
-function PlanFeature({ icon: Icon, label, value, isPro }: { icon: any; label: string; value: string; isPro?: boolean }) {
-  const isYes = value === 'Yes'
-  const isNotIncluded = value === 'Not included'
-  
-  return (
-    <div className="group flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
-      <div className="flex items-center gap-3.5">
-        <div className={cn(
-          "rounded-lg p-2 transition-colors",
-          isPro ? "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-          "group-hover:bg-opacity-70"
-        )}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
-      </div>
-      <span className={cn(
-        "text-sm font-medium",
-        isYes ? "text-emerald-600 dark:text-emerald-400" : "",
-        isNotIncluded ? "text-gray-400 dark:text-gray-500" : "",
-        !isYes && !isNotIncluded ? "text-gray-900 dark:text-white" : ""
-      )}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between border-b py-1.5 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
   )
 }
 
@@ -472,15 +686,17 @@ function ComparisonTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-            <th className="px-6 py-4 text-left font-semibold text-gray-500 dark:text-gray-400">
+          <tr className="border-b border-gray-200 dark:border-gray-700">
+            <th className="px-4 py-3.5 text-left font-medium text-gray-500 dark:text-gray-400">
               Capability
             </th>
-            <th className="px-6 py-4 text-center font-semibold text-gray-700 dark:text-gray-300">
-              {freeLabel}
+            <th className="px-4 py-3.5 text-center font-medium text-gray-700 dark:text-gray-300">
+              <div className="text-sm">{freeLabel}</div>
+              <div className="text-[10px] font-normal text-gray-400 dark:text-gray-500">Core PTW</div>
             </th>
-            <th className="px-6 py-4 text-center font-semibold bg-gradient-to-r from-blue-600/5 to-indigo-600/5 dark:from-blue-600/10 dark:to-indigo-600/10 text-blue-700 dark:text-blue-400">
-              {proLabel}
+            <th className="px-4 py-3.5 text-center font-medium text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-950/15">
+              <div className="text-sm">{proLabel}</div>
+              <div className="text-[10px] font-normal text-blue-600 dark:text-blue-400">Recommended</div>
             </th>
           </tr>
         </thead>
@@ -493,13 +709,13 @@ function ComparisonTable({
                 index !== rows.length - 1 && "border-b border-gray-100 dark:border-gray-800"
               )}
             >
-              <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+              <td className="px-4 py-3.5 font-medium text-gray-900 dark:text-white">
                 {row.label}
               </td>
-              <td className="px-6 py-4 text-center">
+              <td className="px-4 py-3.5 text-center">
                 <ValueCell value={row.free} />
               </td>
-              <td className="px-6 py-4 text-center bg-gradient-to-r from-blue-600/5 to-indigo-600/5 dark:from-blue-600/10 dark:to-indigo-600/10">
+              <td className="px-4 py-3.5 text-center bg-blue-50/5 dark:bg-blue-950/5">
                 <ValueCell value={row.pro} highlight />
               </td>
             </tr>
@@ -513,20 +729,25 @@ function ComparisonTable({
 function ValueCell({ value, highlight }: { value: string; highlight?: boolean }) {
   const yes = value === 'Yes'
   const no = value === 'No'
+  const notIncluded = value === 'Not included'
+  
+  let displayValue = value
+  if (notIncluded) displayValue = '—'
   
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5",
-      highlight && "font-semibold text-gray-900 dark:text-white"
+      highlight && "font-medium",
+      yes && "text-emerald-600 dark:text-emerald-400",
+      (no || notIncluded) && "text-gray-400 dark:text-gray-500",
+      highlight && !yes && !no && !notIncluded && "text-gray-900 dark:text-white"
     )}>
       {yes ? (
-        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-      ) : no ? (
-        <Minus className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-      ) : (
-        <Info className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-      )}
-      {value}
+        <Check className="h-3.5 w-3.5" />
+      ) : (no || notIncluded) ? (
+        <Minus className="h-3.5 w-3.5" />
+      ) : null}
+      {displayValue}
     </span>
   )
 }
