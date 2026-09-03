@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canCreateUser } from '@/lib/entitlements'
+import { sendInvitationEmail } from '@/lib/email'
 
 type CreateUserBody = {
   full_name?: string
@@ -315,16 +316,37 @@ export async function POST(request: Request) {
       )
     }
 
-    // Deliver the invitation. Supabase Auth's own email service delivers the
-    // invite when SMTP is configured; if it is not, this logs the link for a
-    // configured outbound email step. Never log the link in production.
+    // Deliver the invitation via the Resend email service (best-effort). A
+    // failed email NEVER fails user creation — the account exists and the
+    // Safety Manager can resend the invitation from the company users page.
+    let emailSent = false
     if (inviteLink) {
-      if (process.env.SMTP_HOST) {
-        // SMTP configured: Supabase Auth already sent the invite email.
-        void inviteLink
+      // Company name is used for the branded email; never blocks the request.
+      let companyName: string | null = null
+      try {
+        const { data: company } = await admin
+          .from('companies')
+          .select('name')
+          .eq('id', profile.company_id ?? -1)
+          .maybeSingle()
+        companyName = company?.name ?? null
+      } catch {
+        // Company name is cosmetic — continue without it.
+      }
+
+      const result = await sendInvitationEmail({
+        to: email,
+        fullName,
+        role,
+        companyName,
+        inviteLink,
+      })
+
+      if (result.ok) {
+        emailSent = true
       } else {
-        console.info(
-          'Invitation generated; SMTP not configured — invitation email will not be delivered until SMTP is configured.'
+        console.warn(
+          `Invitation email not delivered for ${email}: ${result.error ?? 'unknown error'}`
         )
       }
     }
@@ -334,6 +356,7 @@ export async function POST(request: Request) {
         success: true,
         user: newProfile,
         invitation_sent: Boolean(inviteLink),
+        email_sent: emailSent,
       },
       { status: 201 }
     )

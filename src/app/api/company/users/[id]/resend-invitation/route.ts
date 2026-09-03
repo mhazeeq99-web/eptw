@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendInvitationEmail } from '@/lib/email'
 
 /**
  * Resends the invitation (password-setup link) for an invited internal-staff
@@ -66,7 +67,7 @@ export async function POST(
 
   const { data: target, error: targetError } = await supabase
     .from('profiles')
-    .select('id, email, role, company_id, is_active, invitation_sent_at')
+    .select('id, full_name, email, role, company_id, is_active, invitation_sent_at')
     .eq('id', id)
     .single()
 
@@ -144,14 +145,41 @@ export async function POST(
     `[audit] invitation_resent actor=${requester.id} target=${target.id} company=${requester.company_id}`
   )
 
-  if (!process.env.SMTP_HOST) {
-    console.info(
-      'Invitation resent; SMTP not configured — the invitation email will not be delivered until SMTP is configured.'
+  // Deliver the invitation email via Resend (best-effort). A failure is
+  // logged but does NOT fail the resend — the invitation link is refreshed
+  // regardless so the Safety Manager can retry or share the link directly.
+  let emailSent = false
+  try {
+    const { data: company } = await admin
+      .from('companies')
+      .select('name')
+      .eq('id', requester.company_id ?? -1)
+      .maybeSingle()
+
+    const result = await sendInvitationEmail({
+      to: target.email,
+      fullName: target.full_name ?? null,
+      role: target.role,
+      companyName: company?.name ?? null,
+      inviteLink: inviteData.properties.action_link,
+    })
+
+    emailSent = result.ok
+    if (!result.ok) {
+      console.warn(
+        `Resent invitation email not delivered for ${target.email}: ${result.error ?? 'unknown error'}`
+      )
+    }
+  } catch (error) {
+    console.error(
+      'Failed to send resend-invitation email:',
+      error
     )
   }
 
   return NextResponse.json({
     success: true,
     message: 'Invitation resent successfully.',
+    email_sent: emailSent,
   })
 }
