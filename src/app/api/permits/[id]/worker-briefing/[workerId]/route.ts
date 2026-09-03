@@ -53,12 +53,13 @@ export async function PATCH(
 
   if (
     permit.status !== 'draft' &&
-    permit.status !== 'pending_approval'
+    permit.status !== 'pending_approval' &&
+    permit.status !== 'suspended'
   ) {
     return NextResponse.json(
       {
         error:
-          `Worker acknowledgement can only be recorded while the permit status is draft or pending approval (current: ${permit.status})`,
+          `Worker acknowledgement can only be recorded while the permit status is draft, pending approval or suspended (current: ${permit.status})`,
       },
       { status: 400 }
     )

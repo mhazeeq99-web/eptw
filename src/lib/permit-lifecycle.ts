@@ -201,9 +201,8 @@ export const RESUME_CHECKLIST_DEFS: Array<{
   {
     key: 'briefing',
     label: 'Worker briefing remains valid',
-    applicableIf: (type, workerCount) =>
-      type.requires_worker_briefing === true && workerCount > 0,
-    intrinsicallyApplicable: false,
+    applicableIf: (_type, workerCount) => workerCount > 0,
+    intrinsicallyApplicable: true,
   },
   {
     key: 'emergency',

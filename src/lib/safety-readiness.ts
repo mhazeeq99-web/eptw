@@ -383,8 +383,11 @@ export async function getPermitSafetyReadiness(
   // ---------------------------------------------------------
   // Worker briefing + acknowledgement
   // ---------------------------------------------------------
-  const briefingRequired =
-    type?.requires_worker_briefing === true && workerCount > 0
+  // Briefing is part of the safety approval gate whenever the permit lists
+  // workers: the permit detail page shows the Worker Briefing section for any
+  // permit with workers, so the gate must match that visibility. A permit
+  // with no workers has nobody to brief and the item is not required.
+  const briefingRequired = workerCount > 0
   let briefingStatus: ReadinessStatus = 'not_required'
   let briefingReason: string | null = null
   if (briefingRequired) {

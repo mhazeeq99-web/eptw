@@ -277,7 +277,7 @@ export function WorkerBriefingSection({
                 Briefing Topics
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Safety personnel confirm all required topics are covered
+                Tick each topic that was covered during the briefing
               </p>
             </div>
             <span className={cn(
@@ -382,7 +382,7 @@ export function WorkerBriefingSection({
                 <div className="mt-4 flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
                   <AlertTriangle className="h-4 w-4" />
                   <span className="text-sm">
-                    {totalTopics - coveredCount} briefing topic{totalTopics - coveredCount !== 1 ? 's' : ''} remaining
+                    {totalTopics - coveredCount} briefing topic{totalTopics - coveredCount !== 1 ? 's' : ''} not marked as covered — you can still record the briefing as complete.
                   </span>
                 </div>
               )}
@@ -397,7 +397,7 @@ export function WorkerBriefingSection({
                 <Button
                   type="button"
                   onClick={handleMarkBriefed}
-                  disabled={saving || !topicsComplete}
+                  disabled={saving}
                 >
                   {saving ? 'Saving...' : 'Mark Briefing Complete'}
                 </Button>
