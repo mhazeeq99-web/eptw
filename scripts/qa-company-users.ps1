@@ -74,7 +74,8 @@ if ($Mode -eq 'main') {
   if ($userId) { $script:ids.user_id = $userId; $script:ids.email = $email; SaveIds }
   Check 'A: create internal staff -> 201' '201' $cr.Status
   Check 'A: invite link returned' 'True' ([bool]$inviteLink)
-  Check 'A: invite link redirects to app update-password' 'True' ([bool]($inviteLink -match 'redirect_to=.*(localhost:3457|eptw-three\.vercel\.app).*update-password' -or ($inviteLink -match 'redirect_to=' -and $inviteLink -match '%2Fupdate-password')))
+  Check 'A: invite link is branded (no raw supabase link in response/email)' 'True' ([bool]($inviteLink -match '/invite\?token='))
+  Check 'A: invite link on app origin' 'True' ([bool]($inviteLink -match 'localhost:3457|eptw-three\.vercel\.app'))
   Write-Output ("INFO | A: link=" + $inviteLink.Substring(0, [Math]::Min(160, $inviteLink.Length)))
   if (-not $userId) { Write-Output 'FATAL: no user'; exit 1 }
 

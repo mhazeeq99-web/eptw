@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitationEmail } from '@/lib/email'
-import { getAppAuthRedirectUrl } from '@/lib/app-url'
+import {
+  getAppAuthRedirectUrl,
+  getAppBaseUrl,
+  extractInviteToken,
+} from '@/lib/app-url'
 
 /**
  * Resends the invitation (password-setup link) for an invited internal-staff
@@ -146,6 +150,14 @@ export async function POST(
 
   const inviteLink = inviteData.properties.action_link
 
+  // Spam hygiene: email and copied links point to the app's branded /invite
+  // page (https://<app>/invite?token=...) rather than the raw Supabase URL,
+  // keeping third-party verification links out of email content.
+  const token = extractInviteToken(inviteLink)
+  const brandedInviteUrl = token
+    ? `${getAppBaseUrl(request)}/invite?token=${encodeURIComponent(token)}`
+    : inviteLink
+
   // Update invitation_sent_at (same account, no duplicate). Audit event.
   const { error: updateError } = await admin
     .from('profiles')
@@ -178,7 +190,7 @@ export async function POST(
         fullName: target.full_name ?? null,
         role: target.role,
         companyName: company?.name ?? null,
-        inviteLink,
+        inviteLink: brandedInviteUrl,
       })
 
       emailSent = result.ok
@@ -203,6 +215,6 @@ export async function POST(
         : 'Invitation link refreshed. The email could not be sent — copy the link below to share it with the user.'
       : 'Invitation link generated.',
     email_sent: emailSent,
-    invite_link: inviteLink,
+    invite_link: brandedInviteUrl,
   })
 }

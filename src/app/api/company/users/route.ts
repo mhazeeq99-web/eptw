@@ -3,7 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canCreateUser } from '@/lib/entitlements'
 import { sendInvitationEmail } from '@/lib/email'
-import { getAppAuthRedirectUrl } from '@/lib/app-url'
+import {
+  getAppAuthRedirectUrl,
+  getAppBaseUrl,
+  extractInviteToken,
+} from '@/lib/app-url'
 
 type CreateUserBody = {
   full_name?: string
@@ -329,8 +333,23 @@ export async function POST(request: Request) {
     // Deliver the invitation via the Resend email service (best-effort). A
     // failed email NEVER fails user creation — the account exists and the
     // Safety Manager can resend the invitation from the company users page.
+    //
+    // Spam hygiene: the EMAIL links to the app's branded /invite page
+    // (https://<app>/invite?token=...) instead of the raw Supabase URL, so no
+    // third-party verification link appears in the message body. The raw link
+    // is still returned in the API response for the manager's Copy Invitation
+    // Link action.
     let emailSent = false
+
+    // Branded URL for email + copy actions (spam hygiene): points at the
+    // app's /invite page instead of the raw Supabase verification URL.
+    let brandedInviteUrl: string | null = null
     if (inviteLink) {
+      const token = extractInviteToken(inviteLink)
+      brandedInviteUrl = token
+        ? `${getAppBaseUrl(request)}/invite?token=${encodeURIComponent(token)}`
+        : inviteLink
+
       // Company name is used for the branded email; never blocks the request.
       let companyName: string | null = null
       try {
@@ -349,7 +368,7 @@ export async function POST(request: Request) {
         fullName,
         role,
         companyName,
-        inviteLink,
+        inviteLink: brandedInviteUrl,
       })
 
       if (result.ok) {
@@ -367,10 +386,9 @@ export async function POST(request: Request) {
         user: newProfile,
         invitation_sent: Boolean(inviteLink),
         email_sent: emailSent,
-        // The invitation link lets the Safety Manager share registration
-        // directly (e.g. via chat) when the email cannot be delivered. It is
-        // the same Supabase Auth link the email CTA points to.
-        invite_link: inviteLink,
+        // Branded link (app /invite page). Lets the Safety Manager share
+        // registration directly when the email cannot be delivered.
+        invite_link: brandedInviteUrl,
         message: emailSent
           ? 'User created and invitation email sent.'
           : 'User created. The invitation email could not be sent — copy the invitation link below to share it with the user.',
