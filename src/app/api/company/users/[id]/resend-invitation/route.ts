@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendInvitationEmail } from '@/lib/email'
+import { getAppAuthRedirectUrl } from '@/lib/app-url'
 
 /**
  * Resends the invitation (password-setup link) for an invited internal-staff
@@ -13,13 +14,31 @@ import { sendInvitationEmail } from '@/lib/email'
  *   - target role is internal_staff or safety_coordinator
  *   - target account is still INVITED (invitation_sent_at set)
  * Never creates a duplicate Auth account or profile; the existing user id is
- * reused. Simple server-side rate limit prevents rapid repeated requests.
+ * reused.
+ *
+ * Body (optional): { send_email?: boolean }
+ *   - send_email defaults to true (resend the invitation email).
+ *   - When false, a fresh invite link is generated and returned WITHOUT
+ *     sending an email (used by the "Copy Invitation Link" action so the
+ *     Safety Manager can share registration directly when email is down).
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  let body: { send_email?: boolean } = {}
+  try {
+    const parsed = await request.json()
+    if (parsed && typeof parsed === 'object') {
+      body = parsed as { send_email?: boolean }
+    }
+  } catch {
+    // No body / invalid JSON -> treat as a normal resend.
+  }
+
+  const sendEmailRequested = body.send_email !== false
 
   const supabase = await createClient()
 
@@ -104,22 +123,17 @@ export async function POST(
     )
   }
 
-  // Simple server-side rate limit: allow a resend at most every 60 seconds.
-  const lastSent = new Date(target.invitation_sent_at).getTime()
-  const now = Date.now()
-  if (now - lastSent < 60_000) {
-    return NextResponse.json(
-      { error: 'Please wait a minute before resending the invitation.' },
-      { status: 429 }
-    )
-  }
-
   const admin = createAdminClient()
 
+  // Explicit redirect target: Supabase's project Site URL is not this app's
+  // host, so without it the invited user cannot complete registration.
   const { data: inviteData, error: inviteError } =
     await admin.auth.admin.generateLink({
       type: 'invite',
       email: target.email,
+      options: {
+        redirectTo: getAppAuthRedirectUrl(request),
+      },
     })
 
   if (inviteError || !inviteData?.properties?.action_link) {
@@ -129,6 +143,8 @@ export async function POST(
       { status: 500 }
     )
   }
+
+  const inviteLink = inviteData.properties.action_link
 
   // Update invitation_sent_at (same account, no duplicate). Audit event.
   const { error: updateError } = await admin
@@ -142,44 +158,51 @@ export async function POST(
 
   // Audit: server log only — never records passwords, tokens or secrets.
   console.info(
-    `[audit] invitation_resent actor=${requester.id} target=${target.id} company=${requester.company_id}`
+    `[audit] invitation_${sendEmailRequested ? 'resent' : 'link_generated'} actor=${requester.id} target=${target.id} company=${requester.company_id}`
   )
 
-  // Deliver the invitation email via Resend (best-effort). A failure is
-  // logged but does NOT fail the resend — the invitation link is refreshed
-  // regardless so the Safety Manager can retry or share the link directly.
+  // Deliver the invitation email via Resend (best-effort) when requested. A
+  // failure is logged but does NOT fail the resend — the invitation link is
+  // refreshed regardless so the Safety Manager can retry or share it.
   let emailSent = false
-  try {
-    const { data: company } = await admin
-      .from('companies')
-      .select('name')
-      .eq('id', requester.company_id ?? -1)
-      .maybeSingle()
+  if (sendEmailRequested) {
+    try {
+      const { data: company } = await admin
+        .from('companies')
+        .select('name')
+        .eq('id', requester.company_id ?? -1)
+        .maybeSingle()
 
-    const result = await sendInvitationEmail({
-      to: target.email,
-      fullName: target.full_name ?? null,
-      role: target.role,
-      companyName: company?.name ?? null,
-      inviteLink: inviteData.properties.action_link,
-    })
+      const result = await sendInvitationEmail({
+        to: target.email,
+        fullName: target.full_name ?? null,
+        role: target.role,
+        companyName: company?.name ?? null,
+        inviteLink,
+      })
 
-    emailSent = result.ok
-    if (!result.ok) {
-      console.warn(
-        `Resent invitation email not delivered for ${target.email}: ${result.error ?? 'unknown error'}`
+      emailSent = result.ok
+      if (!result.ok) {
+        console.warn(
+          `Resent invitation email not delivered for ${target.email}: ${result.error ?? 'unknown error'}`
+        )
+      }
+    } catch (error) {
+      console.error(
+        'Failed to send resend-invitation email:',
+        error
       )
     }
-  } catch (error) {
-    console.error(
-      'Failed to send resend-invitation email:',
-      error
-    )
   }
 
   return NextResponse.json({
     success: true,
-    message: 'Invitation resent successfully.',
+    message: sendEmailRequested
+      ? emailSent
+        ? 'Invitation resent successfully.'
+        : 'Invitation link refreshed. The email could not be sent — copy the link below to share it with the user.'
+      : 'Invitation link generated.',
     email_sent: emailSent,
+    invite_link: inviteLink,
   })
 }

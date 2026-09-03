@@ -7,6 +7,9 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  Copy,
+  Check,
+  Trash2,
 } from 'lucide-react'
 
 const PAGE_SIZE = 10
@@ -73,6 +76,12 @@ export function UserManagement() {
 
   const [saving, setSaving] = useState(false)
 
+  // Invitation-link surfacing: after a create/resend the manager may need to
+  // copy the registration link when email is unavailable.
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+
   // Per-section pagination: each role group is paginated independently.
   const [scPage, setScPage] = useState(1)
   const [staffPage, setStaffPage] = useState(1)
@@ -137,6 +146,13 @@ export function UserManagement() {
         )
       }
 
+      setInviteLink(null)
+      setSuccessMessage(
+        body.user?.is_active === false
+          ? `${user.full_name} deactivated. The account can now be removed if needed.`
+          : `${user.full_name} activated.`
+      )
+
       await loadUsers()
     } catch (error) {
       setError(
@@ -160,6 +176,7 @@ export function UserManagement() {
           headers: {
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ send_email: true }),
         }
       )
 
@@ -177,6 +194,14 @@ export function UserManagement() {
         body.message ?? 'Invitation resent successfully.'
       )
 
+      // When email could not be delivered, surface the fresh link so the
+      // manager can share registration directly.
+      if (body.invite_link && body.email_sent === false) {
+        setInviteLink(body.invite_link as string)
+      } else {
+        setInviteLink(null)
+      }
+
       await loadUsers()
     } catch (resendError) {
       setError(
@@ -186,6 +211,98 @@ export function UserManagement() {
       )
     } finally {
       setResendingId(null)
+    }
+  }
+
+  /** Fetches a fresh invitation link WITHOUT sending an email, then copies it. */
+  async function copyInvitationLink(user: CompanyUser) {
+    setError('')
+    setSuccessMessage('')
+    setCopiedId(null)
+
+    try {
+      const response = await fetch(
+        `/api/company/users/${user.id}/resend-invitation`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ send_email: false }),
+        }
+      )
+
+      const body = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          body.error ?? 'Failed to generate invitation link'
+        )
+      }
+
+      if (!body.invite_link) {
+        throw new Error('No invitation link was returned')
+      }
+
+      await navigator.clipboard.writeText(body.invite_link)
+
+      setCopiedId(user.id)
+      setSuccessMessage(
+        'Invitation link copied â€” share it with the user to complete registration.'
+      )
+    } catch (copyError) {
+      setError(
+        copyError instanceof Error
+          ? copyError.message
+          : 'Failed to copy invitation link'
+      )
+    }
+  }
+
+  /** Permanently removes a DEACTIVATED user (auth account + profile). */
+  async function removeUser(user: CompanyUser) {
+    setError('')
+    setSuccessMessage('')
+
+    const confirmed = window.confirm(
+      `Permanently remove ${user.full_name} (${user.email})?\n\n` +
+        'This deletes their account and cannot be undone. Only deactivated accounts can be removed.'
+    )
+    if (!confirmed) return
+
+    setRemovingId(user.id)
+
+    try {
+      const response = await fetch(
+        `/api/company/users/${user.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      const body = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          body.error ?? 'Failed to remove user'
+        )
+      }
+
+      setSuccessMessage(
+        body.message ?? 'User removed permanently.'
+      )
+      await loadUsers()
+    } catch (removeError) {
+      setError(
+        removeError instanceof Error
+          ? removeError.message
+          : 'Failed to remove user'
+      )
+    } finally {
+      setRemovingId(null)
     }
   }
 
@@ -249,9 +366,29 @@ export function UserManagement() {
       }
 
       setSuccessMessage('')
+      setError('')
 
       setShowForm(false)
       resetForm()
+
+      // Surface delivery status. When the invitation email could not be sent
+      // (e.g. Resend not configured), show the registration link so the
+      // manager can share it directly.
+      if (body.message) {
+        setSuccessMessage(body.message)
+      } else {
+        setSuccessMessage(
+          body.email_sent
+            ? 'User created and invitation email sent.'
+            : 'User created.'
+        )
+      }
+
+      if (body.invite_link && body.email_sent === false) {
+        setInviteLink(body.invite_link as string)
+      } else {
+        setInviteLink(null)
+      }
 
       await loadUsers()
     } catch (error) {
@@ -339,6 +476,41 @@ export function UserManagement() {
         </div>
       )}
 
+      {inviteLink && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-medium">
+            Invitation email is not being delivered â€” share the registration
+            link directly with the user:
+          </p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <code className="flex-1 truncate rounded border border-amber-300 bg-white px-2 py-1.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-gray-900 dark:text-amber-100">
+              {inviteLink}
+            </code>
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(inviteLink)
+                setCopiedId('banner')
+                setSuccessMessage('Registration link copied to clipboard.')
+              }}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+            >
+              {copiedId === 'banner' ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy Link
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="rounded-xl border bg-background p-8 text-center text-sm text-muted-foreground">
           Loading users...
@@ -358,7 +530,11 @@ export function UserManagement() {
               onToggleStatus={toggleUserStatus}
               onRoleChange={changeUserRole}
               onResendInvitation={resendInvitation}
+              onCopyInvitationLink={copyInvitationLink}
+              onRemove={removeUser}
               resendingId={resendingId}
+              copiedId={copiedId}
+              removingId={removingId}
             />
             {safetyCoordinators.length > PAGE_SIZE && (
               <SectionPagination
@@ -392,7 +568,11 @@ export function UserManagement() {
               onToggleStatus={toggleUserStatus}
               onRoleChange={changeUserRole}
               onResendInvitation={resendInvitation}
+              onCopyInvitationLink={copyInvitationLink}
+              onRemove={removeUser}
               resendingId={resendingId}
+              copiedId={copiedId}
+              removingId={removingId}
             />
             {internalStaff.length > PAGE_SIZE && (
               <SectionPagination
@@ -583,7 +763,11 @@ function UserSection({
   onToggleStatus,
   onRoleChange,
   onResendInvitation,
+  onCopyInvitationLink,
+  onRemove,
   resendingId,
+  copiedId,
+  removingId,
 }: {
   title: string
   description: string
@@ -596,7 +780,11 @@ function UserSection({
     role: UserRole
   ) => void
   onResendInvitation: (user: CompanyUser) => void
+  onCopyInvitationLink: (user: CompanyUser) => void
+  onRemove: (user: CompanyUser) => void
   resendingId: string | null
+  copiedId: string | null
+  removingId: string | null
 }) {
   return (
     <section className="overflow-hidden rounded-xl border bg-background">
@@ -700,15 +888,15 @@ function UserSection({
                   </td>
 
                   <td className="px-5 py-4">
-                    {user.employee_no ?? '—'}
+                    {user.employee_no ?? 'â€”'}
                   </td>
 
                   <td className="px-5 py-4">
-                    {user.department ?? '—'}
+                    {user.department ?? 'â€”'}
                   </td>
 
                   <td className="px-5 py-4">
-                    {user.position ?? '—'}
+                    {user.position ?? 'â€”'}
                   </td>
 
                   <td className="px-5 py-4">
@@ -747,35 +935,87 @@ function UserSection({
                   </td>
 
                   <td className="px-5 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       {getAccountStatus(user) === 'INVITED' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onResendInvitation(user)
+                            }
+                            disabled={
+                              resendingId === user.id
+                            }
+                            title="Send the invitation email again"
+                            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {resendingId === user.id
+                              ? 'Resending...'
+                              : 'Resend Invitation'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onCopyInvitationLink(user)
+                            }
+                            disabled={
+                              copiedId === user.id
+                            }
+                            title="Generate and copy the registration link (no email sent)"
+                            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {copiedId === user.id ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                            {copiedId === user.id
+                              ? 'Copied'
+                              : 'Copy Invitation Link'}
+                          </button>
+                        </>
+                      )}
+
+                      {user.is_active ? (
                         <button
                           type="button"
                           onClick={() =>
-                            onResendInvitation(user)
+                            onToggleStatus(user)
                           }
-                          disabled={
-                            resendingId === user.id
-                          }
-                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          title="Disable the account; it can be removed after deactivation"
+                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
                         >
-                          {resendingId === user.id
-                            ? 'Resending...'
-                            : 'Resend Invitation'}
+                          Deactivate
                         </button>
-                      )}
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onToggleStatus(user)
+                            }
+                            title="Re-enable the account"
+                            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                          >
+                            Activate
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onToggleStatus(user)
-                        }
-                        className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-                      >
-                        {user.is_active
-                          ? 'Deactivate'
-                          : 'Activate'}
-                      </button>
+                          {/* Remove is only offered AFTER deactivation. */}
+                          <button
+                            type="button"
+                            onClick={() => onRemove(user)}
+                            disabled={removingId === user.id}
+                            title="Permanently delete this deactivated account"
+                            className="inline-flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            {removingId === user.id
+                              ? 'Removing...'
+                              : 'Remove'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
 
@@ -812,7 +1052,7 @@ function SectionPagination({
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-t-0 bg-background px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-muted-foreground">
-        {from}–{to} of {total} user{total === 1 ? '' : 's'}
+        {from}â€“{to} of {total} user{total === 1 ? '' : 's'}
       </p>
 
       <div className="flex items-center gap-2">

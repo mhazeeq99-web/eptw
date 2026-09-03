@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canCreateUser } from '@/lib/entitlements'
 import { sendInvitationEmail } from '@/lib/email'
+import { getAppAuthRedirectUrl } from '@/lib/app-url'
 
 type CreateUserBody = {
   full_name?: string
@@ -245,12 +246,21 @@ export async function POST(request: Request) {
 
     const newUserId = authData.user.id
 
+    // The invited user must be redirected back to THIS app to set a password.
+    // Supabase's default Site URL (localhost:3000) is not where ePTW runs, so
+    // an explicit redirect target is required or the invite lands on the wrong
+    // host and the staff member cannot complete registration.
+    const appRedirectUrl = getAppAuthRedirectUrl(request)
+
     // Generate the secure invitation (password-setup) link via Supabase Auth.
     let inviteLink: string | null = null
     const { data: inviteData, error: inviteError } =
       await admin.auth.admin.generateLink({
         type: 'invite',
         email,
+        options: {
+          redirectTo: appRedirectUrl,
+        },
       })
 
     if (inviteError || !inviteData?.properties?.action_link) {
@@ -357,6 +367,13 @@ export async function POST(request: Request) {
         user: newProfile,
         invitation_sent: Boolean(inviteLink),
         email_sent: emailSent,
+        // The invitation link lets the Safety Manager share registration
+        // directly (e.g. via chat) when the email cannot be delivered. It is
+        // the same Supabase Auth link the email CTA points to.
+        invite_link: inviteLink,
+        message: emailSent
+          ? 'User created and invitation email sent.'
+          : 'User created. The invitation email could not be sent — copy the invitation link below to share it with the user.',
       },
       { status: 201 }
     )
