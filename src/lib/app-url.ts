@@ -55,35 +55,6 @@ export function getAppAuthRedirectUrl(
   return `${getAppBaseUrl(source)}${path}`
 }
 
-/**
- * Builds the Supabase-hosted verification URL for an invite token. This URL is
- * NEVER placed inside email content — emails link to the app's branded /invite
- * page instead, which keeps raw third-party verification links out of the
- * message body and out of spam scanners' sight. The token is only consumed
- * when the invited user clicks through from the app page.
- */
-export function buildSupabaseVerifyUrl(
-  token: string,
-  source?: HeaderSource | Request | null
-): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(
-    /\/$/,
-    ''
-  )
-
-  if (!supabaseUrl) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured')
-  }
-
-  const params = new URLSearchParams({
-    token,
-    type: 'invite',
-    redirect_to: getAppAuthRedirectUrl(source, '/update-password'),
-  })
-
-  return `${supabaseUrl}/auth/v1/verify?${params.toString()}`
-}
-
 /** Extracts the raw invite token from a Supabase generateLink action link. */
 export function extractInviteToken(actionLink: string): string | null {
   try {

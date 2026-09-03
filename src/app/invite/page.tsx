@@ -1,20 +1,19 @@
-import { headers } from 'next/headers'
 import Link from 'next/link'
 import {
   HardHat,
   ShieldCheck,
-  ArrowRight,
   Mail,
 } from 'lucide-react'
-import { buildSupabaseVerifyUrl } from '@/lib/app-url'
+import { InviteAccept } from './invite-accept'
 
 /**
  * /invite — branded landing page for staff invitations.
  *
  * The invitation EMAIL links here (ePTW's own domain) instead of embedding the
  * raw Supabase verification URL, which looks like an unrelated third-party
- * link to spam filters. The Supabase token is only consumed when the user
- * clicks "Continue" on this page.
+ * link to spam filters. The invite token is verified IN-APP (PKCE-safe) when
+ * the user clicks "Continue Registration" — it is never handed to Supabase's
+ * hosted implicit-flow page.
  */
 export default async function InvitePage({
   searchParams,
@@ -24,10 +23,6 @@ export default async function InvitePage({
   const params = await searchParams
   const token = params.token?.trim() ?? ''
 
-  const headerList = await headers()
-
-  // Security: never render or navigate to a raw external link automatically.
-  // The Supabase verify URL is built server-side; only a human click follows it.
   const hasToken = token.length > 0
 
   return (
@@ -91,14 +86,7 @@ export default async function InvitePage({
               </p>
 
               <div className="mt-6">
-                {/* Direct link: only navigated when the human clicks it. */}
-                <a
-                  href={buildSupabaseVerifyUrl(token, headerList)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700"
-                >
-                  Continue Registration
-                  <ArrowRight className="h-4 w-4" />
-                </a>
+                <InviteAccept token={token} />
 
                 <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
                   Registration links are single-use and expire after a limited
