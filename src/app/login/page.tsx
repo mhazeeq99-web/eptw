@@ -160,14 +160,6 @@ export default function LoginPage() {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-white/40 dark:hidden lg:hidden"
       />
-
-      {/* Desktop day-mode contrast scrim over the LEFT side. Strongest directly
-          behind the marketing text; fades to transparent toward the far-left
-          edge and toward the login card so the photograph stays visible. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 max-lg:hidden dark:hidden bg-[linear-gradient(to_right,rgba(4,12,34,0)_0%,rgba(4,12,34,0.12)_4%,rgba(4,12,34,0.32)_12%,rgba(4,12,34,0.42)_26%,rgba(4,12,34,0.36)_42%,rgba(4,12,34,0.14)_56%,rgba(4,12,34,0)_68%)]"
-      />
       {/* Background Decorative Elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/20" />
@@ -179,26 +171,34 @@ export default function LoginPage() {
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
           {/* Left Column - Branding & Info */}
           <div className="hidden lg:flex lg:flex-col lg:justify-center">
-            <div className="space-y-6">
+            {/* Day-mode translucent light-grey glass behind the marketing
+                content (grey background + dark text, same language as the
+                trusted box). Dark mode keeps the plain gradient. */}
+            <div className="relative">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -inset-x-5 -inset-y-7 rounded-[2.5rem] border border-white/40 bg-gradient-to-br from-white/85 via-white/70 to-white/50 shadow-xl shadow-blue-950/10 backdrop-blur-md dark:hidden"
+              />
+              <div className="relative space-y-6">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-blue-600 p-3 shadow-lg shadow-blue-600/20">
                   <HardHat className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold tracking-tight text-white [text-shadow:0_2px_14px_rgba(2,6,23,0.55)]">
+                  <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
                     ePTW System
                   </h1>
-                  <p className="text-sm text-blue-100/90 dark:text-gray-400">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     Electronic Permit to Work
                   </p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h2 className="text-2xl font-semibold text-white [text-shadow:0_2px_12px_rgba(2,6,23,0.5)]">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
                   Streamline Your Work Permit Process
                 </h2>
-                <p className="text-slate-200 dark:text-gray-400">
+                <p className="text-gray-600 dark:text-gray-400">
                   Manage permits efficiently with our comprehensive digital solution for workplace safety.
                 </p>
               </div>
@@ -226,10 +226,11 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="rounded-xl border border-white/30 bg-white/70 p-4 backdrop-blur-md dark:border-gray-700 dark:bg-gray-800/60">
-                <p className="text-sm text-slate-800 dark:text-gray-400">
+              <div className="rounded-xl border border-gray-200 bg-white/50 p-4 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/50">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   <span className="font-semibold">Trusted by leading organizations</span> to ensure workplace safety and compliance.
                 </p>
+              </div>
               </div>
             </div>
           </div>
@@ -246,7 +247,7 @@ export default function LoginPage() {
                   <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                     ePTW System
                   </h1>
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-400">
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
                     Electronic Permit to Work
                   </p>
                 </div>
@@ -451,12 +452,12 @@ export default function LoginPage() {
 function FeatureItem({ icon: Icon, title, description }: { icon: any; title: string; description: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="rounded-lg bg-blue-600 p-2 shadow-lg shadow-blue-950/20">
-        <Icon className="h-5 w-5 text-white" />
+      <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
+        <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
       </div>
       <div>
-        <h3 className="font-medium text-white dark:text-white">{title}</h3>
-        <p className="text-sm text-slate-200/90 dark:text-gray-400">{description}</p>
+        <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>
       </div>
     </div>
   )
