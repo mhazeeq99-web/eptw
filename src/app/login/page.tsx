@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -9,7 +9,9 @@ import {
   EyeOff, 
   Lock, 
   Mail, 
+  Moon, 
   Shield, 
+  Sun, 
   AlertCircle, 
   CheckCircle2,
   Loader2,
@@ -35,6 +37,34 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [theme, setTheme] = useState<'light' | 'dark' | null>(null)
+
+  // Resolve + apply the theme (same storage key / mechanism as the app-wide
+  // ThemeToggle): stored preference, else the OS preference.
+  useEffect(() => {
+    const stored = localStorage.getItem('eptw-theme')
+    const initial: 'light' | 'dark' =
+      stored === 'dark' || stored === 'light'
+        ? stored
+        : window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+    setTheme(initial)
+    const root = document.documentElement
+    if (initial === 'dark') root.classList.add('dark')
+    else root.classList.remove('dark')
+  }, [])
+
+  function toggleTheme() {
+    setTheme((prev) => {
+      const next: 'light' | 'dark' = prev === 'dark' ? 'light' : 'dark'
+      localStorage.setItem('eptw-theme', next)
+      const root = document.documentElement
+      if (next === 'dark') root.classList.add('dark')
+      else root.classList.remove('dark')
+      return next
+    })
+  }
 
   function validateForm(): boolean {
     let isValid = true
@@ -105,10 +135,38 @@ export default function LoginPage() {
         className="absolute inset-0 bg-cover bg-center dark:hidden"
         style={{ backgroundImage: "url('/login-bg-day.png')" }}
       />
-      {/* Light readability overlay above the image (day mode only) */}
+
+      {/* Theme toggle — switch between the photo day mode and dark mode */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={
+          theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+        }
+        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        className="absolute right-5 top-5 z-30 inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-white/80 px-3.5 py-2 text-xs font-medium text-gray-700 shadow-sm backdrop-blur-md transition-colors hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        {theme === 'dark' ? (
+          <Sun className="h-4 w-4" />
+        ) : (
+          <Moon className="h-4 w-4" />
+        )}
+        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+      </button>
+
+      {/* Small screens: light veil keeps the photo visible but soft behind the
+          login card (there is no marketing column below lg). */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-white/60 dark:hidden"
+        className="pointer-events-none absolute inset-0 bg-white/40 dark:hidden lg:hidden"
+      />
+
+      {/* Desktop day-mode contrast scrim over the LEFT side. Strongest directly
+          behind the marketing text; fades to transparent toward the far-left
+          edge and toward the login card so the photograph stays visible. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 max-lg:hidden dark:hidden bg-[linear-gradient(to_right,rgba(4,12,34,0)_0%,rgba(4,12,34,0.5)_5%,rgba(4,12,34,0.58)_20%,rgba(4,12,34,0.55)_38%,rgba(4,12,34,0.22)_47%,rgba(4,12,34,0)_55%)]"
       />
       {/* Background Decorative Elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -127,20 +185,20 @@ export default function LoginPage() {
                   <HardHat className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  <h1 className="text-4xl font-bold tracking-tight text-white [text-shadow:0_2px_14px_rgba(2,6,23,0.55)]">
                     ePTW System
                   </h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-blue-100/90 dark:text-gray-400">
                     Electronic Permit to Work
                   </p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-2xl font-semibold text-white [text-shadow:0_2px_12px_rgba(2,6,23,0.5)]">
                   Streamline Your Work Permit Process
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-slate-200 dark:text-gray-400">
                   Manage permits efficiently with our comprehensive digital solution for workplace safety.
                 </p>
               </div>
@@ -168,8 +226,8 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="rounded-xl border border-gray-200 bg-white/50 p-4 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/50">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="rounded-xl border border-white/30 bg-white/70 p-4 backdrop-blur-md dark:border-gray-700 dark:bg-gray-800/60">
+                <p className="text-sm text-slate-800 dark:text-gray-400">
                   <span className="font-semibold">Trusted by leading organizations</span> to ensure workplace safety and compliance.
                 </p>
               </div>
@@ -188,7 +246,7 @@ export default function LoginPage() {
                   <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                     ePTW System
                   </h1>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-400">
                     Electronic Permit to Work
                   </p>
                 </div>
@@ -393,12 +451,12 @@ export default function LoginPage() {
 function FeatureItem({ icon: Icon, title, description }: { icon: any; title: string; description: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
-        <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <div className="rounded-lg bg-blue-600 p-2 shadow-lg shadow-blue-950/20">
+        <Icon className="h-5 w-5 text-white" />
       </div>
       <div>
-        <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>
+        <h3 className="font-medium text-white dark:text-white">{title}</h3>
+        <p className="text-sm text-slate-200/90 dark:text-gray-400">{description}</p>
       </div>
     </div>
   )
