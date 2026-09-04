@@ -99,6 +99,17 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      {/* Day-mode background image (light mode only — dark mode keeps its gradient) */}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-cover bg-center dark:hidden"
+        style={{ backgroundImage: "url('/login-bg-day.png')" }}
+      />
+      {/* Light readability overlay above the image (day mode only) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-white/60 dark:hidden"
+      />
       {/* Background Decorative Elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/20" />
