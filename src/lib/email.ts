@@ -321,3 +321,150 @@ export async function sendInvitationEmail(opts: {
     text: rendered.text,
   })
 }
+
+/**
+ * Renders a branded permit status-change email (submitted / approved /
+ * rejected / suspended / resumed / completed / closed / cancelled / expired).
+ */
+export function renderPermitEventEmail(opts: {
+  recipientName?: string | null
+  eventLabel: string
+  permitNo: string
+  message: string
+  permitUrl: string
+}): { subject: string; html: string; text: string } {
+  const { recipientName, eventLabel, permitNo, message, permitUrl } = opts
+  const greeting = recipientName?.trim()
+    ? `Hi ${escapeHtml(recipientName.trim())},`
+    : 'Hello,'
+
+  const subject = `${eventLabel} — ${permitNo}`
+
+  const text = [
+    greeting,
+    '',
+    `${eventLabel} — ${permitNo}.`,
+    '',
+    message,
+    '',
+    `View permit: ${permitUrl}`,
+    '',
+    `This is an automated message from ${APP_NAME} (${APP_TAGLINE}).`,
+  ].join('\n')
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px;">${greeting}</p>
+    <p style="margin:0 0 8px;">
+      <strong style="color:${BRAND_BLUE};">${escapeHtml(eventLabel)}</strong>
+      &mdash; ${escapeHtml(permitNo)}
+    </p>
+    <p style="margin:0 0 8px;">${escapeHtml(message)}</p>
+    ${ctaButtonHtml('View Permit', permitUrl)}
+    <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">
+      This is an automated message from ${APP_NAME} — ${APP_TAGLINE}.
+    </p>`
+
+  return { subject, html: shellHtml({ preheader: subject, bodyHtml }), text }
+}
+
+/**
+ * Sends a branded permit status-change email. Best-effort: never throws;
+ * callers must not fail their transaction on the result.
+ */
+export async function sendPermitEventEmail(opts: {
+  to: string
+  recipientName?: string | null
+  eventLabel: string
+  permitNo: string
+  message: string
+  permitUrl: string
+}): Promise<SendEmailResult> {
+  const { to, recipientName, eventLabel, permitNo, message, permitUrl } = opts
+
+  const rendered = renderPermitEventEmail({
+    recipientName,
+    eventLabel,
+    permitNo,
+    message,
+    permitUrl,
+  })
+
+  return sendEmail({
+    to,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+  })
+}
+
+/**
+ * Renders a branded password-reset (recovery) email. `resetUrl` points at the
+ * app's in-app reset page (never the raw Supabase link), so the email contains
+ * no third-party verification URL.
+ */
+export function renderPasswordResetEmail(opts: {
+  recipientName?: string | null
+  resetUrl: string
+}): { subject: string; html: string; text: string } {
+  const { recipientName, resetUrl } = opts
+  const greeting = recipientName?.trim()
+    ? `Hi ${escapeHtml(recipientName.trim())},`
+    : 'Hello,'
+
+  const subject = `Reset your ${APP_NAME} password`
+
+  const text = [
+    greeting,
+    '',
+    'We received a request to reset the password for your ePTW account.',
+    'Click the link below to choose a new password:',
+    '',
+    resetUrl,
+    '',
+    'If you did not request this, you can safely ignore this email.',
+    '',
+    `This is an automated message from ${APP_NAME} (${APP_TAGLINE}).`,
+  ].join('\n')
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px;">${greeting}</p>
+    <p style="margin:0 0 16px;">
+      We received a request to reset the password for your
+      <strong style="color:${BRAND_BLUE};">${APP_NAME}</strong>
+      (${APP_TAGLINE}) account.
+    </p>
+    <p style="margin:0 0 8px;">
+      Click the button below to choose a new password.
+    </p>
+    ${ctaButtonHtml('Reset Password', resetUrl)}
+    <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">
+      If you did not request this, you can safely ignore this email. The reset
+      link expires after a limited time and can only be used once.
+    </p>`
+
+  return { subject, html: shellHtml({ preheader: subject, bodyHtml }), text }
+}
+
+/**
+ * Sends a branded password-reset email via Resend. Best-effort: never throws;
+ * callers must not fail their transaction on the result.
+ */
+export async function sendPasswordResetEmail(opts: {
+  to: string
+  recipientName?: string | null
+  resetUrl: string
+}): Promise<SendEmailResult> {
+  const { to, recipientName, resetUrl } = opts
+
+  const rendered = renderPasswordResetEmail({
+    recipientName,
+    resetUrl,
+  })
+
+  return sendEmail({
+    to,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+  })
+}

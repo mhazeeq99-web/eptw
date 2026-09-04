@@ -1,8 +1,7 @@
-'use client'
+﻿'use client'
 
 import { FormEvent, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { 
   Mail, 
   ArrowLeft, 
@@ -19,8 +18,6 @@ import {
 import { cn } from '@/lib/utils'
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient()
-
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -56,24 +53,27 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      // Redirect the user back to /update-password where they can
-      // choose a new password after clicking the reset link.
-      const redirectTo = `${window.location.origin}/update-password`
+      // Send the password-reset email through the app's Resend service
+      // (server-side) rather than Supabase's own mailer. The email links to
+      // /reset-password on the app, which verifies the token in-app before
+      // taking the user to /update-password to choose a new password.
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
 
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim(),
-        { redirectTo }
-      )
+      const body = await response.json()
 
-      if (error) {
-        // Never reveal whether the account exists: always show the
-        // same generic message, even when the call itself fails.
-        console.error('Password reset request failed:', error)
+      if (!response.ok) {
+        throw new Error(body.error ?? 'Unable to send reset link')
       }
 
-      // Success message (always shown for security)
+      // Never reveal whether the account exists: always show the same
+      // generic message, matching the server's behaviour.
       setMessage(
-        'If an account exists for this email, a password reset link has been sent.'
+        body.message ??
+          'If an account exists for this email, a password reset link has been sent.'
       )
       
       // Start resend timer (60 seconds)
@@ -140,7 +140,7 @@ export default function ForgotPasswordPage() {
               </h2>
             </div>
             <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-              Enter the email address associated with your ePTW account and we'll send you a password reset link.
+              Enter the email address associated with your ePTW account and we&apos;ll send you a password reset link.
             </p>
           </div>
 
@@ -256,7 +256,7 @@ export default function ForgotPasswordPage() {
               <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <li className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-blue-500" />
-                  Check your spam folder if you don't see the email
+                  Check your spam folder if you don&apos;t see the email
                 </li>
                 <li className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-blue-500" />
@@ -280,3 +280,5 @@ export default function ForgotPasswordPage() {
     </main>
   )
 }
+
+

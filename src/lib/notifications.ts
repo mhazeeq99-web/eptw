@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPermitEventEmail } from '@/lib/email'
 
 export type PermitEventType =
   | 'permit_submitted'
@@ -162,11 +163,25 @@ export async function notifyPermitEvent(
         event
       ))
     ) {
-      await sendEmail(
-        recipient.email,
-        title,
-        `${message}\n\nView permit: ${getPermitUrl(permit.id)}`
-      )
+      // Branded Resend email first; falls back to the legacy SMTP path when
+      // Resend is not configured. Never throws — a failed email must not fail
+      // the permit transaction.
+      const sent = await sendPermitEventEmail({
+        to: recipient.email,
+        recipientName: recipient.full_name,
+        eventLabel: labels[event],
+        permitNo: permit.permit_no,
+        message,
+        permitUrl: getPermitUrl(permit.id),
+      })
+
+      if (!sent.ok && process.env.SMTP_HOST) {
+        await sendEmail(
+          recipient.email,
+          title,
+          `${message}\n\nView permit: ${getPermitUrl(permit.id)}`
+        )
+      }
     }
   }
 }
