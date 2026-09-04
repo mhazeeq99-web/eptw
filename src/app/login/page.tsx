@@ -98,7 +98,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/30 p-4 sm:p-6">
       {/* Background Decorative Elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/20" />
@@ -183,7 +183,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/50 dark:border-gray-700 dark:bg-gray-900 dark:shadow-gray-900/50">
+              <div className="rounded-2xl border bg-card p-8 shadow-xl shadow-black/5">
                 <Link
                   href="/"
                   className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
@@ -227,7 +227,7 @@ export default function LoginPage() {
                           "w-full rounded-lg border bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 dark:bg-gray-800 dark:text-gray-100",
                           emailError
                             ? "border-red-500 focus:ring-2 focus:ring-red-500/20"
-                            : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600"
+                            : "border-border focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-border"
                         )}
                       />
                     </div>
@@ -264,7 +264,7 @@ export default function LoginPage() {
                           "w-full rounded-lg border bg-white py-2.5 pl-10 pr-10 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 dark:bg-gray-800 dark:text-gray-100",
                           passwordError
                             ? "border-red-500 focus:ring-2 focus:ring-red-500/20"
-                            : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600"
+                            : "border-border focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-border"
                         )}
                       />
                       <button

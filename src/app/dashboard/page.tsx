@@ -208,7 +208,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardShell>
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-7">
         {/* Setup Alert */}
         {needsSetup && (
           <div className="flex flex-col gap-4 rounded-xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/30">
@@ -236,7 +236,7 @@ export default async function DashboardPage() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
               {profile?.full_name
                 ? `Welcome, ${profile.full_name.split(' ')[0]}`
                 : 'Dashboard'}
@@ -600,12 +600,12 @@ async function PlatformAdminDashboard() {
 
   return (
     <DashboardShell>
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-7">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
                 Platform Admin
               </h1>
               <Badge variant="info">

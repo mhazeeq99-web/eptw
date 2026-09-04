@@ -310,7 +310,7 @@ export function Sidebar({
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-sidebar shadow-xl transition-[width,transform] duration-200 lg:static lg:z-auto lg:shadow-none lg:transition-[width] ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-sidebar shadow-2xl transition-[width,transform] duration-200 lg:static lg:z-auto lg:shadow-none lg:transition-[width] ${
           collapsed ? 'lg:w-20' : 'lg:w-72'
         } w-72 ${
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -421,7 +421,7 @@ function NavLink({
     pathname === item.href || pathname.startsWith(item.href + '/')
 
   const classes = [
-    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
     collapsed ? 'justify-center px-2' : 'justify-start',
     primary
       ? 'bg-primary font-medium text-primary-foreground hover:bg-primary/90'

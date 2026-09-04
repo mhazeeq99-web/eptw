@@ -12,7 +12,7 @@ export function DashboardShell({
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
+    <div className="flex min-h-screen bg-muted/20">
 
       <Sidebar
         open={sidebarOpen}
@@ -25,7 +25,7 @@ export function DashboardShell({
           onMenuClick={() => setSidebarOpen(true)}
         />
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
           {children}
         </main>
 

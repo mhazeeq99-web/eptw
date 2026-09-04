@@ -16,7 +16,7 @@ import {
 
 export default function Home() {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/30 p-4 sm:p-6">
       {/* Background Decorative Elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/20" />
@@ -30,7 +30,7 @@ export default function Home() {
           <div className="hidden lg:flex lg:flex-col lg:justify-center">
             <div className="space-y-8">
               <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-blue-600 p-3 shadow-lg shadow-blue-600/20">
+                <div className="rounded-xl bg-primary p-3 shadow-lg shadow-primary/20">
                   <HardHat className="h-8 w-8 text-white" />
                 </div>
                 <div>
@@ -104,7 +104,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/50 dark:border-gray-700 dark:bg-gray-900 dark:shadow-gray-900/50">
+              <div className="rounded-2xl border bg-card p-8 shadow-xl shadow-black/5">
                 <div className="mb-8 text-center">
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
                     <Zap className="h-8 w-8 text-blue-600 dark:text-blue-400" />

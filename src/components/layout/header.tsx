@@ -12,7 +12,7 @@ export function Header({
   onMenuClick: () => void
 }) {
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
@@ -25,9 +25,14 @@ export function Header({
           <Menu className="h-5 w-5" />
         </button>
 
-        <p className="truncate text-sm text-muted-foreground">
-          Electronic Permit to Work
-        </p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-foreground">
+            Electronic Permit to Work
+          </p>
+          <p className="hidden truncate text-xs text-muted-foreground sm:block">
+            Safety operations workspace
+          </p>
+        </div>
 
         <CompanyBadge />
       </div>
