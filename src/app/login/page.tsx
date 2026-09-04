@@ -166,7 +166,7 @@ export default function LoginPage() {
           edge and toward the login card so the photograph stays visible. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 max-lg:hidden dark:hidden bg-[linear-gradient(to_right,rgba(4,12,34,0)_0%,rgba(4,12,34,0.5)_5%,rgba(4,12,34,0.58)_20%,rgba(4,12,34,0.55)_38%,rgba(4,12,34,0.22)_47%,rgba(4,12,34,0)_55%)]"
+        className="pointer-events-none absolute inset-0 max-lg:hidden dark:hidden bg-[linear-gradient(to_right,rgba(4,12,34,0)_0%,rgba(4,12,34,0.12)_4%,rgba(4,12,34,0.32)_12%,rgba(4,12,34,0.42)_26%,rgba(4,12,34,0.36)_42%,rgba(4,12,34,0.14)_56%,rgba(4,12,34,0)_68%)]"
       />
       {/* Background Decorative Elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
