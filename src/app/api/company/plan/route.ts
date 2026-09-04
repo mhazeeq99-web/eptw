@@ -11,8 +11,8 @@ import { getCompanyPlan, planAllowsAttachments } from '@/lib/entitlements'
  * Server routes remain authoritative and always re-check entitlements.
  *
  * Callers must be authorized for the company: company users may only read
- * their own company; platform admins may read any company. Contractors are
- * not allowed to query arbitrary companies.
+ * their own company; platform admins may read any company; contractor admins
+ * may read companies they are actively authorized for (contractor_companies).
  */
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -53,13 +53,41 @@ export async function GET(request: Request) {
 
   const isPlatformAdmin = profile.role === 'platform_admin'
 
-  // A company user may only query their own company. Contractors have no
-  // company_id and may not query any company through this endpoint — their
-  // attachment access is governed by the PTW-owning company at upload time.
+  // A company user may only query their own company. Contractor admins
+  // (company_id is NULL) may query the plan of a company they are actively
+  // authorized for — the same relationship that lets them raise permits for
+  // that company. Attachment access itself is still governed by the
+  // PTW-owning company's plan at upload time; this only drives UI gating.
+  let isAuthorized =
+    isPlatformAdmin ||
+    (profile.company_id != null &&
+      profile.company_id === rawCompanyId)
+
   if (
-    !isPlatformAdmin &&
-    profile.company_id !== rawCompanyId
+    !isAuthorized &&
+    profile.role === 'contractor_admin'
   ) {
+    const { data: membership } = await supabase
+      .from('contractor_users')
+      .select('contractor_id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (membership) {
+      const { data: relationship } = await supabase
+        .from('contractor_companies')
+        .select('id')
+        .eq('contractor_id', membership.contractor_id)
+        .eq('company_id', rawCompanyId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      isAuthorized = !!relationship
+    }
+  }
+
+  if (!isAuthorized) {
     return NextResponse.json(
       { error: 'Forbidden' },
       { status: 403 }

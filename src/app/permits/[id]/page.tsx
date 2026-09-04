@@ -622,8 +622,9 @@ export default async function PermitDetailsPage({
       isCompanyOnFreePlan = plan.code === 'free'
       isCompanyOnProPlan = plan.code === 'pro'
     } catch {
-      // Fall back to allowing the UI (server routes still enforce).
-      attachmentsEnabled = true
+      // Plan could not be confirmed — lock the UI (conservative); the
+      // server upload routes enforce the entitlement regardless.
+      attachmentsEnabled = false
     }
   }
 

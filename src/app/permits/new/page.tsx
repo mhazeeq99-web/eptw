@@ -297,7 +297,8 @@ function NewPermitWorkspace() {
   )
 
   // Company-level attachment entitlement for UI gating (server enforces).
-  const [attachmentsEnabled, setAttachmentsEnabled] = useState(true)
+  // Starts locked; the plan effect unlocks it only for Pro-plan companies.
+  const [attachmentsEnabled, setAttachmentsEnabled] = useState(false)
   const [companyPlanCode, setCompanyPlanCode] = useState<string | null>(null)
 
   const selectedPermitType = permitTypes.find(
@@ -862,13 +863,16 @@ function NewPermitWorkspace() {
 
   // Resolve the selected company's plan for attachment UI gating. The
   // server-side upload endpoints remain authoritative; this only drives the
-  // locked "Attachments on Pro" state in the form.
+  // locked "Attachments on Pro" state in the form. On any failure to resolve
+  // the plan we lock the upload UI (conservative): we must never show upload
+  // controls the server would reject — a Free-plan company must appear
+  // locked even if the plan lookup fails for any reason.
   useEffect(() => {
     let cancelled = false
 
     async function loadCompanyPlan() {
       if (!companyId) {
-        setAttachmentsEnabled(true)
+        setAttachmentsEnabled(false)
         setCompanyPlanCode(null)
         return
       }
@@ -884,14 +888,15 @@ function NewPermitWorkspace() {
             setAttachmentsEnabled(body.attachments_enabled === true)
             setCompanyPlanCode(body.plan_code ?? null)
           } else {
-            // Fall back to allowing the UI; the server still enforces.
-            setAttachmentsEnabled(true)
+            // Plan could not be confirmed for this company — lock the UI;
+            // the server enforces the entitlement on upload anyway.
+            setAttachmentsEnabled(false)
             setCompanyPlanCode(null)
           }
         }
       } catch {
         if (!cancelled) {
-          setAttachmentsEnabled(true)
+          setAttachmentsEnabled(false)
           setCompanyPlanCode(null)
         }
       }

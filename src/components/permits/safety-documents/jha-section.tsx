@@ -188,7 +188,7 @@ export function JhaSection({
   embedded,
   saveRef,
   onJhasChange,
-  attachmentsEnabled = true,
+  attachmentsEnabled = false,
   isCompanyAdmin = false,
   isContractor = false,
 }: {
