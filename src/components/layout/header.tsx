@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react'
 import { NotificationsBell } from './notifications-bell'
 import { ThemeToggle } from './theme-toggle'
 import { AccountMenu } from './account-menu'
+import { CompanyBadge } from './company-badge'
 
 export function Header({
   onMenuClick,
@@ -27,6 +28,8 @@ export function Header({
         <p className="truncate text-sm text-muted-foreground">
           Electronic Permit to Work
         </p>
+
+        <CompanyBadge />
       </div>
 
       <div className="flex items-center gap-4">
