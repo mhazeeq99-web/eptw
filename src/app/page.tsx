@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { 
   HardHat, 
   Building2, 
@@ -11,12 +14,74 @@ import {
   ChevronRight,
   Users,
   Zap,
-  Star
+  Star,
+  Sun,
+  Moon
 } from 'lucide-react'
 
 export default function Home() {
+  const [theme, setTheme] = useState<'light' | 'dark' | null>(null)
+
+  // Resolve + apply the theme (same storage key / mechanism as the app-wide
+  // ThemeToggle): stored preference, else the OS preference.
+  useEffect(() => {
+    const stored = localStorage.getItem('eptw-theme')
+    const initial: 'light' | 'dark' =
+      stored === 'dark' || stored === 'light'
+        ? stored
+        : window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+    setTheme(initial)
+    const root = document.documentElement
+    if (initial === 'dark') root.classList.add('dark')
+    else root.classList.remove('dark')
+  }, [])
+
+  function toggleTheme() {
+    setTheme((prev) => {
+      const next: 'light' | 'dark' = prev === 'dark' ? 'light' : 'dark'
+      localStorage.setItem('eptw-theme', next)
+      const root = document.documentElement
+      if (next === 'dark') root.classList.add('dark')
+      else root.classList.remove('dark')
+      return next
+    })
+  }
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      {/* Day-mode background image (light mode only — dark mode keeps its gradient) */}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-cover bg-center dark:hidden"
+        style={{ backgroundImage: "url('/login-bg-day.png')" }}
+      />
+
+      {/* Theme toggle — switch between the photo day mode and dark mode */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={
+          theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+        }
+        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        className="absolute right-5 top-5 z-30 inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-white/80 px-3.5 py-2 text-xs font-medium text-gray-700 shadow-sm backdrop-blur-md transition-colors hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        {theme === 'dark' ? (
+          <Sun className="h-4 w-4" />
+        ) : (
+          <Moon className="h-4 w-4" />
+        )}
+        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+      </button>
+
+      {/* Small screens: light veil keeps the photo visible but soft behind the
+          card (there is no marketing column below lg). */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-white/40 dark:hidden lg:hidden"
+      />
       {/* Background Decorative Elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/20" />
@@ -28,7 +93,15 @@ export default function Home() {
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
           {/* Left Column - Branding & Features */}
           <div className="hidden lg:flex lg:flex-col lg:justify-center">
-            <div className="space-y-8">
+            {/* Day-mode translucent light-grey glass behind the marketing
+                content (grey background + dark text). Dark mode keeps the
+                plain gradient. */}
+            <div className="relative">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -inset-x-5 -inset-y-7 rounded-[2.5rem] border border-white/40 bg-gradient-to-br from-white/85 via-white/70 to-white/50 shadow-xl shadow-blue-950/10 backdrop-blur-md dark:hidden"
+              />
+              <div className="relative space-y-8">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-blue-600 p-3 shadow-lg shadow-blue-600/20">
                   <HardHat className="h-8 w-8 text-white" />
@@ -82,6 +155,7 @@ export default function Home() {
                     <span className="font-semibold">Trusted by leading organizations</span> to ensure workplace safety and compliance.
                   </p>
                 </div>
+              </div>
               </div>
             </div>
           </div>
