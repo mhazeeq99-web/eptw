@@ -37,6 +37,7 @@ import {
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
+import { findActiveHref } from '@/lib/nav-active'
 import { SignOutButton } from './sign-out-button'
 
 type NavItem = {
@@ -249,6 +250,21 @@ export function Sidebar({
   const pathname = usePathname()
   const [role, setRole] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
+  // Query string is resolved on the client only: useSearchParams() would force
+  // a Suspense boundary and drop the server-rendered nav on prerendered pages
+  // (e.g. /companies), while reading window during render would break
+  // hydration. Empty during SSR/hydration, filled by the effect below.
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    setSearch(window.location.search)
+  }, [pathname])
+
+  /** Close the mobile drawer and pick up query-only navigations (tab links). */
+  function handleNavigate() {
+    onClose()
+    window.requestAnimationFrame(() => setSearch(window.location.search))
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -297,6 +313,7 @@ export function Sidebar({
   }, [open])
 
   const sections = buildSections(role)
+  const activeHref = findActiveHref(sections, pathname, search)
 
   return (
     <>
@@ -328,7 +345,7 @@ export function Sidebar({
                 <div className="truncate text-base font-bold leading-tight tracking-tight">
                   ePTW
                 </div>
-                <div className="truncate text-[11px] leading-tight text-muted-foreground">
+                <div className="truncate text-xs leading-tight text-muted-foreground">
                   Permit to Work
                 </div>
               </div>
@@ -339,7 +356,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => setCollapsed((c) => !c)}
-              className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:inline-flex"
+              className="hidden rounded-md p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:inline-flex"
               aria-label={
                 collapsed ? 'Expand sidebar' : 'Collapse sidebar'
               }
@@ -355,7 +372,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+              className="rounded-md p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
               aria-label="Close menu"
             >
               <X className="h-5 w-5" />
@@ -371,7 +388,7 @@ export function Sidebar({
           {sections.map((section) => (
             <div key={section.title}>
               {!collapsed && (
-                <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {section.title}
                 </p>
               )}
@@ -380,9 +397,9 @@ export function Sidebar({
                   <NavLink
                     key={item.href + item.label}
                     item={item}
-                    pathname={pathname}
+                    isActive={item.href === activeHref}
                     collapsed={collapsed}
-                    onNavigate={onClose}
+                    onNavigate={handleNavigate}
                   />
                 ))}
               </div>
@@ -393,7 +410,7 @@ export function Sidebar({
         {/* Footer */}
         <div className="border-t p-3">
           {!collapsed && (
-            <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Account
             </p>
           )}
@@ -406,19 +423,17 @@ export function Sidebar({
 
 function NavLink({
   item,
-  pathname,
+  isActive,
   collapsed,
   onNavigate,
 }: {
   item: NavItem
-  pathname: string
+  isActive: boolean
   collapsed: boolean
   onNavigate: () => void
 }) {
   const Icon = item.icon
   const primary = item.primary
-  const isActive =
-    pathname === item.href || pathname.startsWith(item.href + '/')
 
   const classes = [
     'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
@@ -426,8 +441,12 @@ function NavLink({
     primary
       ? 'bg-primary font-medium text-primary-foreground hover:bg-primary/90'
       : isActive
-        ? 'bg-muted font-medium text-foreground'
-        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        ? // Active is a tinted primary surface (distinct from the neutral
+          // hover below, and visible against bg-sidebar in both themes).
+          'bg-primary/10 font-semibold text-primary hover:bg-primary/15'
+        : // Hover uses the sidebar accent token: `bg-muted` was within ~1%
+          // lightness of `bg-sidebar`, so the mouse highlight was invisible.
+          'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
   ].join(' ')
 
   return (
@@ -438,7 +457,7 @@ function NavLink({
       aria-current={isActive ? 'page' : undefined}
       title={collapsed ? item.label : undefined}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      <Icon className="h-[18px] w-[18px] shrink-0" />
       {!collapsed && (
         <>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>

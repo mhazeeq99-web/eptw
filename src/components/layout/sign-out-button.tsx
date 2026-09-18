@@ -23,7 +23,7 @@ export function SignOutButton({
     <button
       type="button"
       onClick={handleSignOut}
-      className={`mt-1 flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground lg:min-h-0 ${
+      className={`mt-1 flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:min-h-0 ${
         collapsed ? 'justify-center px-2' : ''
       }`}
       aria-label={collapsed ? 'Sign out' : undefined}
