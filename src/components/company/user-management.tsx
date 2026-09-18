@@ -600,7 +600,7 @@ export function UserManagement() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 
-          <div className="w-full max-w-lg rounded-xl border bg-background p-6 shadow-lg">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border bg-background p-6 shadow-lg">
 
             <div className="mb-6">
               <h2 className="text-xl font-semibold">
@@ -833,7 +833,7 @@ function UserSection({
       ) : (
         <div className="overflow-x-auto">
 
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[900px] text-sm">
 
             <thead className="border-b bg-muted/40">
               <tr>

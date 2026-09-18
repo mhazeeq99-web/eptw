@@ -52,7 +52,7 @@ export default function AboutUsContent() {
               </a>
             ))}
           </nav>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="about-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <Link
               href="/"
               className="about-btn about-btn-secondary"

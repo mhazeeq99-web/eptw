@@ -60,8 +60,8 @@ export default function ContractorRegistrationPage() {
     
     if (!password) {
       errors.password = 'Password is required'
-    } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters'
+    } else if (password.length < 8) {
+      errors.password = 'Password must be at least 8 characters'
     }
     
     if (!companyName.trim()) {
@@ -293,7 +293,7 @@ export default function ContractorRegistrationPage() {
                     )}
                   />
                   {fieldErrors.fullName && (
-                    <p className="flex items-center gap-1 text-xs text-red-500">
+                    <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                       <AlertCircle className="h-3 w-3" />
                       {fieldErrors.fullName}
                     </p>
@@ -323,7 +323,7 @@ export default function ContractorRegistrationPage() {
                     )}
                   />
                   {fieldErrors.email && (
-                    <p className="flex items-center gap-1 text-xs text-red-500">
+                    <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                       <AlertCircle className="h-3 w-3" />
                       {fieldErrors.email}
                     </p>
@@ -344,7 +344,7 @@ export default function ContractorRegistrationPage() {
                         setPassword(event.target.value)
                         setFieldErrors(prev => ({ ...prev, password: '' }))
                       }}
-                      minLength={6}
+                      minLength={8}
                       required
                       placeholder="Minimum 6 characters"
                       className={cn(
@@ -364,7 +364,7 @@ export default function ContractorRegistrationPage() {
                     </button>
                   </div>
                   {fieldErrors.password && (
-                    <p className="flex items-center gap-1 text-xs text-red-500">
+                    <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                       <AlertCircle className="h-3 w-3" />
                       {fieldErrors.password}
                     </p>
@@ -412,7 +412,7 @@ export default function ContractorRegistrationPage() {
                     )}
                   />
                   {fieldErrors.companyName && (
-                    <p className="flex items-center gap-1 text-xs text-red-500">
+                    <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                       <AlertCircle className="h-3 w-3" />
                       {fieldErrors.companyName}
                     </p>
@@ -441,7 +441,7 @@ export default function ContractorRegistrationPage() {
                     )}
                   />
                   {fieldErrors.ssm && (
-                    <p className="flex items-center gap-1 text-xs text-red-500">
+                    <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                       <AlertCircle className="h-3 w-3" />
                       {fieldErrors.ssm}
                     </p>
@@ -479,7 +479,7 @@ export default function ContractorRegistrationPage() {
             </section>
 
             {error && (
-              <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+              <div role="alert" className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
                 <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
               </div>

@@ -270,7 +270,7 @@ export default async function PlatformSecurityPage() {
           {disabledProfiles.length > 0 && (
             <ScrollArea className="h-[400px]">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[620px] text-sm">
                   <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                     <tr className="border-b border-gray-200 dark:border-gray-700">
                       <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">User</th>
@@ -330,7 +330,7 @@ export default async function PlatformSecurityPage() {
           {suspendedCompanies.length > 0 && (
             <ScrollArea className="h-[400px]">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[620px] text-sm">
                   <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                     <tr className="border-b border-gray-200 dark:border-gray-700">
                       <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Company</th>
@@ -375,7 +375,7 @@ export default async function PlatformSecurityPage() {
           {badSubscriptions.length > 0 && (
             <ScrollArea className="h-[400px]">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[620px] text-sm">
                   <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                     <tr className="border-b border-gray-200 dark:border-gray-700">
                       <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Company</th>
@@ -427,7 +427,7 @@ export default async function PlatformSecurityPage() {
           {rejectedPermits.length > 0 && (
             <ScrollArea className="h-[400px]">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                     <tr className="border-b border-gray-200 dark:border-gray-700">
                       <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Permit</th>

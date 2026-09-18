@@ -281,7 +281,7 @@ async function renderPermitTypes(supabase: SupabaseClient, companyId: number, pa
           ) : (
             <ScrollArea className="h-[500px]">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[1000px] text-sm">
                   <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                     <tr className="border-b border-gray-200 dark:border-gray-700">
                       {['Name', 'Code', 'Status', 'JHA', 'LOTO', 'Gas', 'Site', 'Briefing', 'Emergency'].map((h) => (
@@ -361,7 +361,7 @@ async function renderSafetyControls(supabase: SupabaseClient, page: number, per:
             ) : (
               <ScrollArea className="h-[500px]">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[640px] text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                       <tr className="border-b border-gray-200 dark:border-gray-700">
                         {['Name', 'Code', 'Category', 'Status'].map((h) => (
@@ -437,7 +437,7 @@ async function renderPpe(supabase: SupabaseClient, page: number, per: number, q:
             ) : (
               <ScrollArea className="h-[500px]">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[640px] text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                       <tr className="border-b border-gray-200 dark:border-gray-700">
                         {['Name', 'Category', 'Status'].map((h) => (
@@ -515,7 +515,7 @@ async function renderChecklists(supabase: SupabaseClient, companyId: number) {
         ) : (
           <ScrollArea className="h-[500px]">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                   <tr className="border-b border-gray-200 dark:border-gray-700">
                     <th className="px-4 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Permit Type</th>

@@ -23,9 +23,10 @@ export function SignOutButton({
     <button
       type="button"
       onClick={handleSignOut}
-      className={`mt-1 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground ${
+      className={`mt-1 flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground lg:min-h-0 ${
         collapsed ? 'justify-center px-2' : ''
       }`}
+      aria-label={collapsed ? 'Sign out' : undefined}
       title={collapsed ? 'Sign out' : undefined}
     >
       <LogOut className="h-4 w-4 shrink-0" />

@@ -1,7 +1,5 @@
-'use client'
-
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { 
   HardHat, 
   Building2, 
@@ -14,41 +12,10 @@ import {
   ChevronRight,
   Users,
   Zap,
-  Star,
-  Sun,
-  Moon
+  Star
 } from 'lucide-react'
 
 export default function Home() {
-  const [theme, setTheme] = useState<'light' | 'dark' | null>(null)
-
-  // Resolve + apply the theme (same storage key / mechanism as the app-wide
-  // ThemeToggle): stored preference, else the OS preference.
-  useEffect(() => {
-    const stored = localStorage.getItem('eptw-theme')
-    const initial: 'light' | 'dark' =
-      stored === 'dark' || stored === 'light'
-        ? stored
-        : window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light'
-    setTheme(initial)
-    const root = document.documentElement
-    if (initial === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
-  }, [])
-
-  function toggleTheme() {
-    setTheme((prev) => {
-      const next: 'light' | 'dark' = prev === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('eptw-theme', next)
-      const root = document.documentElement
-      if (next === 'dark') root.classList.add('dark')
-      else root.classList.remove('dark')
-      return next
-    })
-  }
-
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
       {/* Day-mode background image (light mode only — dark mode keeps its gradient) */}
@@ -58,23 +25,8 @@ export default function Home() {
         style={{ backgroundImage: "url('/login-bg-day.png')" }}
       />
 
-      {/* Theme toggle — switch between the photo day mode and dark mode */}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        aria-label={
-          theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
-        }
-        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        className="absolute right-5 top-5 z-30 inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-white/80 px-3.5 py-2 text-xs font-medium text-gray-700 shadow-sm backdrop-blur-md transition-colors hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-800"
-      >
-        {theme === 'dark' ? (
-          <Sun className="h-4 w-4" />
-        ) : (
-          <Moon className="h-4 w-4" />
-        )}
-        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      </button>
+      {/* Theme toggle — shared component (see components/layout/theme-toggle) */}
+      <ThemeToggle variant="pill" className="absolute right-5 top-5 z-30" />
 
       {/* Small screens: light veil keeps the photo visible but soft behind the
           card (there is no marketing column below lg). */}

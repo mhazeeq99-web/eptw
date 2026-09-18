@@ -26,6 +26,40 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Dark mode: map the marketing palette onto the application's semantic
+   tokens so /about-us does not stay light-on-dark (DESIGN.md §78). */
+.dark .about-root {
+  --abg: var(--background);
+  --asurface: var(--card);
+  --aborder: var(--border);
+  --atext-primary: var(--card-foreground);
+  --atext-secondary: var(--muted-foreground);
+  --atext-muted: var(--muted-foreground);
+  --aaccent-soft: color-mix(in oklab, var(--aaccent) 18%, transparent);
+  --anavy: var(--card-foreground);
+  --anavy-light: var(--muted-foreground);
+  --ashadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --ashadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45);
+  --ashadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
+/* Header actions must never force horizontal overflow at 320-390px
+   (DESIGN.md §14/§79): wrap, and drop the duplicated CTAs on the
+   narrowest screens — they are repeated in the hero section. */
+.about-root .about-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+@media (max-width: 420px) {
+  .about-root .about-header-actions .about-btn {
+    display: none;
+  }
+}
+
 .about-root .about-container {
   max-width: 1200px;
   margin: 0 auto;

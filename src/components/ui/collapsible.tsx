@@ -75,13 +75,14 @@ interface CollapsibleContentProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const CollapsibleContent = React.forwardRef<HTMLDivElement, CollapsibleContentProps>(
   ({ className, isOpen, children, ...props }, ref) => {
-    if (!isOpen) {
-      return null
-    }
-
+    // Keep the children mounted when collapsed (just hidden) so that stateful
+    // section content — JHA/LOTO/gas-test/attachment records owned by the child
+    // sections — is preserved instead of re-seeding from empty defaults on
+    // every collapse/expand cycle.
     return (
       <div
         ref={ref}
+        hidden={!isOpen}
         className={cn(
           "overflow-hidden transition-all duration-300 ease-in-out",
           className

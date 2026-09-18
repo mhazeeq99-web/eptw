@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { createClient } from '@/lib/supabase/server'
+import { cn } from '@/lib/utils'
 import {
   notifyExpiringPermits,
   notifyExpiredPermits,
@@ -261,6 +262,7 @@ export default async function DashboardPage() {
             title="Pending Approval"
             value={counts.pending_approval ?? 0}
             href="/permits?status=pending_approval"
+            emphasis="primary"
             icon={<ClipboardList className="h-4 w-4" />}
             tone="yellow"
             description="Awaiting review"
@@ -269,6 +271,7 @@ export default async function DashboardPage() {
             title="Active"
             value={counts.active ?? 0}
             href="/permits?status=active"
+            emphasis="primary"
             icon={<PlayCircle className="h-4 w-4" />}
             tone="green"
             description="In progress"
@@ -277,14 +280,16 @@ export default async function DashboardPage() {
             title="Expiring Soon"
             value={counts.expiring_soon ?? 0}
             href="/permits?status=active&expiry=expiring_soon"
+            emphasis="primary"
             icon={<Clock className="h-4 w-4" />}
             tone="orange"
-            description="Within 24 hours"
+            description="Within 2 hours"
           />
           <DashboardCard
             title="Completion Rate"
             value={`${completionRate}%`}
             href="/permits?status=completed"
+            emphasis="primary"
             icon={<TrendingUp className="h-4 w-4" />}
             tone="blue"
             description="Completed vs active"
@@ -438,6 +443,7 @@ function DashboardCard({
   icon,
   tone,
   description,
+  emphasis = 'secondary',
 }: {
   title: string
   value: number | string
@@ -445,6 +451,8 @@ function DashboardCard({
   icon: React.ReactNode
   tone: 'muted' | 'yellow' | 'green' | 'orange' | 'gray' | 'red' | 'blue'
   description?: string
+  /** DESIGN.md §17/§18 — primary KPIs carry stronger emphasis than secondary. */
+  emphasis?: 'primary' | 'secondary'
 }) {
   const tones: Record<typeof tone, string> = {
     muted: 'bg-muted/40 text-muted-foreground',
@@ -459,10 +467,17 @@ function DashboardCard({
     blue: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   }
 
+  const isPrimary = emphasis === 'primary'
+
   return (
     <Link
       href={href}
-      className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+      className={cn(
+        'group rounded-xl border p-5 transition-all',
+        isPrimary
+          ? 'border-border bg-card shadow-sm hover:border-primary/40 hover:shadow-md'
+          : 'border-border/70 bg-card/60 hover:border-border hover:bg-card'
+      )}
     >
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
@@ -474,11 +489,16 @@ function DashboardCard({
           {icon}
         </span>
       </div>
-      <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+      <p
+        className={cn(
+          'mt-2 font-bold text-foreground',
+          isPrimary ? 'text-4xl' : 'text-2xl font-semibold text-muted-foreground'
+        )}
+      >
         {value}
       </p>
       {description && (
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-xs text-muted-foreground">
           {description}
         </p>
       )}

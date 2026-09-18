@@ -470,7 +470,7 @@ export function SafetyControlsManager() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[620px] text-sm">
               <thead className="border-b bg-muted/40">
                 <tr>
                   <th className="px-6 py-3 text-left font-medium">Name</th>

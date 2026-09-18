@@ -37,7 +37,7 @@ export function Pagination({
   return (
     <nav
       aria-label="Pagination"
-      className="flex flex-col gap-3 border-t border-gray-200 px-6 py-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"
     >
       {totalItems !== undefined ? (
         <p className="text-sm text-muted-foreground">
@@ -51,17 +51,20 @@ export function Pagination({
         </p>
       )}
 
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {currentPage > 1 ? (
           <Link
             href={buildHref(currentPage - 1)}
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            className="inline-flex h-11 items-center gap-1 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-muted sm:h-9"
           >
             <ChevronLeft className="h-4 w-4" />
             Prev
           </Link>
         ) : (
-          <span className="inline-flex h-8 cursor-not-allowed items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-300 dark:border-gray-700 dark:text-gray-600">
+          <span
+            aria-disabled="true"
+            className="inline-flex h-11 cursor-not-allowed items-center gap-1 rounded-md border border-border px-3 text-sm text-muted-foreground/60 sm:h-9"
+          >
             <ChevronLeft className="h-4 w-4" />
             Prev
           </span>
@@ -71,7 +74,7 @@ export function Pagination({
           page === '…' ? (
             <span
               key={`gap-${index}`}
-              className="inline-flex h-8 w-8 items-center justify-center text-sm text-muted-foreground"
+              className="inline-flex h-11 w-9 items-center justify-center text-sm text-muted-foreground sm:h-9 sm:w-8"
             >
               …
             </span>
@@ -81,10 +84,10 @@ export function Pagination({
               href={buildHref(page)}
               aria-current={page === currentPage ? 'page' : undefined}
               className={cn(
-                'inline-flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors',
+                'inline-flex h-11 w-9 items-center justify-center rounded-md text-sm transition-colors sm:h-9 sm:w-8',
                 page === currentPage
-                  ? 'bg-blue-600 font-medium text-white'
-                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800'
+                  ? 'bg-primary font-medium text-primary-foreground'
+                  : 'text-foreground hover:bg-muted'
               )}
             >
               {page}
@@ -95,13 +98,16 @@ export function Pagination({
         {currentPage < totalPages ? (
           <Link
             href={buildHref(currentPage + 1)}
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            className="inline-flex h-11 items-center gap-1 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-muted sm:h-9"
           >
             Next
             <ChevronRight className="h-4 w-4" />
           </Link>
         ) : (
-          <span className="inline-flex h-8 cursor-not-allowed items-center gap-1 rounded-md border border-gray-200 px-2.5 text-sm text-gray-300 dark:border-gray-700 dark:text-gray-600">
+          <span
+            aria-disabled="true"
+            className="inline-flex h-11 cursor-not-allowed items-center gap-1 rounded-md border border-border px-3 text-sm text-muted-foreground/60 sm:h-9"
+          >
             Next
             <ChevronRight className="h-4 w-4" />
           </span>

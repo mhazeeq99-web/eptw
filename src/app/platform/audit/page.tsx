@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Pagination } from '@/components/ui/pagination'
 
 /**
  * Platform Audit — a read-only, platform-wide audit view.
@@ -653,55 +654,16 @@ export default async function PlatformAuditPage({
           </CardContent>
         </Card>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Card>
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <span className="text-sm text-muted-foreground">
-                Showing {start + 1}–{Math.min(start + per, total)} of {total}
-              </span>
-
-              <div className="flex items-center gap-1">
-                {safePage > 1 && (
-                  <Link
-                    href={pageHref(safePage - 1)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Link>
-                )}
-
-                {Array.from(
-                  { length: totalPages },
-                  (_, i) => i + 1
-                ).map((p) => (
-                  <Link
-                    key={p}
-                    href={pageHref(p)}
-                    className={`rounded-lg border px-3 py-2 text-sm ${
-                      p === safePage
-                        ? 'bg-blue-600 font-medium text-white'
-                        : 'border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    {p}
-                  </Link>
-                ))}
-
-                {safePage < totalPages && (
-                  <Link
-                    href={pageHref(safePage + 1)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Pagination — shared component (ellipsis + keyboard/aria support)
+            instead of rendering every page number, which overflowed the
+            viewport for large derived result sets. */}
+        <Pagination
+          currentPage={safePage}
+          totalPages={totalPages}
+          buildHref={(p) => pageHref(p)}
+          totalItems={total}
+          pageSize={per}
+        />
 
         {/* Footer Note */}
         <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">

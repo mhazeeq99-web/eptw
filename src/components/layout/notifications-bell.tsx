@@ -79,6 +79,31 @@ export function NotificationsBell() {
     }
   }
 
+  // Explicit "Mark all read" action: previously this was wired to handleOpen,
+  // so the labelled action only closed the panel (DESIGN.md §86 — the control
+  // must do what it says).
+  async function handleMarkAllRead() {
+    try {
+      await fetch('/api/notifications/read-all', {
+        method: 'POST',
+      })
+      setUnreadCount(0)
+      await loadNotifications()
+    } catch (error) {
+      console.error('Failed to mark notifications read:', error)
+    }
+  }
+
+  // Escape closes the panel (matches the account menu / sidebar drawer).
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open])
+
   async function handleNotificationClick(
     notification: Notification
   ) {
@@ -101,11 +126,13 @@ export function NotificationsBell() {
         onClick={handleOpen}
         className="relative rounded-md p-2 hover:bg-muted"
         aria-label="Notifications"
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <Bell className="h-5 w-5" />
 
         {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-semibold text-white dark:bg-destructive/20 dark:text-destructive">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -119,7 +146,7 @@ export function NotificationsBell() {
             {notifications.length > 0 && (
               <button
                 type="button"
-                onClick={handleOpen}
+                onClick={handleMarkAllRead}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Mark all read

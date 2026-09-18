@@ -2364,7 +2364,7 @@ function CollapsibleSection({
   children: React.ReactNode
 }) {
   return (
-    <Card>
+    <Card id={`${id}-section`}>
       <Collapsible open={isOpen} onOpenChange={onToggle}>
         <CollapsibleTrigger className="flex w-full items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-800">
           <div className="flex items-center gap-3">
@@ -2436,16 +2436,18 @@ function Field({
   icon?: any
   children: React.ReactNode
 }) {
+  // A <label> wrapper gives every primary form control an accessible name via
+  // implicit label association (no htmlFor/id plumbing needed at 14 call sites).
   return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+    <label className="block space-y-2">
+      <span className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
         {Icon && <Icon className="h-4 w-4 text-gray-400" />}
         {label}
         {required && (
           <span className="text-red-500">*</span>
         )}
-      </label>
+      </span>
       {children}
-    </div>
+    </label>
   )
 }

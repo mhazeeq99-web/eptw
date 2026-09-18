@@ -20,6 +20,7 @@ import { StatusBadge, formatDate } from '@/components/permits/status-badge'
 import { BackButton } from '@/components/ui/back-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ErrorState } from '@/components/ui/states'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 type Jha = {
@@ -163,7 +164,13 @@ export default async function JhaPage() {
         )}
 
         {/* JHA Records Table */}
-        {rows.length === 0 ? (
+        {error ? (
+          <ErrorState
+            title="Unable to load JHA records"
+            description="We couldn't retrieve this list. Please try again."
+            retryHref="/safety/jha"
+          />
+        ) : rows.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center p-12 text-center">
               <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-800">
@@ -198,7 +205,7 @@ export default async function JhaPage() {
             <CardContent className="p-0">
               <ScrollArea className="h-[600px]">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[820px] text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                       <tr className="border-b border-gray-200 dark:border-gray-700">
                         <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">JHA Title</th>
@@ -259,7 +266,7 @@ export default async function JhaPage() {
                           </td>
 
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                            <div className="flex items-center justify-end gap-2">
                               {canVerify && jha.status === 'pending' && jha.permit && (
                                 <VerifySafetyDocButton
                                   permitId={jha.permit.id}

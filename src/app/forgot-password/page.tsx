@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { FormEvent, useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -167,18 +167,18 @@ export default function ForgotPasswordPage() {
                   placeholder="name@company.com"
                   required
                   autoComplete="email"
-                  disabled={loading || resendTimer > 0}
+                  disabled={loading}
                   className={cn(
                     "w-full rounded-lg border bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 dark:bg-gray-800 dark:text-gray-100",
                     emailError
                       ? "border-red-500 focus:ring-2 focus:ring-red-500/20"
                       : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600",
-                    (loading || resendTimer > 0) && "opacity-50 cursor-not-allowed"
+                    loading && "opacity-50 cursor-not-allowed"
                   )}
                 />
               </div>
               {emailError && (
-                <p className="flex items-center gap-1 text-xs text-red-500">
+                <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                   <AlertCircle className="h-3 w-3" />
                   {emailError}
                 </p>
@@ -187,7 +187,7 @@ export default function ForgotPasswordPage() {
 
             {/* Error Message */}
             {error && (
-              <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+              <div role="alert" className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                 <p className="text-sm text-red-700 dark:text-red-300">
                   {error}
@@ -197,7 +197,7 @@ export default function ForgotPasswordPage() {
 
             {/* Success Message */}
             {message && (
-              <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
+              <div role="status" className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
                 <div className="space-y-2">
                   <p className="text-sm text-green-700 dark:text-green-300">
@@ -224,8 +224,7 @@ export default function ForgotPasswordPage() {
                 "flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 transition-all",
                 "hover:bg-blue-700 hover:shadow-blue-700/30",
                 "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                resendTimer > 0 && "bg-gray-400 hover:bg-gray-400 shadow-none"
+                "disabled:cursor-not-allowed disabled:opacity-50"
               )}
             >
               {loading ? (

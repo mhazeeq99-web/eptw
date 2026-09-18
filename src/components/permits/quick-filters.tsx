@@ -83,6 +83,7 @@ export function QuickFilters({
 
           <input
             type="search"
+            aria-label="Search permits"
             value={q}
             onChange={(event) => setQ(event.target.value)}
             placeholder="Permit no. or work title..."
@@ -91,7 +92,7 @@ export function QuickFilters({
         </div>
 
         {statuses && (
-          <select
+          <select aria-label="Status"
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm"
@@ -105,7 +106,7 @@ export function QuickFilters({
           </select>
         )}
 
-        <select
+        <select aria-label="Permit type"
           value={permitTypeId}
           onChange={(event) =>
             setPermitTypeId(event.target.value)
@@ -120,7 +121,7 @@ export function QuickFilters({
           ))}
         </select>
 
-        <select
+        <select aria-label="Area"
           value={areaId}
           onChange={(event) => setAreaId(event.target.value)}
           className="w-full rounded-md border bg-background px-3 py-2 text-sm"
@@ -133,7 +134,7 @@ export function QuickFilters({
           ))}
         </select>
 
-        <select
+        <select aria-label="Contractor"
           value={contractorId}
           onChange={(event) =>
             setContractorId(event.target.value)

@@ -1,17 +1,16 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { 
   Eye, 
   EyeOff, 
   Lock, 
   Mail, 
-  Moon, 
   Shield, 
-  Sun, 
   AlertCircle, 
   CheckCircle2,
   Loader2,
@@ -37,34 +36,6 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [theme, setTheme] = useState<'light' | 'dark' | null>(null)
-
-  // Resolve + apply the theme (same storage key / mechanism as the app-wide
-  // ThemeToggle): stored preference, else the OS preference.
-  useEffect(() => {
-    const stored = localStorage.getItem('eptw-theme')
-    const initial: 'light' | 'dark' =
-      stored === 'dark' || stored === 'light'
-        ? stored
-        : window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light'
-    setTheme(initial)
-    const root = document.documentElement
-    if (initial === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
-  }, [])
-
-  function toggleTheme() {
-    setTheme((prev) => {
-      const next: 'light' | 'dark' = prev === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('eptw-theme', next)
-      const root = document.documentElement
-      if (next === 'dark') root.classList.add('dark')
-      else root.classList.remove('dark')
-      return next
-    })
-  }
 
   function validateForm(): boolean {
     let isValid = true
@@ -136,23 +107,8 @@ export default function LoginPage() {
         style={{ backgroundImage: "url('/login-bg-day.png')" }}
       />
 
-      {/* Theme toggle — switch between the photo day mode and dark mode */}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        aria-label={
-          theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
-        }
-        title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        className="absolute right-5 top-5 z-30 inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-white/80 px-3.5 py-2 text-xs font-medium text-gray-700 shadow-sm backdrop-blur-md transition-colors hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-800"
-      >
-        {theme === 'dark' ? (
-          <Sun className="h-4 w-4" />
-        ) : (
-          <Moon className="h-4 w-4" />
-        )}
-        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      </button>
+      {/* Theme toggle — shared component (see components/layout/theme-toggle) */}
+      <ThemeToggle variant="pill" className="absolute right-5 top-5 z-30" />
 
       {/* Small screens: light veil keeps the photo visible but soft behind the
           login card (there is no marketing column below lg). */}
@@ -302,7 +258,7 @@ export default function LoginPage() {
                       />
                     </div>
                     {emailError && (
-                      <p className="flex items-center gap-1 text-xs text-red-500">
+                      <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                         <AlertCircle className="h-3 w-3" />
                         {emailError}
                       </p>
@@ -351,7 +307,7 @@ export default function LoginPage() {
                       </button>
                     </div>
                     {passwordError && (
-                      <p className="flex items-center gap-1 text-xs text-red-500">
+                      <p className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                         <AlertCircle className="h-3 w-3" />
                         {passwordError}
                       </p>
@@ -381,7 +337,7 @@ export default function LoginPage() {
 
                   {/* Error Message */}
                   {error && (
-                    <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+                    <div role="alert" className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                       <p className="text-sm text-red-700 dark:text-red-300">
                         {error}
@@ -391,7 +347,7 @@ export default function LoginPage() {
 
                   {/* Success Message */}
                   {successMessage && (
-                    <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
+                    <div role="status" className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
                       <p className="text-sm text-green-700 dark:text-green-300">
                         {successMessage}

@@ -292,7 +292,7 @@ async function PlansSection({
         ) : (
           <ScrollArea className="h-[600px]">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[1100px] text-sm">
                 <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                   <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
                     <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Code</th>
@@ -402,7 +402,7 @@ async function SubscriptionsSection({
         ) : (
           <ScrollArea className="h-[600px]">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[900px] text-sm">
                 <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                   <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
                     <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Company</th>
@@ -504,7 +504,7 @@ async function PaymentsSection({
         ) : (
           <ScrollArea className="h-[600px]">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[900px] text-sm">
                 <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                   <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
                     <th className="px-6 py-4 font-medium text-gray-500 dark:text-gray-400">Company</th>

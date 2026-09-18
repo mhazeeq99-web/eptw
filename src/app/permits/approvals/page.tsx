@@ -302,7 +302,7 @@ export default async function ApprovalQueuePage({
             <CardContent className="p-0">
               <ScrollArea className="max-h-[600px]">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[900px] text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                       <tr className="border-b border-gray-200 dark:border-gray-700">
                         <th className="px-6 py-4 text-left font-medium text-gray-500 dark:text-gray-400">Permit</th>
@@ -405,7 +405,7 @@ export default async function ApprovalQueuePage({
                           </td>
 
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                            <div className="flex items-center justify-end gap-2">
                               <Link
                                 href={`/permits/${permit.id}`}
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"

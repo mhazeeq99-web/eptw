@@ -521,7 +521,7 @@ export default async function PermitsPage({
                           </td>
 
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                            <div className="flex items-center justify-end gap-2">
                               <Link
                                 href={`/permits/${permit.id}`}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"

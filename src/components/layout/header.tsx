@@ -8,8 +8,10 @@ import { CompanyBadge } from './company-badge'
 
 export function Header({
   onMenuClick,
+  menuOpen = false,
 }: {
   onMenuClick: () => void
+  menuOpen?: boolean
 }) {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
@@ -20,7 +22,7 @@ export function Header({
           className="rounded-md p-2 hover:bg-muted lg:hidden"
           aria-label="Open menu"
           aria-haspopup="dialog"
-          aria-expanded={false}
+          aria-expanded={menuOpen}
         >
           <Menu className="h-5 w-5" />
         </button>

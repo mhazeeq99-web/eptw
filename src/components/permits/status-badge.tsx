@@ -54,6 +54,14 @@ export function StatusBadge({
     rejected: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
     cancelled: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
     expired: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+    // Safety-document / verification statuses (JHA, LOTO, gas tests). Without
+    // these keys "pending" and "verified" both fell through to the neutral
+    // fallback, so verified safety records looked identical to unverified
+    // ones (DESIGN.md §57 — safety state must be visually obvious).
+    pending:
+      'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+    verified:
+      'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
   }
 
   return (
@@ -67,13 +75,13 @@ export function StatusBadge({
       </span>
 
       {expiry === 'expiring_soon' && (
-        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase text-amber-700 dark:bg-amber-950 dark:text-amber-300">
           Expiring Soon
         </span>
       )}
 
       {expiry === 'expired' && (
-        <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-red-700 dark:bg-red-950 dark:text-red-300">
+        <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase text-red-700 dark:bg-red-950 dark:text-red-300">
           Expired
         </span>
       )}

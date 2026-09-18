@@ -898,7 +898,7 @@ export function JhaSection({
             {showRiskMatrix && (
               <div className="border-t p-4">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-center text-sm">
+                  <table className="w-full min-w-[640px] text-center text-sm">
                     <thead>
                       <tr>
                         <th className="p-2 text-left text-xs font-medium text-muted-foreground">
