@@ -5,21 +5,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
-import { 
-  Eye, 
-  EyeOff, 
-  Lock, 
-  Mail, 
-  Shield, 
-  AlertCircle, 
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Shield,
+  AlertCircle,
   CheckCircle2,
   Loader2,
   ArrowLeft,
-  HardHat,
-  Building2,
-  Clock,
-  FileCheck,
-  LogIn
+  LogIn,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -111,7 +107,7 @@ export default function LoginPage() {
       <ThemeToggle variant="pill" className="absolute right-5 top-5 z-30" />
 
       {/* Small screens: light veil keeps the photo visible but soft behind the
-          login card (there is no marketing column below lg). */}
+          card. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-white/40 dark:hidden lg:hidden"
@@ -124,90 +120,11 @@ export default function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-6xl">
-        <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-          {/* Left Column - Branding & Info */}
-          <div className="hidden lg:flex lg:flex-col lg:justify-center">
-            {/* Day-mode translucent light-grey glass behind the marketing
-                content (grey background + dark text, same language as the
-                trusted box). Dark mode keeps the plain gradient. */}
-            <div className="relative">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -inset-x-5 -inset-y-7 rounded-[2.5rem] border border-white/40 bg-gradient-to-br from-white/85 via-white/70 to-white/50 shadow-xl shadow-blue-950/10 backdrop-blur-md dark:hidden"
-              />
-              <div className="relative space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-blue-600 p-3 shadow-lg shadow-blue-600/20">
-                  <HardHat className="h-8 w-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    ePTW System
-                  </h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Electronic Permit to Work
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  Streamline Your Work Permit Process
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Manage permits efficiently with our comprehensive digital solution for workplace safety.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <FeatureItem 
-                  icon={FileCheck}
-                  title="Digital Work Permits"
-                  description="Create, approve, and manage work permits digitally"
-                />
-                <FeatureItem 
-                  icon={Shield}
-                  title="Safety First"
-                  description="Comprehensive safety checks and verifications"
-                />
-                <FeatureItem 
-                  icon={Clock}
-                  title="Real-time Tracking"
-                  description="Monitor permit status and workflow in real-time"
-                />
-                <FeatureItem 
-                  icon={Building2}
-                  title="Multi-Company Support"
-                  description="Seamless collaboration between contractors and companies"
-                />
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white/50 p-4 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/50">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold">Trusted by leading organizations</span> to ensure workplace safety and compliance.
-                </p>
-              </div>
-              </div>
-            </div>
-          </div>
+        <div className="grid gap-8">
 
           {/* Right Column - Login Form */}
           <div className="flex items-center justify-center">
             <div className="w-full max-w-md">
-              {/* Mobile Logo */}
-              <div className="mb-6 flex items-center gap-3 lg:hidden">
-                <div className="rounded-lg bg-blue-600 p-2 shadow-lg shadow-blue-600/20">
-                  <HardHat className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    ePTW System
-                  </h1>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Electronic Permit to Work
-                  </p>
-                </div>
-              </div>
 
               <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/50 dark:border-gray-700 dark:bg-gray-900 dark:shadow-gray-900/50">
                 <Link
@@ -405,16 +322,3 @@ export default function LoginPage() {
   )
 }
 
-function FeatureItem({ icon: Icon, title, description }: { icon: any; title: string; description: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
-        <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-      </div>
-      <div>
-        <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>
-      </div>
-    </div>
-  )
-}
