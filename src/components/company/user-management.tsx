@@ -10,8 +10,19 @@ import {
   Copy,
   Check,
   MailPlus,
+  MoreVertical,
+  UserCheck,
+  UserX,
   Trash2,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const PAGE_SIZE = 10
 
@@ -950,93 +961,115 @@ function UserSection({
                   </td>
 
                   <td className="px-5 py-4 text-right">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* One visible primary action per row; every other action
+                          lives in the overflow menu, so the column stays
+                          scannable (three buttons per row looked crowded). */}
                       {getAccountStatus(user) === 'INVITED' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onResendInvitation(user)
-                            }
-                            disabled={
-                              resendingId === user.id
-                            }
-                            title="Send the invitation email again"
-                            aria-label={`Resend invitation to ${user.full_name}`}
-                            className="inline-flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-1.5"
-                          >
-                            <MailPlus className="h-3 w-3" />
-                            {resendingId === user.id
-                              ? 'Resending...'
-                              : 'Resend Invitation'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onCopyInvitationLink(user)
-                            }
-                            disabled={
-                              copiedId === user.id
-                            }
-                            title="Generate and copy the registration link (no email sent)"
-                            aria-label={`Copy the invitation link for ${user.full_name}`}
-                            className="inline-flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-1.5"
-                          >
-                            {copiedId === user.id ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                            {copiedId === user.id
-                              ? 'Copied'
-                              : 'Copy Invitation Link'}
-                          </button>
-                        </>
-                      )}
-
-                      {user.is_active ? (
                         <button
                           type="button"
-                          onClick={() =>
-                            onToggleStatus(user)
-                          }
-                          title="Disable the account; it can be removed after deactivation"
-                          aria-label={`Deactivate ${user.full_name}`}
-                          className="inline-flex min-h-11 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted sm:min-h-0 sm:py-1.5"
+                          onClick={() => onResendInvitation(user)}
+                          disabled={resendingId === user.id}
+                          title="Send the invitation email again"
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-1.5"
                         >
-                          Deactivate
+                          <MailPlus className="h-3.5 w-3.5" />
+                          {resendingId === user.id ? 'Resending…' : 'Resend'}
                         </button>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onToggleStatus(user)
-                            }
-                            title="Re-enable the account"
-                            aria-label={`Activate ${user.full_name}`}
-                            className="inline-flex min-h-11 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted sm:min-h-0 sm:py-1.5"
-                          >
-                            Activate
-                          </button>
-
-                          {/* Remove is only offered AFTER deactivation. */}
-                          <button
-                            type="button"
-                            onClick={() => onRemove(user)}
-                            disabled={removingId === user.id}
-                            title="Permanently delete this deactivated account"
-                            aria-label={`Remove ${user.full_name}`}
-                            className="inline-flex min-h-11 items-center gap-1 rounded-md border border-red-200 px-3 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-1.5 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            {removingId === user.id
-                              ? 'Removing...'
-                              : 'Remove'}
-                          </button>
-                        </>
                       )}
+
+                      {!user.is_active && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleStatus(user)}
+                          title="Re-enable the account"
+                          className="inline-flex min-h-11 items-center rounded-md border px-3 text-xs font-medium transition-colors hover:bg-muted sm:min-h-0 sm:py-1.5"
+                        >
+                          Activate
+                        </button>
+                      )}
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            title="More actions"
+                            aria-label={`More actions for ${user.full_name}`}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:h-9 sm:w-9"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuLabel className="truncate text-xs font-medium text-muted-foreground">
+                            {user.full_name}
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+
+                          {getAccountStatus(user) === 'INVITED' && (
+                            <>
+                              <DropdownMenuItem
+                                disabled={resendingId === user.id}
+                                onSelect={() => onResendInvitation(user)}
+                                className="gap-2"
+                              >
+                                <MailPlus className="h-4 w-4" />
+                                Resend invitation email
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                disabled={copiedId === user.id}
+                                onSelect={() => onCopyInvitationLink(user)}
+                                className="gap-2"
+                              >
+                                {copiedId === user.id ? (
+                                  <Check className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                                {copiedId === user.id
+                                  ? 'Link copied'
+                                  : 'Copy invitation link'}
+                              </DropdownMenuItem>
+
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+
+                          {user.is_active ? (
+                            <DropdownMenuItem
+                              onSelect={() => onToggleStatus(user)}
+                              className="gap-2"
+                            >
+                              <UserX className="h-4 w-4" />
+                              Deactivate account
+                            </DropdownMenuItem>
+                          ) : (
+                            <>
+                              <DropdownMenuItem
+                                onSelect={() => onToggleStatus(user)}
+                                className="gap-2"
+                              >
+                                <UserCheck className="h-4 w-4" />
+                                Activate account
+                              </DropdownMenuItem>
+
+                              {/* Remove is only offered AFTER deactivation. */}
+                              <DropdownMenuItem
+                                disabled={removingId === user.id}
+                                onSelect={() => onRemove(user)}
+                                className="gap-2 text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                {removingId === user.id
+                                  ? 'Removing…'
+                                  : 'Remove permanently'}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </td>
 
