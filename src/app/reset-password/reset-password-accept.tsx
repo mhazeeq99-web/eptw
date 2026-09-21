@@ -9,6 +9,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { linkTtlLabel } from '@/lib/link-policy'
 
 /**
  * Verifies a password-reset (recovery) token IN-APP.
@@ -40,10 +41,14 @@ export function ResetPasswordAccept({ token }: { token: string }) {
       })
 
       if (error) {
+        // Supabase's own token ceiling surfaces here as "invalid or expired";
+        // report it as an expired link with the policy window stated.
+        const expiredOrInvalid = /expired|invalid/i.test(error.message)
+
         setMessage(
-          error.message === 'Email link is invalid or has expired'
-            ? 'This reset link is invalid or has expired. Please request a new password reset link.'
-            : error.message
+          expiredOrInvalid
+            ? `This reset link is no longer valid. Reset links work for ${linkTtlLabel('recovery')} — please request a new one.`
+            : 'Unable to verify your reset link. Please try again.'
         )
         setState('error')
         return

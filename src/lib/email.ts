@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { linkTtlLabel } from '@/lib/link-policy'
+
 /**
  * ePTW email service — Resend-backed, server-only.
  *
@@ -286,8 +288,9 @@ export function renderInvitationEmail(opts: {
     </p>
     ${ctaButtonHtml('Complete Registration', inviteLink)}
     <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">
-      The registration link is valid for a limited time and can only be used
-      once. If it expires, ask your Safety Manager to resend the invitation.
+      This invitation link expires in ${linkTtlLabel('invite')} after it is
+      sent, and can only be used once. If it has expired, ask your Safety
+      Manager to resend the invitation.
     </p>`
 
   return { subject, html: shellHtml({ preheader: subject, bodyHtml }), text }
@@ -438,8 +441,9 @@ export function renderPasswordResetEmail(opts: {
     </p>
     ${ctaButtonHtml('Reset Password', resetUrl)}
     <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">
-      If you did not request this, you can safely ignore this email. The reset
-      link expires after a limited time and can only be used once.
+      This reset link expires in ${linkTtlLabel('recovery')} after it is
+      requested, and can only be used once. If you did not request this, you can
+      safely ignore this email.
     </p>`
 
   return { subject, html: shellHtml({ preheader: subject, bodyHtml }), text }

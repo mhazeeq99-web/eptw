@@ -9,6 +9,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { linkTtlLabel } from '@/lib/link-policy'
 
 /**
  * Accepts a staff invitation in-app.
@@ -46,10 +47,15 @@ export function InviteAccept({ token }: { token: string }) {
       })
 
       if (error) {
+        // Supabase rejects a token once its own Email OTP Expiration passes —
+        // that is the hard ceiling behind the app's policy window, so map it to
+        // the same guidance instead of showing the raw SDK message.
+        const expiredOrInvalid = /expired|invalid/i.test(error.message)
+
         setMessage(
-          error.message === 'Email link is invalid or has expired'
-            ? 'This invitation link is invalid or has expired. Ask your Safety Manager to resend the invitation.'
-            : error.message
+          expiredOrInvalid
+            ? `This invitation link is no longer valid. Invitation links work for ${linkTtlLabel('invite')} — ask your Safety Manager to resend the invitation.`
+            : 'Unable to activate your account. Please try again.'
         )
         setState('error')
         return

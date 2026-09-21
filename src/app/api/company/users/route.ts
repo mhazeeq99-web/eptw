@@ -8,6 +8,7 @@ import {
   getAppBaseUrl,
   extractInviteToken,
 } from '@/lib/app-url'
+import { buildExpiringLink } from '@/lib/link-signing'
 
 type CreateUserBody = {
   full_name?: string
@@ -397,7 +398,7 @@ export async function POST(request: Request) {
     if (inviteLink) {
       const token = extractInviteToken(inviteLink)
       brandedInviteUrl = token
-        ? `${getAppBaseUrl(request)}/invite?token=${encodeURIComponent(token)}`
+        ? buildExpiringLink(getAppBaseUrl(request), '/invite', token, 'invite')
         : inviteLink
 
       // Company name is used for the branded email; never blocks the request.

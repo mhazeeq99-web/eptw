@@ -6,6 +6,7 @@ import {
   getAppBaseUrl,
   extractInviteToken,
 } from '@/lib/app-url'
+import { buildExpiringLink } from '@/lib/link-signing'
 
 /**
  * POST /api/auth/forgot-password
@@ -80,10 +81,17 @@ export async function POST(request: Request) {
   const actionLink = linkData.properties.action_link
   const token = extractInviteToken(actionLink)
 
-  // Branded in-app link (https://<app>/reset-password?token=...) so no raw
-  // Supabase URL appears in the email body.
+  // Branded in-app link (https://<app>/reset-password?token=...&iat=...&sig=...)
+  // so no raw Supabase URL appears in the email body. The signed issue time
+  // makes the link expire after RESET_LINK_TTL_SECONDS (60 minutes) even though
+  // Supabase's own ceiling is a single global setting.
   const resetUrl = token
-    ? `${getAppBaseUrl(request)}/reset-password?token=${encodeURIComponent(token)}`
+    ? buildExpiringLink(
+        getAppBaseUrl(request),
+        '/reset-password',
+        token,
+        'recovery'
+      )
     : actionLink
 
   const result = await sendPasswordResetEmail({

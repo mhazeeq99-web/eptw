@@ -3,8 +3,11 @@ import {
   HardHat,
   ShieldCheck,
   Mail,
+  Clock,
 } from 'lucide-react'
 import { InviteAccept } from './invite-accept'
+import { checkSignedLink } from '@/lib/link-signing'
+import { linkTtlLabel } from '@/lib/link-policy'
 
 /**
  * /invite — branded landing page for staff invitations.
@@ -14,16 +17,26 @@ import { InviteAccept } from './invite-accept'
  * link to spam filters. The invite token is verified IN-APP (PKCE-safe) when
  * the user clicks "Continue Registration" — it is never handed to Supabase's
  * hosted implicit-flow page.
+ *
+ * Expiry: the emailed link carries a signed issue time (`iat`/`sig`), so an
+ * invitation is refused here once it is older than INVITE_LINK_TTL_SECONDS.
  */
 export default async function InvitePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>
+  searchParams: Promise<{ token?: string; iat?: string; sig?: string }>
 }) {
   const params = await searchParams
   const token = params.token?.trim() ?? ''
 
   const hasToken = token.length > 0
+  const check = hasToken
+    ? checkSignedLink('invite', token, params.iat, params.sig)
+    : null
+
+  const linkInvalid = !hasToken || check?.invalid === true
+  const linkExpired = check?.expired === true
+  const ttlLabel = linkTtlLabel('invite')
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
@@ -49,7 +62,7 @@ export default async function InvitePage({
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/50 dark:border-gray-700 dark:bg-gray-900 dark:shadow-gray-900/50">
-          {!hasToken ? (
+          {linkInvalid ? (
             <>
               <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
                 <Mail className="h-7 w-7 text-red-600 dark:text-red-400" />
@@ -58,9 +71,26 @@ export default async function InvitePage({
                 Link Invalid
               </h2>
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                This invitation link is missing its registration token. Please
-                ask your Safety Manager to resend the invitation from the
-                Company Users page.
+                This invitation link is missing its registration token or has
+                been altered. Please ask your Safety Manager to resend the
+                invitation from the Company Users page.
+              </p>
+            </>
+          ) : linkExpired ? (
+            <>
+              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+                <Clock className="h-7 w-7 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                Invitation Expired
+              </h2>
+              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                For security, invitation links are valid for {ttlLabel} after
+                they are sent, and this one is now too old to use.
+              </p>
+              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                Ask your Safety Manager to resend the invitation from the
+                Company Users page — a fresh link will work immediately.
               </p>
             </>
           ) : (
@@ -89,9 +119,9 @@ export default async function InvitePage({
                 <InviteAccept token={token} />
 
                 <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
-                  Registration links are single-use and expire after a limited
-                  time. If it has expired, ask your Safety Manager to resend
-                  the invitation.
+                  This link is single-use and expires {ttlLabel} after it was
+                  sent. If it has expired, ask your Safety Manager to resend the
+                  invitation.
                 </p>
               </div>
             </>

@@ -7,6 +7,7 @@ import {
   getAppBaseUrl,
   extractInviteToken,
 } from '@/lib/app-url'
+import { buildExpiringLink } from '@/lib/link-signing'
 
 /**
  * Resends the invitation (password-setup link) for an invited internal-staff
@@ -155,7 +156,7 @@ export async function POST(
   // keeping third-party verification links out of email content.
   const token = extractInviteToken(inviteLink)
   const brandedInviteUrl = token
-    ? `${getAppBaseUrl(request)}/invite?token=${encodeURIComponent(token)}`
+    ? buildExpiringLink(getAppBaseUrl(request), '/invite', token, 'invite')
     : inviteLink
 
   // Update invitation_sent_at (same account, no duplicate). Audit event.

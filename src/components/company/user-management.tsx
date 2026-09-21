@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { isLinkExpired } from '@/lib/link-policy'
 
 const PAGE_SIZE = 10
 
@@ -58,15 +59,17 @@ const ASSIGNABLE_ROLES: UserRole[] = [
   'internal_staff',
 ]
 
-type AccountStatus = 'INVITED' | 'ACTIVE' | 'DISABLED'
+type AccountStatus = 'INVITED' | 'ACTIVE' | 'DISABLED' | 'EXPIRED'
 
 const STATUS_STYLES: Record<AccountStatus, string> = {
   INVITED:
-    'inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700',
+    'inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300',
   ACTIVE:
-    'inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700',
+    'inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300',
   DISABLED:
     'inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
+  EXPIRED:
+    'inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700 dark:bg-rose-950 dark:text-rose-300',
 }
 
 function getAccountStatus(user: CompanyUser): AccountStatus {
@@ -79,7 +82,22 @@ function getAccountStatus(user: CompanyUser): AccountStatus {
   const invitationPending =
     Boolean(user.invitation_sent_at) && user.invitation_accepted !== true
 
-  return invitationPending ? 'INVITED' : 'ACTIVE'
+  if (!invitationPending) return 'ACTIVE'
+
+  // Past the policy window the emailed link no longer works, so the row says so
+  // and still offers Resend — a fresh link is generated on demand. Uses the
+  // same tested policy helper as the /invite landing page.
+  const sentAtSeconds = user.invitation_sent_at
+    ? Math.floor(Date.parse(user.invitation_sent_at) / 1000)
+    : null
+
+  return isLinkExpired(sentAtSeconds, 'invite') ? 'EXPIRED' : 'INVITED'
+}
+
+/** Both pending states still need the invitation actions (resend / copy link). */
+function showsInviteActions(user: CompanyUser): boolean {
+  const status = getAccountStatus(user)
+  return status === 'INVITED' || status === 'EXPIRED'
 }
 
 export function UserManagement() {
@@ -965,7 +983,7 @@ function UserSection({
                       {/* One visible primary action per row; every other action
                           lives in the overflow menu, so the column stays
                           scannable (three buttons per row looked crowded). */}
-                      {getAccountStatus(user) === 'INVITED' && (
+                      {showsInviteActions(user) && (
                         <button
                           type="button"
                           onClick={() => onResendInvitation(user)}
@@ -1007,7 +1025,7 @@ function UserSection({
                           </DropdownMenuLabel>
                           <DropdownMenuSeparator />
 
-                          {getAccountStatus(user) === 'INVITED' && (
+                          {showsInviteActions(user) && (
                             <>
                               <DropdownMenuItem
                                 disabled={resendingId === user.id}

@@ -4,23 +4,36 @@ import {
   ShieldCheck,
   KeyRound,
   Mail,
+  Clock,
 } from 'lucide-react'
 import { ResetPasswordAccept } from './reset-password-accept'
+import { checkSignedLink } from '@/lib/link-signing'
+import { linkTtlLabel } from '@/lib/link-policy'
 
 /**
- * /reset-password — branded landing page reached from the Resend password-reset
- * email. The token is verified IN-APP (PKCE-safe) before the user is taken to
+ * /reset-password — branded landing page reached from the password-reset email.
+ * The token is verified IN-APP (PKCE-safe) before the user is taken to
  * /update-password to choose a new password.
+ *
+ * Expiry: the emailed link carries a signed issue time (`iat`/`sig`), so a
+ * reset link is refused here once it is older than RESET_LINK_TTL_SECONDS.
  */
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>
+  searchParams: Promise<{ token?: string; iat?: string; sig?: string }>
 }) {
   const params = await searchParams
   const token = params.token?.trim() ?? ''
 
   const hasToken = token.length > 0
+  const check = hasToken
+    ? checkSignedLink('recovery', token, params.iat, params.sig)
+    : null
+
+  const linkInvalid = !hasToken || check?.invalid === true
+  const linkExpired = check?.expired === true
+  const ttlLabel = linkTtlLabel('recovery')
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
@@ -46,7 +59,7 @@ export default async function ResetPasswordPage({
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/50 dark:border-gray-700 dark:bg-gray-900 dark:shadow-gray-900/50">
-          {!hasToken ? (
+          {linkInvalid ? (
             <>
               <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
                 <Mail className="h-7 w-7 text-red-600 dark:text-red-400" />
@@ -55,9 +68,28 @@ export default async function ResetPasswordPage({
                 Link Invalid
               </h2>
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                This reset link is missing its verification token. Please
-                request a new password reset link.
+                This reset link is missing its verification token or has been
+                altered. Please request a new password reset link.
               </p>
+            </>
+          ) : linkExpired ? (
+            <>
+              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+                <Clock className="h-7 w-7 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                Reset Link Expired
+              </h2>
+              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                For security, password reset links are valid for {ttlLabel}
+                after they are requested, and this one is now too old to use.
+              </p>
+              <Link
+                href="/forgot-password"
+                className="mt-6 inline-flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+              >
+                Request a new link
+              </Link>
             </>
           ) : (
             <>
@@ -84,8 +116,8 @@ export default async function ResetPasswordPage({
                 <ResetPasswordAccept token={token} />
 
                 <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
-                  Reset links are single-use and expire after a limited time.
-                  If it has expired, request a new link.
+                  This link is single-use and expires {ttlLabel} after it was
+                  requested. If it has expired, request a new link.
                 </p>
               </div>
             </>
