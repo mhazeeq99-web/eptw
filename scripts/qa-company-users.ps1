@@ -1,4 +1,4 @@
-# ePTW QA Ã¢â‚¬â€ Company users: invite email/redirect link, instant resend,
+# ePTW QA — Company users: invite email/redirect link, instant resend,
 # deactivate-then-remove gating.
 # Verifies:
 #   A. Create Internal Staff -> 201; invite link contains redirect_to to the

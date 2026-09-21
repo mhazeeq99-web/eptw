@@ -1,4 +1,4 @@
-# ePTW QA â€” Worker briefing is part of the safety approval gate whenever the
+# ePTW QA — Worker briefing is part of the safety approval gate whenever the
 # permit lists workers (previously gated only by requires_worker_briefing, which
 # was false everywhere so briefing never blocked approval). Also verifies the
 # "Mark Briefing Complete" action accepts a PARTIAL topic checklist.

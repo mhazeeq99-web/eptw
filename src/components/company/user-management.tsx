@@ -248,7 +248,7 @@ export function UserManagement() {
 
       setCopiedId(user.id)
       setSuccessMessage(
-        'Invitation link copied â€” share it with the user to complete registration.'
+        'Invitation link copied — share it with the user to complete registration.'
       )
     } catch (copyError) {
       setError(
@@ -479,7 +479,7 @@ export function UserManagement() {
       {inviteLink && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <p className="font-medium">
-            Invitation email is not being delivered â€” share the registration
+            Invitation email is not being delivered — share the registration
             link directly with the user:
           </p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -888,15 +888,15 @@ function UserSection({
                   </td>
 
                   <td className="px-5 py-4">
-                    {user.employee_no ?? 'â€”'}
+                    {user.employee_no ?? '—'}
                   </td>
 
                   <td className="px-5 py-4">
-                    {user.department ?? 'â€”'}
+                    {user.department ?? '—'}
                   </td>
 
                   <td className="px-5 py-4">
-                    {user.position ?? 'â€”'}
+                    {user.position ?? '—'}
                   </td>
 
                   <td className="px-5 py-4">
@@ -1052,7 +1052,7 @@ function SectionPagination({
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-t-0 bg-background px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-muted-foreground">
-        {from}â€“{to} of {total} user{total === 1 ? '' : 's'}
+        {from}–{to} of {total} user{total === 1 ? '' : 's'}
       </p>
 
       <div className="flex items-center gap-2">
