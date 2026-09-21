@@ -19,16 +19,30 @@ export const metadata: Metadata = {
     default: "ePTW — Permit to Work",
     template: "%s | ePTW",
   },
-  description: "Electronic Permit to Work system for streamlined safety management",
-  keywords: ["permit to work", "ePTW", "safety", "work permit", "LOTO", "JHA"],
+
+  description:
+    "Electronic Permit to Work system for streamlined safety management",
+
+  keywords: [
+    "permit to work",
+    "ePTW",
+    "safety",
+    "work permit",
+    "LOTO",
+    "JHA",
+    "HIRARC",
+  ],
+
   authors: [{ name: "ePTW System" }],
   creator: "ePTW",
   publisher: "ePTW",
+
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
+
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -36,23 +50,30 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png" }],
   },
+
   manifest: "/manifest.json",
+
   openGraph: {
     type: "website",
     locale: "en_MY",
     url: process.env.NEXT_PUBLIC_APP_URL,
     siteName: "ePTW",
     title: "ePTW — Electronic Permit to Work",
-    description: "Streamlined safety management for permit to work systems",
+    description:
+      "Streamlined safety management for permit to work systems",
   },
+
   twitter: {
     card: "summary_large_image",
     title: "ePTW — Electronic Permit to Work",
-    description: "Streamlined safety management for permit to work systems",
+    description:
+      "Streamlined safety management for permit to work systems",
   },
+
   robots: {
     index: true,
     follow: true,
+
     googleBot: {
       index: true,
       follow: true,
@@ -67,15 +88,24 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    {
+      media: "(prefers-color-scheme: light)",
+      color: "#ffffff",
+    },
+    {
+      media: "(prefers-color-scheme: dark)",
+      color: "#0a0a0a",
+    },
   ],
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="en"
@@ -83,50 +113,60 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Theme initialization - runs before hydration to prevent flash of wrong theme */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              (function() {
+              (function () {
                 try {
-                  var storageKey = 'eptw-theme';
+                  var storageKey = "eptw-theme";
                   var theme = localStorage.getItem(storageKey);
-                  
+
                   if (!theme) {
-                    // Check system preference
-                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches 
-                      ? 'dark' 
-                      : 'light';
+                    theme = window.matchMedia(
+                      "(prefers-color-scheme: dark)"
+                    ).matches
+                      ? "dark"
+                      : "light";
                   }
-                  
-                  if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                    document.documentElement.style.colorScheme = 'dark';
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                    document.documentElement.style.colorScheme = 'light';
-                  }
-                  
-                  // Set data attribute for additional styling hooks
-                  document.documentElement.setAttribute('data-theme', theme);
+
+                  document.documentElement.classList.toggle(
+                    "dark",
+                    theme === "dark"
+                  );
+
+                  document.documentElement.style.colorScheme = theme;
+
+                  document.documentElement.setAttribute(
+                    "data-theme",
+                    theme
+                  );
                 } catch (e) {
-                  // If localStorage is unavailable, fall back to system preference
                   try {
-                    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                      document.documentElement.classList.add('dark');
-                      document.documentElement.style.colorScheme = 'dark';
-                      document.documentElement.setAttribute('data-theme', 'dark');
-                    }
-                  } catch (err) {
-                    console.error('Failed to initialize theme:', err);
-                  }
+                    var dark = window.matchMedia(
+                      "(prefers-color-scheme: dark)"
+                    ).matches;
+
+                    document.documentElement.classList.toggle(
+                      "dark",
+                      dark
+                    );
+
+                    document.documentElement.style.colorScheme =
+                      dark ? "dark" : "light";
+
+                    document.documentElement.setAttribute(
+                      "data-theme",
+                      dark ? "dark" : "light"
+                    );
+                  } catch (_) {}
                 }
               })();
             `,
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+
+      <body className="min-h-screen bg-white text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
         {children}
       </body>
     </html>
