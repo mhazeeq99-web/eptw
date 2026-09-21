@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Copy,
   Check,
+  MailPlus,
   Trash2,
 } from 'lucide-react'
 
@@ -25,6 +26,12 @@ type CompanyUser = {
   role: string
   is_active: boolean
   invitation_sent_at: string | null
+  /**
+   * Auth acceptance signal from GET /api/company/users.
+   * true = the invite was accepted (email confirmed / signed in at least once);
+   * false = still pending; null = unknown (Auth lookup unavailable).
+   */
+  invitation_accepted?: boolean | null
   created_at: string
 }
 
@@ -53,7 +60,15 @@ const STATUS_STYLES: Record<AccountStatus, string> = {
 
 function getAccountStatus(user: CompanyUser): AccountStatus {
   if (!user.is_active) return 'DISABLED'
-  return user.invitation_sent_at ? 'INVITED' : 'ACTIVE'
+
+  // Pending = an invitation was sent and has not been accepted yet. Using
+  // `invitation_sent_at` alone left invited-then-registered users marked
+  // INVITED forever (and, because GET did not return that column at all, the
+  // whole INVITED branch — including Resend Invitation — never rendered).
+  const invitationPending =
+    Boolean(user.invitation_sent_at) && user.invitation_accepted !== true
+
+  return invitationPending ? 'INVITED' : 'ACTIVE'
 }
 
 export function UserManagement() {
@@ -947,8 +962,10 @@ function UserSection({
                               resendingId === user.id
                             }
                             title="Send the invitation email again"
-                            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Resend invitation to ${user.full_name}`}
+                            className="inline-flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-1.5"
                           >
+                            <MailPlus className="h-3 w-3" />
                             {resendingId === user.id
                               ? 'Resending...'
                               : 'Resend Invitation'}
@@ -963,7 +980,8 @@ function UserSection({
                               copiedId === user.id
                             }
                             title="Generate and copy the registration link (no email sent)"
-                            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Copy the invitation link for ${user.full_name}`}
+                            className="inline-flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-1.5"
                           >
                             {copiedId === user.id ? (
                               <Check className="h-3 w-3 text-green-600" />
@@ -984,7 +1002,8 @@ function UserSection({
                             onToggleStatus(user)
                           }
                           title="Disable the account; it can be removed after deactivation"
-                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                          aria-label={`Deactivate ${user.full_name}`}
+                          className="inline-flex min-h-11 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted sm:min-h-0 sm:py-1.5"
                         >
                           Deactivate
                         </button>
@@ -996,7 +1015,8 @@ function UserSection({
                               onToggleStatus(user)
                             }
                             title="Re-enable the account"
-                            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                            aria-label={`Activate ${user.full_name}`}
+                            className="inline-flex min-h-11 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted sm:min-h-0 sm:py-1.5"
                           >
                             Activate
                           </button>
@@ -1007,7 +1027,8 @@ function UserSection({
                             onClick={() => onRemove(user)}
                             disabled={removingId === user.id}
                             title="Permanently delete this deactivated account"
-                            className="inline-flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+                            aria-label={`Remove ${user.full_name}`}
+                            className="inline-flex min-h-11 items-center gap-1 rounded-md border border-red-200 px-3 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-1.5 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
                           >
                             <Trash2 className="h-3 w-3" />
                             {removingId === user.id

@@ -80,6 +80,7 @@ export async function GET() {
           position,
           role,
           is_active,
+          invitation_sent_at,
           created_at
         `)
         .eq('company_id', profile.company_id)
@@ -104,8 +105,57 @@ export async function GET() {
       )
     }
 
+    // `invitation_sent_at` stays set forever, so on its own it cannot tell an
+    // invitation that is still pending from one that was already accepted.
+    // Enrich every row with the Auth acceptance signal so the page can show the
+    // Resend Invitation action only while it is actually usable (the resend
+    // endpoint rejects accounts that are already active).
+    // null = unknown (Auth lookup unavailable) — the UI then keeps the previous
+    // behaviour rather than hiding the action.
+    const acceptedByUserId = new Map<string, boolean>()
+
+    try {
+      const admin = createAdminClient()
+      const perPage = 200
+
+      for (let page = 1; page <= 10; page++) {
+        const { data: authPage, error: authError } =
+          await admin.auth.admin.listUsers({ page, perPage })
+
+        if (authError) throw authError
+
+        const authUsers = authPage?.users ?? []
+
+        for (const authUser of authUsers) {
+          acceptedByUserId.set(
+            authUser.id,
+            Boolean(
+              authUser.email_confirmed_at ||
+                (authUser as { confirmed_at?: string | null })
+                  .confirmed_at ||
+                authUser.last_sign_in_at
+            )
+          )
+        }
+
+        if (authUsers.length < perPage) break
+      }
+    } catch (authLookupError) {
+      console.warn(
+        'Could not read Auth users for invitation state:',
+        authLookupError
+      )
+    }
+
+    const usersWithInvitationState = (users ?? []).map((user) => ({
+      ...user,
+      invitation_accepted: acceptedByUserId.has(user.id)
+        ? acceptedByUserId.get(user.id)
+        : null,
+    }))
+
     return NextResponse.json({
-      users: users ?? [],
+      users: usersWithInvitationState,
     })
   } catch (error) {
     console.error(
