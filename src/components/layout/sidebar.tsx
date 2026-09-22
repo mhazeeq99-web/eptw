@@ -243,12 +243,15 @@ function buildSections(role: string | null): Section[] {
 export function Sidebar({
   open,
   onClose,
+  role: roleFromServer = null,
 }: {
   open: boolean
   onClose: () => void
+  /** Role resolved by the server layout; avoids a per-mount profile query. */
+  role?: string | null
 }) {
   const pathname = usePathname()
-  const [role, setRole] = useState<string | null>(null)
+  const [role, setRole] = useState<string | null>(roleFromServer)
   const [collapsed, setCollapsed] = useState(false)
   // Query string is resolved on the client only: useSearchParams() would force
   // a Suspense boundary and drop the server-rendered nav on prerendered pages
@@ -266,7 +269,15 @@ export function Sidebar({
     window.requestAnimationFrame(() => setSearch(window.location.search))
   }
 
+  // Fall back to a client-side lookup ONLY when the server did not supply the
+  // role (standalone usage): inside (app) the role always arrives as a prop, so
+  // navigating between pages never triggers this query.
   useEffect(() => {
+    if (roleFromServer) {
+      setRole(roleFromServer)
+      return
+    }
+
     const supabase = createClient()
 
     async function loadRole() {
@@ -288,7 +299,7 @@ export function Sidebar({
     }
 
     loadRole()
-  }, [])
+  }, [roleFromServer])
 
   // Close the drawer with Escape.
   useEffect(() => {

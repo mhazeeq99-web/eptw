@@ -66,17 +66,26 @@ Check "Completed badge = $completed" ((Get-TabCount $mine.Html 'Completed') -eq 
 Write-Output ''
 Write-Output '--- single pagination, outside-filter behaviour ---'
 Check 'unfiltered view marks All as current' ($mine.Html -match 'aria-current="page"[^>]*>\s*All' -or $mine.Html -match 'All\s*<span')
-Check 'pagination present for 26 permits (2 pages)' ($mine.Html -match 'aria-label="Pagination"')
-Check 'no per-section pagination' (([regex]::Matches($mine.Html, 'aria-label="Pagination"')).Count -eq 1)
+$pagCount = ([regex]::Matches($mine.Html, 'aria-label="Pagination"')).Count
+if ($all -gt 20) {
+  Check "pagination present ($all permits > 20 per page)" ($pagCount -eq 1) "(found $pagCount)"
+} else {
+  Check "pagination correctly hidden ($all permits fit one page)" ($pagCount -eq 0) "(found $pagCount)"
+}
+Check 'never more than one pagination (no per-section pagers)' ($pagCount -le 1) "(found $pagCount)"
 
 Write-Output ''
 Write-Output '--- filtered view: drafts ---'
 $drafts = Get-Page $sm.cookie '/permits/mine?status=draft'
 Check 'drafts page loads' ($drafts.Status -eq 200)
 Check 'drafts tab is current' ($drafts.Html -match 'aria-current="page"')
-Check "drafts badge shows total ($draft)" ($drafts.Html -match "$draft permits?")
-$draftRows = ([regex]::Matches($drafts.Html, '/permits/\d+"')).Count
-Check 'draft rows rendered (or empty state with counts)' ($draftRows -gt 0 -or $drafts.Html -match 'No drafts permits')
+if ($draft -gt 0) {
+  Check "drafts badge shows total ($draft)" ($drafts.Html -match "$draft permits?")
+  $draftRows = ([regex]::Matches($drafts.Html, '/permits/\d+"')).Count
+  Check 'draft rows rendered' ($draftRows -gt 0)
+} else {
+  Check 'no drafts -> filtered empty state with Clear filter' ($drafts.Html -match 'No drafts permits' -and $drafts.Html -match 'Clear filter')
+}
 
 Write-Output ''
 Write-Output '--- filtered view: suspended (previously invisible) ---'

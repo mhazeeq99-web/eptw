@@ -83,15 +83,15 @@ function Assert-Source([string]$rel, [string]$pattern) {
   if (-not (Test-Path $p)) { return $false }
   return ([IO.File]::ReadAllText($p) -match $pattern)
 }
-Check 'jha error branch renders shared ErrorState' (Assert-Source 'src\app\safety\jha\page.tsx' '<ErrorState')
-Check 'loto error branch renders shared ErrorState' (Assert-Source 'src\app\safety\loto\page.tsx' '<ErrorState')
-Check 'gas-testing error branch renders shared ErrorState' (Assert-Source 'src\app\safety\gas-testing\page.tsx' '<ErrorState')
-Check 'active permits table min-width (source)' (Assert-Source 'src\app\permits\active\page.tsx' 'min-w-\[1100px\]')
-Check 'approvals table min-width (source)' (Assert-Source 'src\app\permits\approvals\page.tsx' 'min-w-\[900px\]')
-Check 'platform billing plan table min-width (source)' (Assert-Source 'src\app\platform\billing\page.tsx' 'min-w-\[1100px\]')
-Check 'companies table min-width (source)' (Assert-Source 'src\app\companies\page.tsx' 'min-w-\[880px\]')
-Check 'audit page uses shared Pagination (source)' (Assert-Source 'src\app\platform\audit\page.tsx' '<Pagination')
-Check 'no hover-only cells remain in source' (-not (Assert-Source 'src\app\permits\page.tsx' 'group-hover:opacity-100'))
+Check 'jha error branch renders shared ErrorState' (Assert-Source 'src\app\(app)\safety\jha\page.tsx' '<ErrorState')
+Check 'loto error branch renders shared ErrorState' (Assert-Source 'src\app\(app)\safety\loto\page.tsx' '<ErrorState')
+Check 'gas-testing error branch renders shared ErrorState' (Assert-Source 'src\app\(app)\safety\gas-testing\page.tsx' '<ErrorState')
+Check 'active permits table min-width (source)' (Assert-Source 'src\app\(app)\permits\active\page.tsx' 'min-w-\[1100px\]')
+Check 'approvals table min-width (source)' (Assert-Source 'src\app\(app)\permits\approvals\page.tsx' 'min-w-\[900px\]')
+Check 'platform billing plan table min-width (source)' (Assert-Source 'src\app\(app)\platform\billing\page.tsx' 'min-w-\[1100px\]')
+Check 'companies table min-width (source)' (Assert-Source 'src\app\(app)\companies\page.tsx' 'min-w-\[880px\]')
+Check 'audit page uses shared Pagination (source)' (Assert-Source 'src\app\(app)\platform\audit\page.tsx' '<Pagination')
+Check 'no hover-only cells remain in source' (-not (Assert-Source 'src\app\(app)\permits\page.tsx' 'group-hover:opacity-100'))
 
 Write-Output '--- a11y: filter controls named ---'
 Check 'permit filters have aria-labels' ($perms.Html -match 'aria-label="Status"' -and $perms.Html -match 'aria-label="Search permits"')
