@@ -228,8 +228,11 @@ export default function ContractorRegistrationPage() {
       </div>
 
       <div className="relative w-full max-w-3xl">
-        {/* Logo — brand mark switches with the theme (day/dark artwork) */}
-        <div className="mb-6 flex flex-wrap items-center gap-4">
+        {/* Logo — brand mark switches with the theme (day/dark artwork). The
+            product name is kept as a visually hidden h1 so the heading outline
+            and SEO stay intact without duplicating the wordmark in the artwork. */}
+        <div className="mb-6 flex items-center">
+          <h1 className="sr-only">ePTW System — Register as Contractor</h1>
           <Image
             src="/logo-day-mode.png"
             alt="ePTW"
@@ -248,14 +251,6 @@ export default function ContractorRegistrationPage() {
             loading="lazy"
             className="hidden h-32 w-auto rounded-xl object-contain dark:block"
           />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-              ePTW System
-            </h1>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Electronic Permit to Work
-            </p>
-          </div>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/50 dark:border-gray-700 dark:bg-gray-900 dark:shadow-gray-900/50">

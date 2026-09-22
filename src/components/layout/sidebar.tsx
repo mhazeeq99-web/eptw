@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -22,7 +23,6 @@ import {
   Settings,
   CreditCard,
   PanelLeftClose,
-  PanelLeftOpen,
   X,
   ChevronRight,
   Plus,
@@ -347,38 +347,63 @@ export function Sidebar({
       >
         {/* Brand + controls */}
         <div className="flex h-16 items-center justify-between border-b px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
-              P
-            </div>
-            {!collapsed && (
-              <div className="min-w-0">
-                <div className="truncate text-base font-bold leading-tight tracking-tight">
-                  ePTW
-                </div>
-                <div className="truncate text-xs leading-tight text-muted-foreground">
-                  Permit to Work
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Brand artwork (public/sidebar.png — square with alpha, so it works
+              on the sidebar surface in both themes).
 
-          <div className="flex items-center gap-1">
+              Collapsed rail: the LOGO IS THE EXPAND BUTTON (no separate toggle
+              — it would not fit the 80px rail and would look like it vanished).
+              Expanded: the logo is a static brand mark and the collapse button
+              sits on the right. */}
+          {collapsed ? (
             <button
               type="button"
-              onClick={() => setCollapsed((c) => !c)}
-              className="hidden rounded-md p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:inline-flex"
-              aria-label={
-                collapsed ? 'Expand sidebar' : 'Collapse sidebar'
-              }
-              title={collapsed ? 'Expand' : 'Collapse'}
+              onClick={() => setCollapsed(false)}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+              className="flex items-center justify-center rounded-md p-1 transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {collapsed ? (
-                <PanelLeftOpen className="h-4 w-4" />
-              ) : (
-                <PanelLeftClose className="h-4 w-4" />
-              )}
+              <Image
+                src="/sidebar.png"
+                alt="ePTW"
+                width={1254}
+                height={1254}
+                sizes="48px"
+                priority
+                className="h-10 w-10 object-contain"
+              />
             </button>
+          ) : (
+            <div className="flex min-w-0 items-center gap-3">
+              <Image
+                src="/sidebar.png"
+                alt="ePTW"
+                width={1254}
+                height={1254}
+                sizes="48px"
+                priority
+                className="h-11 w-11 shrink-0 object-contain"
+              />
+              {/* Product name beside the brand mark; wraps instead of
+                  truncating and is absent from the collapsed rail. */}
+              <p className="min-w-0 text-xs font-medium leading-tight text-muted-foreground">
+                Electronic Permit to Work
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1">
+            {/* Rendered only while expanded; collapsing hands the job to the logo. */}
+            {!collapsed && (
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                className="hidden rounded-md p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:inline-flex"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            )}
 
             <button
               type="button"

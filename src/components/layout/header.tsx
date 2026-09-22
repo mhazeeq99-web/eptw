@@ -27,10 +27,8 @@ export function Header({
           <Menu className="h-5 w-5" />
         </button>
 
-        <p className="truncate text-sm text-muted-foreground">
-          Electronic Permit to Work
-        </p>
-
+        {/* The app title lives beside the sidebar logo now, so the header only
+            carries the company code badge. */}
         <CompanyBadge />
       </div>
 
