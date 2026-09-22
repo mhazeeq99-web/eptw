@@ -5,15 +5,11 @@ import {
   Clock, 
   MapPin, 
   ChevronRight,
-  Search,
-  Filter,
-  TrendingUp,
   CheckCircle2,
   AlertCircle,
   Activity,
   Calendar,
   Wrench,
-  User,
   ArrowRight
 } from 'lucide-react'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
@@ -45,12 +41,79 @@ type Permit = {
   } | null
 }
 
-type ColorKey = 'blue' | 'green' | 'yellow' | 'purple'
+type StatusGroupKey =
+  | 'active'
+  | 'pending'
+  | 'draft'
+  | 'suspended'
+  | 'completed'
+
+type StatusGroup = {
+  key: StatusGroupKey
+  label: string
+  description: string
+  statuses: string[]
+  icon: typeof Activity
+  iconColor: string
+}
+
+/**
+ * Status groups for the filter tabs and the grouped list. They partition every
+ * permit status — note `suspended` is its own group: it used to match no group
+ * at all, so a suspended permit was invisible on this page.
+ */
+const STATUS_GROUPS: StatusGroup[] = [
+  {
+    key: 'active',
+    label: 'Active',
+    description: 'Permits currently in progress',
+    statuses: ['active', 'approved', 'issued'],
+    icon: Activity,
+    iconColor: 'text-green-600 dark:text-green-400',
+  },
+  {
+    key: 'pending',
+    label: 'Pending',
+    description: 'Permits awaiting review',
+    statuses: ['pending_approval', 'submitted'],
+    icon: Clock,
+    iconColor: 'text-yellow-600 dark:text-yellow-400',
+  },
+  {
+    key: 'draft',
+    label: 'Drafts',
+    description: 'Permits not yet submitted',
+    statuses: ['draft'],
+    icon: FileText,
+    iconColor: 'text-gray-600 dark:text-gray-400',
+  },
+  {
+    key: 'suspended',
+    label: 'Suspended',
+    description: 'Permits currently stopped',
+    statuses: ['suspended'],
+    icon: AlertCircle,
+    iconColor: 'text-orange-600 dark:text-orange-400',
+  },
+  {
+    key: 'completed',
+    label: 'Completed',
+    description: 'Historical permits',
+    statuses: ['completed', 'closed', 'cancelled', 'rejected', 'expired'],
+    icon: CheckCircle2,
+    iconColor: 'text-purple-600 dark:text-purple-400',
+  },
+]
+
+function parseStatusGroup(raw: string | undefined): StatusGroup | null {
+  if (!raw) return null
+  return STATUS_GROUPS.find((group) => group.key === raw) ?? null
+}
 
 export default async function MyPermitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<{ page?: string; status?: string }>
 }) {
   const supabase = await createClient()
 
@@ -62,30 +125,49 @@ export default async function MyPermitsPage({
     return null
   }
 
-  const { page: rawPage } = await searchParams
+  const { page: rawPage, status: rawStatus } = await searchParams
   const page = parsePage(rawPage)
   const pageSize = DEFAULT_PAGE_SIZE
+  const statusGroup = parseStatusGroup(rawStatus)
 
-  // Head count for pagination totals (same filters as the slice query)
-  const { count, error: countError } = await supabase
-    .from('permits')
-    .select('id', { count: 'exact', head: true })
-    .eq('requester_id', user.id)
+  // One cheap head count per status group powers both the tab badges and the
+  // total for the selected filter (all counts: no rows transferred).
+  const groupCounts = await Promise.all(
+    STATUS_GROUPS.map(async (group) => {
+      const { count, error } = await supabase
+        .from('permits')
+        .select('id', { count: 'exact', head: true })
+        .eq('requester_id', user.id)
+        .in('status', group.statuses)
 
-  if (countError) {
-    console.error(
-      'Failed to count my permits:',
-      countError
-    )
-  }
+      if (error) {
+        console.error(
+          `Failed to count ${group.key} permits:`,
+          error
+        )
+      }
 
-  const total = count ?? 0
+      return [group.key, count ?? 0] as const
+    })
+  )
+
+  const countsByGroup = Object.fromEntries(groupCounts) as Record<
+    StatusGroupKey,
+    number
+  >
+  const totalAll = STATUS_GROUPS.reduce(
+    (sum, group) => sum + (countsByGroup[group.key] ?? 0),
+    0
+  )
+
+  // Total for the current view: the selected status group, or everything.
+  const total = statusGroup ? countsByGroup[statusGroup.key] ?? 0 : totalAll
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = Math.min(page, totalPages)
   const from = (currentPage - 1) * pageSize
   const to = currentPage * pageSize - 1
 
-  const { data, error } = await supabase
+  let permitsQuery = supabase
     .from('permits')
     .select(`
       id,
@@ -107,6 +189,14 @@ export default async function MyPermitsPage({
       )
     `)
     .eq('requester_id', user.id)
+
+  // Server-side status filtering (DESIGN.md §24): the tab selection narrows the
+  // query rather than filtering a page slice after the fact.
+  if (statusGroup) {
+    permitsQuery = permitsQuery.in('status', statusGroup.statuses)
+  }
+
+  const { data, error } = await permitsQuery
     .order('created_at', { ascending: false })
     .range(from, to)
 
@@ -120,20 +210,11 @@ export default async function MyPermitsPage({
   const permits =
     (data ?? []) as unknown as Permit[]
 
-  // Calculate statistics
-  const stats = {
-    total,
-    active: permits.filter(p => p.status === 'active').length,
-    pending: permits.filter(p => p.status === 'pending_approval' || p.status === 'submitted').length,
-    completed: permits.filter(p => p.status === 'completed' || p.status === 'closed').length,
-    draft: permits.filter(p => p.status === 'draft').length,
-  }
-
-  // Group permits by status
-  const activePermits = permits.filter(p => ['active', 'approved', 'issued'].includes(p.status))
-  const pendingPermits = permits.filter(p => ['pending_approval', 'submitted'].includes(p.status))
-  const draftPermits = permits.filter(p => p.status === 'draft')
-  const completedPermits = permits.filter(p => ['completed', 'closed', 'cancelled', 'rejected', 'expired'].includes(p.status))
+  // Group the current page for the unfiltered view.
+  const groupedPermits = STATUS_GROUPS.map((group) => ({
+    group,
+    permits: permits.filter((permit) => group.statuses.includes(permit.status)),
+  }))
 
   return (
     <DashboardShell>
@@ -165,36 +246,45 @@ export default async function MyPermitsPage({
           </Link>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            icon={FileText}
-            label="Total Permits"
-            value={stats.total}
-            color="blue"
-            hint="all permits you created"
-          />
-          <StatCard
-            icon={Activity}
-            label="Active"
-            value={stats.active}
-            color="green"
-            hint="on this page"
-          />
-          <StatCard
-            icon={Clock}
-            label="Pending"
-            value={stats.pending}
-            color="yellow"
-            hint="on this page"
-          />
-          <StatCard
-            icon={CheckCircle2}
-            label="Completed"
-            value={stats.completed}
-            color="purple"
-            hint="on this page"
-          />
+        {/* Status filter tabs — one list, one pagination, each status
+            independently browsable (?status=…). Counts are DB-wide head counts
+            per group, so they never contradict the list. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/permits/mine"
+            aria-current={!statusGroup ? 'page' : undefined}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+              !statusGroup
+                ? 'border-primary/40 bg-primary/10 text-primary'
+                : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            All
+            <span className="text-xs opacity-70">{totalAll}</span>
+          </Link>
+
+          {STATUS_GROUPS.map((group) => {
+            const isActive = statusGroup?.key === group.key
+            const count = countsByGroup[group.key] ?? 0
+
+            return (
+              <Link
+                key={group.key}
+                href={pageHref('/permits/mine', { status: group.key }, 1)}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                {group.label}
+                <span className="text-xs opacity-70">{count}</span>
+              </Link>
+            )
+          })}
         </div>
 
         {/* Help Note — kept above the list so the list + its pagination end the
@@ -221,18 +311,31 @@ export default async function MyPermitsPage({
                 <FileText className="h-12 w-12 text-gray-400 dark:text-gray-500" />
               </div>
               <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
-                No Permits Found
+                {statusGroup
+                  ? `No ${statusGroup.label.toLowerCase()} permits`
+                  : 'No Permits Found'}
               </h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                You haven't created any permits yet. Get started by creating your first permit.
+                {statusGroup
+                  ? `You have no permits with the “${statusGroup.label}” status right now.`
+                  : "You haven't created any permits yet. Get started by creating your first permit."}
               </p>
-              <Link
-                href="/permits/new"
-                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4" />
-                Create Your First Permit
-              </Link>
+              {statusGroup ? (
+                <Link
+                  href="/permits/mine"
+                  className="mt-6 inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition-colors hover:bg-muted"
+                >
+                  Clear filter
+                </Link>
+              ) : (
+                <Link
+                  href="/permits/new"
+                  className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Your First Permit
+                </Link>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -242,62 +345,39 @@ export default async function MyPermitsPage({
                 <div>
                   <CardTitle>Your Permits</CardTitle>
                   <CardDescription>
-                    Grouped by status, newest first
+                    {statusGroup
+                      ? 'Newest first'
+                      : 'Grouped by status, newest first'}
                   </CardDescription>
                 </div>
                 <Badge variant="secondary">
-                  {permits.length} on this page
+                  {statusGroup
+                    ? `${total} ${total === 1 ? 'permit' : 'permits'}`
+                    : `${permits.length} on this page`}
                 </Badge>
               </div>
             </CardHeader>
 
             <CardContent className="p-0">
-              {/* Active Permits */}
-              {activePermits.length > 0 && (
-                <PermitSection
-                  title="Active Permits"
-                  description="Permits currently in progress"
-                  icon={Activity}
-                  iconColor="text-green-600 dark:text-green-400"
-                  permits={activePermits}
-                  userId={user.id}
-                />
-              )}
-
-              {/* Pending Permits */}
-              {pendingPermits.length > 0 && (
-                <PermitSection
-                  title="Pending Approval"
-                  description="Permits awaiting review"
-                  icon={Clock}
-                  iconColor="text-yellow-600 dark:text-yellow-400"
-                  permits={pendingPermits}
-                  userId={user.id}
-                />
-              )}
-
-              {/* Draft Permits */}
-              {draftPermits.length > 0 && (
-                <PermitSection
-                  title="Drafts"
-                  description="Permits not yet submitted"
-                  icon={FileText}
-                  iconColor="text-gray-600 dark:text-gray-400"
-                  permits={draftPermits}
-                  userId={user.id}
-                />
-              )}
-
-              {/* Completed/Cancelled Permits */}
-              {completedPermits.length > 0 && (
-                <PermitSection
-                  title="Completed & Closed"
-                  description="Historical permits"
-                  icon={CheckCircle2}
-                  iconColor="text-purple-600 dark:text-purple-400"
-                  permits={completedPermits}
-                  userId={user.id}
-                />
+              {statusGroup ? (
+                /* Filtered view: the tab already names the status, so rows are
+                   listed directly. */
+                <PermitRows permits={permits} userId={user.id} />
+              ) : (
+                /* Unfiltered view: the page slice, grouped by status. */
+                groupedPermits.map(({ group, permits: groupPermits }) =>
+                  groupPermits.length > 0 ? (
+                    <PermitSection
+                      key={group.key}
+                      title={group.label}
+                      description={group.description}
+                      icon={group.icon}
+                      iconColor={group.iconColor}
+                      permits={groupPermits}
+                      userId={user.id}
+                    />
+                  ) : null
+                )
               )}
             </CardContent>
 
@@ -306,7 +386,7 @@ export default async function MyPermitsPage({
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              buildHref={(p) => pageHref('/permits/mine', {}, p)}
+              buildHref={(p) => pageHref('/permits/mine', { status: statusGroup?.key }, p)}
               totalItems={total}
               pageSize={pageSize}
             />
@@ -317,46 +397,6 @@ export default async function MyPermitsPage({
   )
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-  hint,
-}: {
-  icon: any
-  label: string
-  value: number
-  color: ColorKey
-  /** Clarifies the scope of the number when it is page-derived. */
-  hint?: string
-}) {
-  const colorClasses: Record<ColorKey, string> = {
-    blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400",
-    green: "bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400",
-    yellow: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400",
-    purple: "bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400",
-  }
-
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center gap-3">
-          <div className={cn("rounded-lg p-2", colorClasses[color])}>
-            <Icon className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-            {hint && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 /** Section of the single permits list card (header bar + divided rows). */
 function PermitSection({ 
@@ -389,53 +429,7 @@ function PermitSection({
         <Badge variant="secondary">{permits.length}</Badge>
       </div>
 
-      <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {permits.map((permit) => (
-            <div key={permit.id} className="flex items-center">
-              <Link
-                href={`/permits/${permit.id}`}
-                className="group flex flex-1 items-center justify-between p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
-              >
-                <div className="flex flex-1 items-center gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-blue-600 group-hover:underline dark:text-blue-400">
-                        {permit.permit_no}
-                      </p>
-                      <StatusBadge status={permit.status} />
-                    </div>
-                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {permit.work_title}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="inline-flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {permit.planned_start ? formatDate(permit.planned_start) : 'No date'}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {permit.area?.name ?? 'No area'}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <Wrench className="h-3 w-3" />
-                        {permit.permit_type?.name ?? 'No type'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
-              </Link>
-              {permit.status === 'draft' && permit.requester_id === userId && (
-                <div className="shrink-0 pr-4">
-                  <DeleteDraftButton
-                    permitId={permit.id}
-                    permitNo={permit.permit_no}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      <PermitRows permits={permits} userId={userId} />
     </section>
   )
 }
@@ -500,4 +494,65 @@ function formatDate(value: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+/** The divided permit rows, shared by the grouped and the filtered views. */
+function PermitRows({
+  permits,
+  userId,
+}: {
+  permits: Permit[]
+  userId: string
+}) {
+  return (
+    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+      {permits.map((permit) => (
+        <div key={permit.id} className="flex items-center">
+          <Link
+            href={`/permits/${permit.id}`}
+            className="group flex flex-1 items-center justify-between p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-blue-600 group-hover:underline dark:text-blue-400">
+                    {permit.permit_no}
+                  </p>
+                  <StatusBadge status={permit.status} />
+                </div>
+                <p className="mt-1 truncate text-sm font-medium text-gray-900 dark:text-white">
+                  {permit.work_title}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {permit.planned_start
+                      ? formatDate(permit.planned_start)
+                      : 'No date'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {permit.area?.name ?? 'No area'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Wrench className="h-3 w-3" />
+                    {permit.permit_type?.name ?? 'No type'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+          </Link>
+          {permit.status === 'draft' && permit.requester_id === userId && (
+            <div className="shrink-0 pr-4">
+              <DeleteDraftButton
+                permitId={permit.id}
+                permitNo={permit.permit_no}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
 }
