@@ -7,7 +7,6 @@ import {
   AlertTriangle, 
   XCircle, 
   Shield, 
-  ArrowRight,
   RefreshCw,
   Lock,
   FileCheck,
@@ -257,47 +256,9 @@ export function SafetyVerificationPanel({
               </div>
             )}
 
-            {/* Blocking items */}
-            {!ready && blockingItems.length > 0 && (
-              <div className="mb-6">
-                <div className="rounded-lg border-2 border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
-                  <h4 className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-300 mb-3">
-                    <XCircle className="h-5 w-5" />
-                    {blockingItems.length} item{blockingItems.length !== 1 ? 's' : ''} block safety approval
-                  </h4>
-                  
-                  <div className="space-y-3">
-                    {blockingItems.map((item) => (
-                      <div key={item.key} className="rounded-lg border border-red-200 bg-white p-3 dark:border-red-800 dark:bg-gray-800">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {item.label}
-                            </p>
-                            {item.reason && (
-                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                {item.reason}
-                              </p>
-                            )}
-                          </div>
-                          {item.sectionId && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => scrollToSection(item.sectionId)}
-                              className="shrink-0"
-                            >
-                              Review
-                              <ArrowRight className="ml-1 h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* The red summary box that used to repeat the same blockers (label
+                + reason + Review, already rendered above) was removed to avoid
+                duplication. */}
 
             {/* Error */}
             {error && (
@@ -388,7 +349,7 @@ function ReadinessItemRow({
           iconColor: 'text-yellow-600',
           bgColor: 'bg-yellow-50/50 dark:bg-yellow-950/20',
           borderColor: 'border-yellow-200 dark:border-yellow-800',
-          label: 'Action required',
+          label: 'Approval required',
           labelColor: 'text-yellow-700 dark:text-yellow-300',
         }
       default:

@@ -168,7 +168,7 @@ export async function getPermitSafetyReadiness(
     jhaStatus = satisfied ? 'complete' : 'incomplete'
     jhaReason = satisfied
       ? null
-      : 'Approval blocked: JHA/HIRARC has not been completed (fill a JHA or upload an existing HIRARC).'
+      : 'Note: JHA/HIRARC has not been completed (fill a JHA or upload an existing HIRARC).'
   }
   push('jha', 'JHA / HIRARC', jhaRequired, jhaStatus, jhaReason, 20)
 
@@ -223,11 +223,11 @@ export async function getPermitSafetyReadiness(
 
       if (missing.length > 0) {
         ppeStatus = 'incomplete'
-        ppeReason = `Approval blocked: Required PPE '${missing.join(', ')}' has not been selected.`
+        ppeReason = `Note: Required PPE '${missing.join(', ')}' has not been selected.`
       } else if (unverified.length > 0) {
         ppeStatus = 'incomplete'
         ppeReason =
-          'Approval blocked: Required PPE was not verified as available.'
+          'Note: Required PPE was not verified as available.'
       } else {
         ppeStatus = 'complete'
       }
@@ -294,7 +294,7 @@ export async function getPermitSafetyReadiness(
     if (points.length === 0) {
       lotoStatus = 'incomplete'
       lotoReason =
-        'Approval blocked: this permit type requires LOTO isolation points.'
+        'Note: this permit type requires LOTO isolation points.'
     } else {
       const unverified = points.filter(
         (point) => point.status !== 'verified'
@@ -304,7 +304,7 @@ export async function getPermitSafetyReadiness(
       lotoReason =
         unverified.length === 0
           ? null
-          : `Approval blocked: ${unverified.length} LOTO isolation point(s) have not been verified.`
+          : `Note: ${unverified.length} LOTO isolation point(s) have not been verified.`
     }
   }
   push('loto', 'LOTO', lotoRequired, lotoStatus, lotoReason, 30)
@@ -327,11 +327,11 @@ export async function getPermitSafetyReadiness(
     if (tests.length === 0) {
       gasStatus = 'incomplete'
       gasReason =
-        'Approval blocked: gas testing has not been verified.'
+        'Note: gas testing has not been verified.'
     } else if (tests[0].result === 'FAIL') {
       gasStatus = 'incomplete'
       gasReason =
-        'Approval blocked: gas test result is not acceptable.'
+        'Note: gas test result is not acceptable.'
     } else {
       gasStatus = 'complete'
     }
@@ -355,8 +355,8 @@ export async function getPermitSafetyReadiness(
       siteStatus = 'incomplete'
       siteReason =
         siteVerification?.status === 'failed'
-          ? 'Approval blocked: Work area verification failed.'
-          : 'Approval blocked: Work area verification has not been completed.'
+          ? 'Note: Work area verification failed.'
+          : 'Note: Work area verification has not been completed.'
     } else {
       // Even when the record says verified, any required item marked
       // 'fail' means the work area is not acceptable.
@@ -372,7 +372,7 @@ export async function getPermitSafetyReadiness(
       )
       if (failedRequired) {
         siteStatus = 'incomplete'
-        siteReason = `Approval blocked: Work area verification failed (${failedRequired.key}).`
+        siteReason = `Note: Work area verification failed (${failedRequired.key}).`
       } else {
         siteStatus = 'complete'
       }
@@ -405,10 +405,10 @@ export async function getPermitSafetyReadiness(
     if (!briefed) {
       briefingStatus = 'incomplete'
       briefingReason =
-        'Approval blocked: Worker briefing has not been completed.'
+        'Note: Worker briefing has not been completed.'
     } else if (unacknowledged.length > 0) {
       briefingStatus = 'incomplete'
-      briefingReason = `Approval blocked: ${unacknowledged.length} worker(s) have not acknowledged the required briefing.`
+      briefingReason = `Note: ${unacknowledged.length} worker(s) have not acknowledged the required briefing.`
     } else {
       briefingStatus = 'complete'
     }
@@ -452,7 +452,7 @@ export async function getPermitSafetyReadiness(
     emergencyReason =
       emergencyStatus === 'complete'
         ? null
-        : 'Approval blocked: Emergency arrangements have not been confirmed.'
+        : 'Note: Emergency arrangements have not been confirmed.'
   }
   push('emergency_arrangements', 'Emergency Arrangements', emergencyRequired, emergencyStatus, emergencyReason, 80)
 
@@ -531,8 +531,8 @@ export async function getPermitSafetyReadiness(
       isVerified
         ? null
         : isComplete
-          ? `Approval blocked: ${specialisedLabel} have not been verified by a Safety Manager / Safety Coordinator.`
-          : `Approval blocked: ${specialisedLabel} have not been completed.`,
+          ? `Note: ${specialisedLabel} have not been verified by a Safety Manager / Safety Coordinator.`
+          : `Note: ${specialisedLabel} have not been completed.`,
       85
     )
   }
@@ -561,7 +561,7 @@ export async function getPermitSafetyReadiness(
       supervisor ? 'complete' : 'incomplete',
       supervisor
         ? null
-        : 'Approval blocked: Confined Space Entry Supervisor has not been assigned.',
+        : 'Note: Confined Space Entry Supervisor has not been assigned.',
       86
     )
 
@@ -572,7 +572,7 @@ export async function getPermitSafetyReadiness(
       standby ? 'complete' : 'incomplete',
       standby
         ? null
-        : 'Approval blocked: Standby / Attendant has not been assigned.',
+        : 'Note: Standby / Attendant has not been assigned.',
       87
     )
 
@@ -583,7 +583,7 @@ export async function getPermitSafetyReadiness(
       entrants.length > 0 ? 'complete' : 'incomplete',
       entrants.length > 0
         ? null
-        : 'Approval blocked: No authorised entrants have been assigned.',
+        : 'Note: No authorised entrants have been assigned.',
       88
     )
   }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { 
   CheckCircle2, 
-  XCircle, 
   Clock, 
   Loader2, 
   AlertTriangle,
@@ -135,17 +134,17 @@ export function ReadinessBadge({
   if (state.status === 'blocked') {
     return (
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 rounded-full bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 dark:bg-red-900/50 dark:text-red-300">
-          <XCircle className="h-4 w-4" />
-          <span>Blocked</span>
-          <span className="rounded-full bg-red-200 px-1.5 py-0.5 text-[10px] font-bold dark:bg-red-800">
+        <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+          <Clock className="h-4 w-4" />
+          <span>Pending Approval</span>
+          <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold dark:bg-amber-800">
             {state.reasons.length}
           </span>
         </div>
 
         <button
           onClick={() => setExpanded(!expanded)}
-          className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+          className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
         >
           {expanded ? (
             <>
@@ -161,11 +160,11 @@ export function ReadinessBadge({
         </button>
 
         {expanded && (
-          <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
             {state.reasons.map((reason, index) => (
               <div key={index} className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
-                <p className="text-xs leading-snug text-red-700 dark:text-red-300">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <p className="text-xs leading-snug text-amber-800 dark:text-amber-200">
                   {reason}
                 </p>
               </div>
