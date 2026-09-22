@@ -172,26 +172,46 @@ export default async function MyPermitsPage({
             label="Total Permits"
             value={stats.total}
             color="blue"
+            hint="all permits you created"
           />
           <StatCard
             icon={Activity}
             label="Active"
             value={stats.active}
             color="green"
+            hint="on this page"
           />
           <StatCard
             icon={Clock}
             label="Pending"
             value={stats.pending}
             color="yellow"
+            hint="on this page"
           />
           <StatCard
             icon={CheckCircle2}
             label="Completed"
             value={stats.completed}
             color="purple"
+            hint="on this page"
           />
         </div>
+
+        {/* Help Note — kept above the list so the list + its pagination end the
+            page. */}
+        {permits.length > 0 && (
+          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Need Help?
+              </p>
+              <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                View detailed information by clicking on any permit. You can also create a new permit using the button above.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Permits List */}
         {permits.length === 0 ? (
@@ -216,86 +236,101 @@ export default async function MyPermitsPage({
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {/* Active Permits */}
-            {activePermits.length > 0 && (
-              <PermitSection
-                title="Active Permits"
-                description="Permits currently in progress"
-                icon={Activity}
-                iconColor="text-green-600 dark:text-green-400"
-                permits={activePermits}
-                userId={user.id}
-              />
-            )}
+          <Card>
+            <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle>Your Permits</CardTitle>
+                  <CardDescription>
+                    Grouped by status, newest first
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary">
+                  {permits.length} on this page
+                </Badge>
+              </div>
+            </CardHeader>
 
-            {/* Pending Permits */}
-            {pendingPermits.length > 0 && (
-              <PermitSection
-                title="Pending Approval"
-                description="Permits awaiting review"
-                icon={Clock}
-                iconColor="text-yellow-600 dark:text-yellow-400"
-                permits={pendingPermits}
-                userId={user.id}
-              />
-            )}
+            <CardContent className="p-0">
+              {/* Active Permits */}
+              {activePermits.length > 0 && (
+                <PermitSection
+                  title="Active Permits"
+                  description="Permits currently in progress"
+                  icon={Activity}
+                  iconColor="text-green-600 dark:text-green-400"
+                  permits={activePermits}
+                  userId={user.id}
+                />
+              )}
 
-            {/* Draft Permits */}
-            {draftPermits.length > 0 && (
-              <PermitSection
-                title="Drafts"
-                description="Permits not yet submitted"
-                icon={FileText}
-                iconColor="text-gray-600 dark:text-gray-400"
-                permits={draftPermits}
-                userId={user.id}
-              />
-            )}
+              {/* Pending Permits */}
+              {pendingPermits.length > 0 && (
+                <PermitSection
+                  title="Pending Approval"
+                  description="Permits awaiting review"
+                  icon={Clock}
+                  iconColor="text-yellow-600 dark:text-yellow-400"
+                  permits={pendingPermits}
+                  userId={user.id}
+                />
+              )}
 
-            {/* Completed/Cancelled Permits */}
-            {completedPermits.length > 0 && (
-              <PermitSection
-                title="Completed & Closed"
-                description="Historical permits"
-                icon={CheckCircle2}
-                iconColor="text-purple-600 dark:text-purple-400"
-                permits={completedPermits}
-                userId={user.id}
-              />
-            )}
-          </div>
-        )}
+              {/* Draft Permits */}
+              {draftPermits.length > 0 && (
+                <PermitSection
+                  title="Drafts"
+                  description="Permits not yet submitted"
+                  icon={FileText}
+                  iconColor="text-gray-600 dark:text-gray-400"
+                  permits={draftPermits}
+                  userId={user.id}
+                />
+              )}
 
-        {/* Pagination */}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          buildHref={(p) => pageHref('/permits/mine', {}, p)}
-          totalItems={total}
-          pageSize={pageSize}
-        />
+              {/* Completed/Cancelled Permits */}
+              {completedPermits.length > 0 && (
+                <PermitSection
+                  title="Completed & Closed"
+                  description="Historical permits"
+                  icon={CheckCircle2}
+                  iconColor="text-purple-600 dark:text-purple-400"
+                  permits={completedPermits}
+                  userId={user.id}
+                />
+              )}
+            </CardContent>
 
-        {/* Help Note */}
-        {permits.length > 0 && (
-          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
-            <div>
-              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                Need Help?
-              </p>
-              <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                View detailed information by clicking on any permit. You can also create a new permit using the button above.
-              </p>
-            </div>
-          </div>
+            {/* Pagination is the list card's footer: the component's top border
+                is its divider, so it no longer floats between cards. */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              buildHref={(p) => pageHref('/permits/mine', {}, p)}
+              totalItems={total}
+              pageSize={pageSize}
+            />
+          </Card>
         )}
       </div>
     </DashboardShell>
   )
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: number; color: ColorKey }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+  hint,
+}: {
+  icon: any
+  label: string
+  value: number
+  color: ColorKey
+  /** Clarifies the scope of the number when it is page-derived. */
+  hint?: string
+}) {
   const colorClasses: Record<ColorKey, string> = {
     blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400",
     green: "bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400",
@@ -310,9 +345,12 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
           <div className={cn("rounded-lg p-2", colorClasses[color])}>
             <Icon className="h-5 w-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-muted-foreground">{label}</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+            {hint && (
+              <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+            )}
           </div>
         </div>
       </CardContent>
@@ -320,6 +358,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
   )
 }
 
+/** Section of the single permits list card (header bar + divided rows). */
 function PermitSection({ 
   title, 
   description, 
@@ -336,21 +375,21 @@ function PermitSection({
   userId: string
 }) {
   return (
-    <Card>
-      <CardHeader className="border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Icon className={cn("h-5 w-5", iconColor)} />
-            <div>
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>{description}</CardDescription>
-            </div>
+    <section className="border-b border-gray-200 last:border-b-0 dark:border-gray-700">
+      <div className="flex items-center justify-between bg-muted/30 px-6 py-3">
+        <div className="flex items-center gap-3">
+          <Icon className={cn("h-5 w-5", iconColor)} />
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {title}
+            </h2>
+            <p className="text-xs text-muted-foreground">{description}</p>
           </div>
-          <Badge variant="secondary">{permits.length}</Badge>
         </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+        <Badge variant="secondary">{permits.length}</Badge>
+      </div>
+
+      <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {permits.map((permit) => (
             <div key={permit.id} className="flex items-center">
               <Link
@@ -397,8 +436,7 @@ function PermitSection({
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+    </section>
   )
 }
 
