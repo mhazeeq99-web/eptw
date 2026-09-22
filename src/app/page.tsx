@@ -130,6 +130,20 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Full-width footer bar pinned to the very bottom of the viewport: the
+          translucent glass keeps the copyright line readable over the photo,
+          and the hairline on top separates it from the picture. The text stays
+          centred with a thin rule on either side. */}
+      <footer className="absolute inset-x-0 bottom-0 z-20 border-t border-white/60 bg-white/75 px-4 py-3 backdrop-blur-md sm:px-6 dark:border-gray-700/60 dark:bg-gray-900/60">
+        <div className="mx-auto flex w-full max-w-xl items-center gap-3 sm:gap-4">
+          <span aria-hidden="true" className="h-px min-w-6 flex-1 bg-gray-400/80 dark:bg-gray-500/70" />
+          <p className="text-center text-xs font-medium text-gray-700 dark:text-gray-300">
+            © 2026 Movique Services (003812531-W). All Rights Reserved.
+          </p>
+          <span aria-hidden="true" className="h-px min-w-6 flex-1 bg-gray-400/80 dark:bg-gray-500/70" />
+        </div>
+      </footer>
     </main>
   )
 }
