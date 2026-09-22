@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -15,7 +16,6 @@ import {
   CheckCircle2,
   Loader2,
   ArrowLeft,
-  HardHat,
   Shield,
   Info,
   FileText,
@@ -294,11 +294,26 @@ export default function CompanyRegistrationPage() {
       </div>
 
       <div className="relative w-full max-w-3xl">
-        {/* Logo */}
-        <div className="mb-6 flex items-center gap-3">
-          <div className="rounded-xl bg-blue-600 p-3 shadow-lg shadow-blue-600/20">
-            <HardHat className="h-6 w-6 text-white" />
-          </div>
+        {/* Logo — brand mark switches with the theme (day/dark artwork) */}
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          <Image
+            src="/logo-day-mode.png"
+            alt="ePTW"
+            width={1458}
+            height={1079}
+            sizes="176px"
+            priority
+            className="h-32 w-auto rounded-xl object-contain dark:hidden"
+          />
+          <Image
+            src="/logo-dark-mode.png"
+            alt="ePTW"
+            width={1458}
+            height={1079}
+            sizes="176px"
+            loading="lazy"
+            className="hidden h-32 w-auto rounded-xl object-contain dark:block"
+          />
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
               ePTW System

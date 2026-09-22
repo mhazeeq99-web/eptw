@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import {
@@ -6,7 +7,6 @@ import {
   LogIn,
   CheckCircle2,
   ChevronRight,
-  Zap,
 } from 'lucide-react'
 
 export default function Home() {
@@ -44,9 +44,27 @@ export default function Home() {
 
               <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/50 dark:border-gray-700 dark:bg-gray-900 dark:shadow-gray-900/50">
                 <div className="mb-8 text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
-                    <Zap className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                  </div>
+                  {/* Brand logo — the day-mode file in light mode, the
+                      dark-mode file in dark mode (class-based `.dark`, so two
+                      images toggled with dark: variants rather than <picture>). */}
+                  <Image
+                    src="/logo-day-mode.png"
+                    alt="ePTW"
+                    width={1458}
+                    height={1079}
+                    sizes="176px"
+                    priority
+                    className="mx-auto mb-4 h-32 w-auto rounded-xl object-contain dark:hidden"
+                  />
+                  <Image
+                    src="/logo-dark-mode.png"
+                    alt="ePTW"
+                    width={1458}
+                    height={1079}
+                    sizes="176px"
+                    loading="lazy"
+                    className="mx-auto mb-4 hidden h-32 w-auto rounded-xl object-contain dark:block"
+                  />
                   <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                     Get Started
                   </h2>
